@@ -10,7 +10,7 @@
         <router-link to="/home">首頁</router-link>
         <router-link to="/members" class="active">成員</router-link>
         <a href="#">聯賽</a>
-        <a href="#">戰備</a>
+        <router-link to="/preparation">戰備</router-link>
       </nav>
       
       <div class="nav-right">
