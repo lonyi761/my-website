@@ -87,8 +87,6 @@
                 <th v-if="columns.school">流派</th>
                 <th v-if="columns.status">幫眾狀態</th>
                 <th v-if="columns.godlyWeapon">神兵</th>
-                <th v-if="columns.attendance">出勤</th>
-                <th v-if="columns.leave">請假</th>
                 <th v-if="columns.rolePref">職能偏好</th>
                 <th v-if="columns.notes">成員備註</th>
                 <th v-if="columns.contact">聯繫方式</th>
@@ -160,8 +158,6 @@
                 </td>
 
                 <td v-if="columns.godlyWeapon">{{ member.hasGodlyWeapon ? '有' : '—' }}</td>
-                <td v-if="columns.attendance">{{ member.attendance || 0 }}</td>
-                <td v-if="columns.leave">{{ member.leave || 0 }}</td>
                 <td v-if="columns.rolePref">{{ member.rolePref || '未設置' }}</td>
                 <td v-if="columns.notes">{{ member.notes || '—' }}</td>
                 <td v-if="columns.contact">{{ member.contact || '—' }}</td>
@@ -171,7 +167,7 @@
                 </td>
               </tr>
               <tr v-if="filteredMembers.length === 0">
-                <td :colspan="12" class="empty-cell">暫無成員資料</td>
+                <td :colspan="10" class="empty-cell">暫無成員資料</td>
               </tr>
             </tbody>
           </table>
@@ -226,7 +222,7 @@
       </div>
     </div>
 
-    <!-- 新增/編輯成員彈窗 (已整合圖二的職能偏好下拉多選選單) -->
+    <!-- 新增/編輯成員彈窗 -->
     <div v-if="showMemberModal" class="modal-overlay" @click.self="showMemberModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -304,7 +300,7 @@
               <input type="text" v-model="memberForm.tether" placeholder="輸入角色名搜尋" />
             </div>
 
-            <!-- 職能偏好：結合戰備 17 項個人職能的可下拉多選選單 (圖二對應) -->
+            <!-- 職能偏好：結合戰備 17 項個人職能的可下拉多選選單 -->
             <div class="form-row align-start">
               <label>職能偏好：</label>
               <div class="custom-select-wrapper" @click.stop>
@@ -505,25 +501,23 @@ const getSchoolImg = (fileName) => {
   return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
 }
 
-// 成員清單
+// 成員清單 (已移除出勤與請假，修正預設職能偏好)
 const members = ref([
-  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', attendance: 12, leave: 0, rolePref: '禦', rolePrefList: ['禦'] },
-  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 15, leave: 1, rolePref: '未設置', rolePrefList: [] },
-  { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 10, leave: 0, rolePref: '未設置', rolePrefList: [] },
-  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 8, leave: 0, rolePref: '未設置', rolePrefList: [] }
+  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', rolePref: '未設置', rolePrefList: [] },
+  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] },
+  { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] },
+  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] }
 ])
 
 const searchQuery = ref('')
 const selectedMemberIds = ref([])
 
-// 表格列控制
+// 表格列控制 (已移除出勤與請假)
 const showColumnModal = ref(false)
 const columnList = [
   { key: 'school', label: '流派' },
   { key: 'status', label: '幫眾狀態' },
   { key: 'godlyWeapon', label: '神兵' },
-  { key: 'attendance', label: '出勤' },
-  { key: 'leave', label: '請假' },
   { key: 'rolePref', label: '職能偏好' },
   { key: 'notes', label: '成員備註' },
   { key: 'contact', label: '聯繫方式' }
@@ -532,8 +526,6 @@ const columns = ref({
   school: true,
   status: true,
   godlyWeapon: true,
-  attendance: true,
-  leave: true,
   rolePref: true,
   notes: true,
   contact: true
@@ -753,7 +745,7 @@ const saveMember = () => {
     const idx = members.value.findIndex(m => m.id === editingMemberId.value)
     if (idx > -1) members.value[idx] = { ...memberForm.value, id: editingMemberId.value }
   } else {
-    members.value.push({ ...memberForm.value, id: Date.now(), attendance: 0, leave: 0 })
+    members.value.push({ ...memberForm.value, id: Date.now() })
   }
 
   showMemberModal.value = false
@@ -795,8 +787,6 @@ const confirmImport = () => {
       contact: '',
       notes: '截圖自動導入',
       tether: '',
-      attendance: 0,
-      leave: 0,
       rolePref: '未設置',
       rolePrefList: []
     })
