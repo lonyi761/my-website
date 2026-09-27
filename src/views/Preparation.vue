@@ -116,7 +116,7 @@
           </div>
         </div>
 
-        <!-- Tab 2: 技能管理 (原配裝管理) -->
+        <!-- Tab 2: 技能管理 -->
         <div v-else-if="currentTab === 'skill'">
           <div class="prep-header">
             <div class="header-with-btn">
@@ -146,7 +146,7 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th width="60">#</th>
+                  <th width="40"></th>
                   <th>內容</th>
                   <th width="180">創建時間</th>
                   <th width="180">最近使用</th>
@@ -154,8 +154,20 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, idx) in filteredSkillList" :key="item.id">
-                  <td>{{ idx + 1 }}</td>
+                <tr 
+                  v-for="(item, idx) in filteredSkillList" 
+                  :key="item.id"
+                  draggable="true"
+                  @dragstart="onSkillDragStart(idx)"
+                  @dragover.prevent
+                  @drop="onSkillDrop(idx)"
+                  :class="{ 'dragging-row': skillDragIndex === idx }"
+                >
+                  <td>
+                    <div class="drag-handle-cell" title="按住拖曳上下拉動排序">
+                      <span class="drag-icon">☰</span>
+                    </div>
+                  </td>
                   <td class="font-bold">{{ item.content }}</td>
                   <td class="text-gray">{{ item.createdAt }}</td>
                   <td class="text-gray">{{ item.lastUsed }}</td>
@@ -276,7 +288,7 @@
       </div>
     </div>
 
-    <!-- 技能 Modal (圖二對應) -->
+    <!-- 技能 Modal -->
     <div v-if="showSkillModal" class="modal-overlay" @click.self="showSkillModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -445,6 +457,17 @@ const skillCategoryLabel = computed(() => {
   return '流派技能'
 })
 
+// 技能拖曳排序
+const skillDragIndex = ref(null)
+const onSkillDragStart = (index) => { skillDragIndex.value = index }
+const onSkillDrop = (targetIndex) => {
+  if (skillDragIndex.value === null || skillDragIndex.value === targetIndex) return
+  const list = currentSkillList.value
+  const movedItem = list.splice(skillDragIndex.value, 1)[0]
+  list.splice(targetIndex, 0, movedItem)
+  skillDragIndex.value = null
+}
+
 // 技能 Modal 控制
 const showSkillModal = ref(false)
 const editingSkillId = ref(null)
@@ -475,7 +498,8 @@ const saveSkill = () => {
       targetList[idx].lastUsed = nowStr
     }
   } else {
-    targetList.push({
+    // 新增於列表最上方 (unshift)
+    targetList.unshift({
       id: Date.now(),
       content,
       createdAt: nowStr,
@@ -662,7 +686,7 @@ const handleLogout = () => {
 .sub-tab-btn.active { color: #2563eb; font-weight: bold; }
 .sub-tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: #2563eb; }
 
-/* 搜尋條樣式 (圖一/圖三對應) */
+/* 搜尋條樣式 */
 .filter-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
 .search-input-wrapper { position: relative; width: 220px; display: flex; align-items: center; }
 .search-icon { position: absolute; left: 8px; color: #94a3b8; font-size: 16px; }
@@ -705,7 +729,7 @@ const handleLogout = () => {
 input:checked + .slider { background-color: #3b82f6; }
 input:checked + .slider:before { transform: translateX(16px); }
 
-/* Modal 彈窗細節 (圖二對應) */
+/* Modal 彈窗細節 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
 .small-card { width: 380px; }
