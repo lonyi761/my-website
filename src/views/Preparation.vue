@@ -1,6 +1,6 @@
 <template>
   <div :class="['prep-layout', isDarkMode ? 'dark-theme' : 'light-theme']">
-    <!-- 1. 頂部導航列 -->
+    <!-- 頂部導航列 -->
     <header class="navbar">
       <div class="nav-left">
         <span class="brand-logo">行優測試</span>
@@ -29,7 +29,7 @@
       </div>
     </header>
 
-    <!-- 2. 主要內容區 (左側側邊欄 + 右側功能板塊) -->
+    <!-- 主要內容區 -->
     <div class="prep-main">
       <!-- 左側選單 -->
       <aside class="prep-sidebar">
@@ -332,12 +332,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  DEFAULT_ROLES, 
-  DEFAULT_QUESTIONS, 
-  DEFAULT_BUILDS, 
-  createDefaultTemplate 
-} from '../utils/prepData.js'
 
 const router = useRouter()
 const isDarkMode = ref(false)
@@ -347,28 +341,100 @@ const username = ref('VIP')
 const currentTab = ref('roles')
 const roleCategory = ref('personal')
 
-// 1. 職能列表
+// 1. 職能數據
+const DEFAULT_ROLES = [
+  { id: 1, name: 'D潮拆塔', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 1 },
+  { id: 2, name: '保鏢拆', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 2 },
+  { id: 3, name: '埋頭猛拆', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 3 },
+  { id: 4, name: '塔仇主T', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 4 },
+  { id: 5, name: '增益絕', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 5 },
+  { id: 6, name: '奶絕', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 6 },
+  { id: 7, name: '指揮', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 7 },
+  { id: 8, name: '清泉人傷', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 8 },
+  { id: 9, name: '清泉保活', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 9 },
+  { id: 10, name: '灌大團', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 10 },
+  { id: 11, name: '點殺', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 11 },
+  { id: 12, name: '燒屍體', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 12 },
+  { id: 13, name: '破甲人傷', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 13 },
+  { id: 14, name: '純保鏢', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 14 },
+  { id: 15, name: '統戰', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 15 },
+  { id: 16, name: '騰龍保鏢', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 16 },
+  { id: 17, name: '騰龍合軸', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 17 }
+]
+
+// 2. 配裝數據
+const DEFAULT_BUILDS = [
+  { id: 1, name: '拆塔爆發流', jueji: '殘陽夜月', qunxia: '方承意', zhuangbei: '75百煉破甲套' },
+  { id: 2, name: '主T高防禦流', jueji: '太極圖', qunxia: '葉雪青', zhuangbei: '75百煉禦鐵套' },
+  { id: 3, name: '廣域純奶流', jueji: '長歌獻君', qunxia: '無情', zhuangbei: '75百煉素問套' }
+]
+
+// 3. 報名問題數據
+const DEFAULT_QUESTIONS = [
+  { id: 1, title: '本週聯賽是否能準時出席？', type: 'radio', options: ['能準時出席', '需要請假', '不確定/晚到'], is_required: true, sort_order: 1 },
+  { id: 2, title: '請選擇您的主力流派與次要流派', type: 'text', options: [], is_required: true, sort_order: 2 },
+  { id: 3, title: '請填寫您的 Discord / 語音頻道 ID', type: 'text', options: [], is_required: false, sort_order: 3 }
+]
+
+// 4. 排表數據生成
+const DEFAULT_TEAM_NAMES = ['一隊', '二隊', '三隊', '四隊', '五隊']
+
+function createDefaultSlot() {
+  return {
+    liupai_list: [],
+    liupai_xingtai_map: {},
+    zhineng_list: [''],
+    desc: '',
+    jueji_pz: '',
+    qunxia_pz: '',
+    zhuangbei_pz: ''
+  }
+}
+
+function createDefaultSquad(squadIdx) {
+  return {
+    hidden: false,
+    name: `${squadIdx + 1}小隊`,
+    zhineng: '',
+    desc: '',
+    slots: Array.from({ length: 6 }, () => createDefaultSlot())
+  }
+}
+
+function createDefaultTeam(teamIdx) {
+  return {
+    hidden: false,
+    name: DEFAULT_TEAM_NAMES[teamIdx] || `${teamIdx + 1}隊`,
+    desc: '',
+    squads: Array.from({ length: 5 }, (_, i) => createDefaultSquad(i))
+  }
+}
+
+function createDefaultTemplate() {
+  return {
+    teams: Array.from({ length: 5 }, (_, i) => createDefaultTeam(i))
+  }
+}
+
+// 頁面狀態
 const roleList = ref([...DEFAULT_ROLES])
 const showRoleModal = ref(false)
 const editingRoleId = ref(null)
 const roleForm = ref({ name: '', desc: '' })
 
-// 2. 配裝列表
 const buildList = ref([...DEFAULT_BUILDS])
 const showBuildModal = ref(false)
 const editingBuildId = ref(null)
 const buildForm = ref({ name: '', jueji: '', qunxia: '', zhuangbei: '' })
 
-// 3. 排表模板 (150人矩陣)
 const templateData = ref(createDefaultTemplate())
 
-// 4. 報名問題
 const questionList = ref([...DEFAULT_QUESTIONS])
 const showQuestionModal = ref(false)
 const editingQuestionId = ref(null)
 const questionForm = ref({ title: '', type: 'radio', optionsStr: '', is_required: true })
 
-// Modal 控制邏輯
+// 操作函數
 const openRoleModal = (role = null) => {
   if (role) {
     editingRoleId.value = role.id
