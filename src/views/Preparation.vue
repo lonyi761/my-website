@@ -51,7 +51,7 @@
           <div class="prep-header">
             <h2>職能管理</h2>
             <p class="sub-notice">
-              按個人職能、小隊職能分別維護選項表，互不混用。拖動右側握把可保存當前類型內的順序。
+              按個人職能、小隊職能分別維護選項表，互不混用。拖動最左側圖示可保存當前類型內的順序。
             </p>
           </div>
 
@@ -65,7 +65,6 @@
               <button class="btn-primary" @click="openRoleModal()">
                 + 新增{{ roleCategory === 'personal' ? '個人' : '小隊' }}職能
               </button>
-              <button class="btn-secondary margin-l" @click="importRoleTemplate">導入通用模板</button>
             </div>
           </div>
 
@@ -74,10 +73,10 @@
             <table class="data-table">
               <thead>
                 <tr>
+                  <th width="40"></th>
                   <th>職能名稱</th>
                   <th>描述</th>
                   <th width="100">標籤開關</th>
-                  <th width="110">拖曳排序</th>
                   <th width="110">操作</th>
                 </tr>
               </thead>
@@ -91,6 +90,11 @@
                   @drop="onDrop(index)"
                   :class="{ 'dragging-row': dragIndex === index }"
                 >
+                  <td>
+                    <div class="drag-handle-cell" title="按住拖曳上下拉動排序">
+                      <span class="drag-icon">☰</span>
+                    </div>
+                  </td>
                   <td class="font-bold">{{ role.name }}</td>
                   <td>{{ role.desc || '—' }}</td>
                   <td>
@@ -98,12 +102,6 @@
                       <input type="checkbox" v-model="role.tagSwitch" />
                       <span class="slider"></span>
                     </label>
-                  </td>
-                  <td>
-                    <div class="drag-handle-cell" title="按住拖曳上下拉動排序">
-                      <span class="drag-icon">☰</span>
-                      <span class="drag-text">拖曳</span>
-                    </div>
                   </td>
                   <td>
                     <button class="btn-link" @click="openRoleModal(role)">編輯</button>
@@ -364,7 +362,7 @@ const personalRoleList = ref([
   { id: 17, name: '騰龍合軸', desc: '—', tagSwitch: false }
 ])
 
-// 2. 小隊職能數據 (從圖二提取)
+// 2. 小隊職能數據
 const squadRoleList = ref([
   { id: 101, name: '保鏢隊', desc: '—', tagSwitch: false },
   { id: 102, name: '雙碎隊', desc: '—', tagSwitch: false },
@@ -556,8 +554,6 @@ const deleteQuestion = (id) => {
   if (confirm('確定要刪除該問題嗎？')) questionList.value = questionList.value.filter(q => q.id !== id)
 }
 
-const importRoleTemplate = () => alert('已匯入通用職能範本！')
-
 onMounted(() => {
   const user = JSON.parse(localStorage.getItem('user'))
   if (user) username.value = user.username
@@ -614,9 +610,8 @@ const handleLogout = () => {
 /* 拖曳欄位樣式 */
 .data-table tr[draggable="true"] { cursor: grab; }
 .data-table tr.dragging-row { opacity: 0.4; background: #f1f5f9; }
-.drag-handle-cell { display: flex; align-items: center; gap: 6px; color: #64748b; user-select: none; }
+.drag-handle-cell { display: flex; align-items: center; justify-content: center; color: #64748b; user-select: none; }
 .drag-icon { font-size: 16px; color: #94a3b8; }
-.drag-text { font-size: 12px; }
 
 /* 150人排表矩陣樣式 */
 .template-matrix { display: flex; flex-direction: column; gap: 20px; }
