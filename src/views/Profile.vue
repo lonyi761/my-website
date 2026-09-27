@@ -3,7 +3,7 @@
     <header class="navbar">
       <nav class="nav-links">
         <router-link to="/home">首頁</router-link>
-        <a href="#">成員</a>
+        <router-link to="/members">成員</router-link>
         <a href="#">聯賽</a>
         <a href="#">戰備</a>
       </nav>

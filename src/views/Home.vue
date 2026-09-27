@@ -6,11 +6,11 @@
       </div>
 
       <nav class="nav-center">
-        <router-link to="/home" class="active">首頁</router-link>
-        <a href="#">成員</a>
-        <a href="#">聯賽</a>
-        <a href="#">戰備</a>
-      </nav>
+  <router-link to="/home">首頁</router-link>
+  <router-link to="/members">成員</router-link>
+  <a href="#">聯賽</a>
+  <a href="#">戰備</a>
+</nav>
       
       <div class="nav-right">
         <button class="icon-btn" @click="isDarkMode = !isDarkMode" title="切換深淺色">
