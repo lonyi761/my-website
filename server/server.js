@@ -185,5 +185,5 @@ app.post('/api/announcements', (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('後端伺服器已啟動於 http://localhost:3000');
+  console.log('後端伺服器已啟動於 [https://my-website-backend-v04t.onrender.com](https://my-website-backend-v04t.onrender.com)');
 });

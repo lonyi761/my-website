@@ -54,7 +54,7 @@ const handleSubmit = async () => {
   const endpoint = isRegister.value ? '/api/register' : '/api/login'
 
   try {
-    const res = await fetch(`http://localhost:3000${endpoint}`, {
+    const res = await fetch(`[https://my-website-backend-v04t.onrender.com](https://my-website-backend-v04t.onrender.com)${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

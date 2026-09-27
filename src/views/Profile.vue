@@ -110,7 +110,7 @@ onMounted(() => {
 // 修改暱稱
 const handleSaveProfile = async () => {
   try {
-    const res = await fetch('http://localhost:3000/api/user/update-profile', {
+    const res = await fetch('[https://my-website-backend-v04t.onrender.com](https://my-website-backend-v04t.onrender.com)/api/user/update-profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -136,7 +136,7 @@ const handleSavePassword = async () => {
   if (!oldPassword.value || !newPassword.value) return alert('請填寫完整密碼！')
 
   try {
-    const res = await fetch('http://localhost:3000/api/user/change-password', {
+    const res = await fetch('[https://my-website-backend-v04t.onrender.com](https://my-website-backend-v04t.onrender.com)/api/user/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

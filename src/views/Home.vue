@@ -158,7 +158,7 @@ const closeNoticeModal = () => {
 
 const fetchAnnouncements = async () => {
   try {
-    const res = await fetch('http://localhost:3000/api/announcements')
+    const res = await fetch('[https://my-website-backend-v04t.onrender.com](https://my-website-backend-v04t.onrender.com)/api/announcements')
     const data = await res.json()
     if (data.success) {
       announcements.value = data.announcements
@@ -172,7 +172,7 @@ const handlePublish = async () => {
   if (!newNoticeTitle.value || !newNoticeContent.value) return alert('請填寫完整標題與內文')
 
   try {
-    const res = await fetch('http://localhost:3000/api/announcements', {
+    const res = await fetch('[https://my-website-backend-v04t.onrender.com](https://my-website-backend-v04t.onrender.com)/api/announcements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
