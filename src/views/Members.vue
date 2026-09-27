@@ -1,5 +1,5 @@
 <template>
-  <div :class="['members-layout', isDarkMode ? 'dark-theme' : 'light-theme']">
+  <div :class="['members-layout', isDarkMode ? 'dark-theme' : 'light-theme']" @click="closePopover">
     <!-- 頂部導航列 -->
     <header class="navbar">
       <div class="nav-left">
@@ -18,7 +18,7 @@
           <i :class="['mdi', isDarkMode ? 'mdi-weather-night' : 'mdi-white-balance-sunny']"></i>
         </button>
         
-        <div class="user-dropdown" @click="showMenu = !showMenu">
+        <div class="user-dropdown" @click.stop="showMenu = !showMenu">
           <span>{{ username }}</span>
           <i class="mdi mdi-chevron-down"></i>
           <div v-if="showMenu" class="dropdown-menu">
@@ -48,7 +48,6 @@
               <span class="guild-name">{{ guild.name }}</span>
               <span class="guild-count">{{ getGuildMemberCount(guild.name) }} 人</span>
             </div>
-            <!-- 滑鼠懸停齒輪設定 -->
             <div class="guild-actions" v-if="guild.name !== '未分配'" @click.stop>
               <button class="btn-icon-sm" @click="openEditGuildModal(guild)" title="幫會設定">
                 <i class="mdi mdi-cog-outline"></i>
@@ -101,19 +100,41 @@
                 <td><input type="checkbox" :value="member.id" v-model="selectedMemberIds" /></td>
                 <td>{{ index + 1 }}</td>
                 <td class="font-bold">{{ member.name }}</td>
-                <!-- 顯示真實流派 PNG 圖片 + 姿勢標籤 -->
+
+                <!-- 流派點擊跳出快切選單 (對應圖三三) -->
                 <td v-if="columns.school">
-                  <div class="school-cell">
-                    <img 
-                      v-if="getSchoolInfo(member.currentSchool).file"
-                      :src="getSchoolImg(getSchoolInfo(member.currentSchool).file)" 
-                      class="school-img-badge" 
-                      :alt="member.currentSchool" 
-                    />
-                    <span v-else class="school-text-badge">{{ member.currentSchool }}</span>
-                    <span v-if="member.specTag" class="spec-tag">{{ member.specTag }}</span>
+                  <div class="school-popover-wrapper" @click.stop>
+                    <div class="school-cell clickable" @click="toggleSchoolPopover(member.id)" title="點擊切換流派">
+                      <img 
+                        v-if="getSchoolInfo(member.currentSchool).file"
+                        :src="getSchoolImg(getSchoolInfo(member.currentSchool).file)" 
+                        class="school-img-badge" 
+                        :alt="member.currentSchool" 
+                      />
+                      <span v-else class="school-text-badge">{{ member.currentSchool }}</span>
+                      <span v-if="member.specTag" class="spec-tag">{{ member.specTag }}</span>
+                    </div>
+
+                    <!-- 點擊圖示後顯示的選單 (PopOver) -->
+                    <div v-if="activePopoverMemberId === member.id" class="school-popover-box">
+                      <div class="popover-arrow"></div>
+                      <button 
+                        v-for="sName in (member.schools.length > 0 ? member.schools : [member.currentSchool])" 
+                        :key="sName"
+                        :class="['popover-school-btn', { active: member.currentSchool === sName }]"
+                        @click="quickSwitchSchool(member, sName)"
+                      >
+                        <img 
+                          v-if="getSchoolInfo(sName).file" 
+                          :src="getSchoolImg(getSchoolInfo(sName).file)" 
+                          class="popover-btn-img" 
+                        />
+                        <span>{{ sName }}</span>
+                      </button>
+                    </div>
                   </div>
                 </td>
+
                 <td v-if="columns.status">
                   <span :class="['status-badge', getStatusClass(member.status)]">{{ member.status }}</span>
                 </td>
@@ -163,7 +184,7 @@
       </div>
     </div>
 
-    <!-- 幫會設定/編輯彈窗 -->
+    <!-- 幫會設定彈窗 -->
     <div v-if="showGuildEditModal" class="modal-overlay" @click.self="showGuildEditModal = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -203,7 +224,6 @@
               </button>
             </div>
 
-            <!-- 流派選擇區 (使用真實 PNG 圖片) -->
             <div class="form-row">
               <label><span class="req">*</span>流派列表：</label>
               <div class="school-selector">
@@ -375,6 +395,27 @@ const showMenu = ref(false)
 const username = ref('VIP')
 const role = ref('admin')
 
+// 記錄當前點開流派快切選單的成員 ID
+const activePopoverMemberId = ref(null)
+
+const toggleSchoolPopover = (memberId) => {
+  if (activePopoverMemberId.value === memberId) {
+    activePopoverMemberId.value = null
+  } else {
+    activePopoverMemberId.value = memberId
+  }
+}
+
+const closePopover = () => {
+  activePopoverMemberId.value = null
+  showMenu.value = false
+}
+
+const quickSwitchSchool = (member, schoolName) => {
+  member.currentSchool = schoolName
+  activePopoverMemberId.value = null
+}
+
 // 幫會列表
 const guildList = ref([
   { id: 1, name: '天下雲五' },
@@ -399,7 +440,6 @@ const availableSchools = ref([
   { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
 ])
 
-// 動態載入 assets 圖片
 const getSchoolImg = (fileName) => {
   if (!fileName) return ''
   return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
@@ -407,10 +447,10 @@ const getSchoolImg = (fileName) => {
 
 // 成員列表資料
 const members = ref([
-  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣'], currentSchool: '鐵衣', specTag: '御', hasGodlyWeapon: false, guild: '天下雲五', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', attendance: 12, leave: 0, rolePref: '禦' },
-  { id: 2, name: '鈍小鈍', formerNames: [], schools: ['九靈'], currentSchool: '九靈', specTag: '', hasGodlyWeapon: true, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 15, leave: 1, rolePref: '' },
+  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', specTag: '御', hasGodlyWeapon: false, guild: '天下雲五', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', attendance: 12, leave: 0, rolePref: '禦' },
+  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', specTag: '', hasGodlyWeapon: true, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 15, leave: 1, rolePref: '' },
   { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', specTag: '', hasGodlyWeapon: false, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 10, leave: 0, rolePref: '' },
-  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問'], currentSchool: '素問', specTag: '素心', hasGodlyWeapon: false, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 8, leave: 0, rolePref: '' }
+  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', specTag: '素心', hasGodlyWeapon: false, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 8, leave: 0, rolePref: '' }
 ])
 
 const searchQuery = ref('')
@@ -491,7 +531,6 @@ const getSchoolInfo = (schoolName) => {
   return found || { name: schoolName, file: '', color: '#64748b', bg: '#f1f5f9' }
 }
 
-// 幫會設定
 const openEditGuildModal = (guild) => {
   targetEditGuild.value = guild
   editingGuildName.value = guild.name
@@ -524,7 +563,6 @@ const deleteGuild = () => {
   }
 }
 
-// 多選控制
 const isAllSelected = computed(() => {
   return filteredMembers.value.length > 0 && selectedMemberIds.value.length === filteredMembers.value.length
 })
@@ -550,7 +588,6 @@ const openAddGuildModal = () => {
   }
 }
 
-// 流派限制最多選 2 個
 const toggleSchoolSelection = (schoolName) => {
   const idx = memberForm.value.schools.indexOf(schoolName)
   if (idx > -1) {
@@ -570,7 +607,6 @@ const toggleSchoolSelection = (schoolName) => {
   }
 }
 
-// 管理員新增/刪除流派
 const handleAddSchool = () => {
   const name = prompt('請輸入新增的流派/職業名稱：')
   if (name && name.trim()) {
@@ -755,14 +791,64 @@ const handleLogout = () => {
 .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; }
 
-/* 表格與流派圖片標籤 */
+/* 表格欄位與浮動 PopOver 選單 (對應圖三三風格) */
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-.data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+.data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; position: relative; }
 .data-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
-.school-cell { display: flex; align-items: center; gap: 6px; }
+
+.school-popover-wrapper { position: relative; display: inline-block; }
+.school-cell.clickable { cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 6px; transition: background 0.2s; }
+.school-cell.clickable:hover { background: #f1f5f9; }
 .school-img-badge { width: 24px; height: 24px; object-fit: contain; }
 .school-text-badge { background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+/* 氣泡選單 PopOver (對應圖三三) */
+.school-popover-box {
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+  white-space: nowrap;
+}
+.popover-arrow {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+}
+.popover-school-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  transition: all 0.2s;
+}
+.popover-school-btn.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: bold;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+.popover-btn-img { width: 16px; height: 16px; object-fit: contain; }
+
 .spec-tag { border: 1px solid #cbd5e1; color: #64748b; font-size: 11px; padding: 0 4px; border-radius: 4px; }
 .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; }
 .status-green { background: #dcfce7; color: #16a34a; }
@@ -778,7 +864,7 @@ const handleLogout = () => {
 .column-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; }
 .drag-handle { color: #94a3b8; font-weight: bold; cursor: grab; }
 
-/* 流派按鈕選單 (圖片款式) */
+/* 流派按鈕選單 */
 .school-selector { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; align-items: center; }
 .school-btn-card { border: 1px solid #cbd5e1; background: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; position: relative; }
 .school-btn-card.active { border-color: var(--badge-color); background: var(--badge-bg); color: var(--badge-color); font-weight: bold; }
