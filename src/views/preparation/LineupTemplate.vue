@@ -1,7 +1,7 @@
 <template>
   <div class="lineup-template">
     
-    <!-- 1. 模板清單視圖 (圖一) -->
+    <!-- 1. 模板清單視圖 -->
     <div v-if="currentView === 'list'">
       <div class="prep-header">
         <div class="header-with-btn">
@@ -41,7 +41,7 @@
               <td>
                 <button class="btn-link" @click="enterEditor(tpl)">編輯排表</button>
                 <button class="btn-link margin-l" @click="openTemplateModal(tpl)">修改</button>
-                <button class="btn-link text-red margin-l" @click="deleteTemplate(tpl.id)">刪除</button>
+                <button class="btn-link text-red margin-l" @click="confirmDeleteTemplate(tpl)">刪除</button>
               </td>
             </tr>
             <tr v-if="filteredTemplates.length === 0">
@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <!-- 2. 排表矩陣編輯視圖 (圖三) -->
+    <!-- 2. 排表矩陣編輯視圖 (圖三 & 圖五) -->
     <div v-else-if="currentView === 'editor'" class="editor-container">
       <div class="editor-header-bar">
         <div class="back-title-group">
@@ -61,7 +61,16 @@
         </div>
 
         <div class="editor-top-actions">
-          <button class="btn-primary" @click="addTeam">+ 添加團隊</button>
+          <!-- 顯示詳情開關 (圖五對應) -->
+          <div class="switch-control">
+            <span class="switch-label-text">顯示詳情</span>
+            <label class="switch">
+              <input type="checkbox" v-model="showDetails" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <button class="btn-primary margin-l" @click="addTeam">+ 添加團隊</button>
         </div>
       </div>
 
@@ -69,7 +78,7 @@
       <div class="teams-container">
         <div v-for="(team, tIdx) in activeTemplate.teams" :key="team.id" class="team-block">
           
-          <!-- 團隊標頭 (點擊開啟圖四彈窗) -->
+          <!-- 團隊標頭 -->
           <div class="team-header-row">
             <button class="team-badge-btn" @click="openTeamModal(team, tIdx)">
               {{ team.name }} <i class="mdi mdi-pencil-outline icon-sm"></i>
@@ -81,24 +90,56 @@
           <div class="squads-grid">
             <div v-for="(squad, sIdx) in team.squads" :key="squad.id" class="squad-card">
               
-              <!-- 小隊標頭 (點擊開啟圖五彈窗) -->
+              <!-- 小隊標頭 -->
               <div class="squad-card-head" @click="openSquadModal(team, squad, sIdx)">
                 <span class="squad-name-label">{{ squad.name }}<template v-if="squad.zhineng">-{{ squad.zhineng }}</template></span>
                 <i class="mdi mdi-cog-outline squad-cog-icon"></i>
               </div>
 
-              <!-- 6個席位列表 -->
+              <!-- 6個席位列表 (精簡 vs 詳情視圖) -->
               <div class="slots-container">
                 <div 
                   v-for="(slot, slotIdx) in squad.slots" 
                   :key="slot.id" 
-                  class="slot-card"
+                  :class="['slot-card', { 'detail-mode': showDetails }]"
                   :style="getSlotCardStyle(slot)"
                   @click="openSlotModal(team, squad, slot, slotIdx)"
                 >
-                  <div class="slot-card-content">
-                    <span class="slot-role-text">{{ getSlotDisplayText(slot) }}</span>
-                  </div>
+                  <!-- 1. 精簡檢視 (只顯示流派圖標 + 職能名稱) -->
+                  <template v-if="!showDetails">
+                    <div class="slot-compact-body">
+                      <!-- 流派圖標列表 (僅顯示 Icon) -->
+                      <div class="slot-school-icons" v-if="slot.liupai_list && slot.liupai_list.length > 0">
+                        <img 
+                          v-for="sName in slot.liupai_list" 
+                          :key="sName"
+                          :src="getSchoolImgByName(sName)" 
+                          class="slot-icon-badge" 
+                          :alt="sName"
+                        />
+                      </div>
+                      <span class="slot-role-text">{{ getSlotRoleText(slot) }}</span>
+                    </div>
+                  </template>
+
+                  <!-- 2. 詳情檢視 (圖五對應) -->
+                  <template v-else>
+                    <div class="slot-detail-body">
+                      <div class="detail-head">
+                        <img 
+                          v-if="slot.liupai_list && slot.liupai_list.length > 0" 
+                          :src="getSchoolImgByName(slot.liupai_list[0])" 
+                          class="slot-icon-badge" 
+                        />
+                        <span class="detail-role-title">{{ getSlotRoleText(slot) }}</span>
+                      </div>
+                      <div class="detail-line">絕技：{{ slot.jueji_pz || '—' }}</div>
+                      <div class="detail-line">群俠：{{ slot.qunxia_pz || '—' }}</div>
+                      <div class="detail-line">裝備：{{ slot.zhuangbei_pz || '—' }}</div>
+                      <div class="detail-line">描述：{{ slot.desc || '—' }}</div>
+                    </div>
+                  </template>
+
                   <span class="slot-remove-x" @click.stop="clearSlot(slot)">&times;</span>
                 </div>
               </div>
@@ -110,7 +151,7 @@
       </div>
     </div>
 
-    <!-- 3. 新建 / 修改模板 Modal (圖二) -->
+    <!-- 3. 新建 / 修改模板 Modal -->
     <div v-if="showTemplateModal" class="modal-overlay" @click.self="showTemplateModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -152,7 +193,7 @@
       </div>
     </div>
 
-    <!-- 4. 團隊設定 Modal (圖四) -->
+    <!-- 4. 團隊設定 Modal -->
     <div v-if="showTeamModal" class="modal-overlay" @click.self="showTeamModal = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -172,7 +213,7 @@
             </div>
           </div>
           <div class="danger-zone margin-t">
-            <button class="btn-link text-red font-bold" @click="deleteActiveTeam">刪除團隊</button>
+            <button class="btn-link text-red font-bold" @click="confirmDeleteTeam">刪除團隊</button>
           </div>
         </div>
         <div class="modal-footer">
@@ -182,7 +223,7 @@
       </div>
     </div>
 
-    <!-- 5. 小隊設定 Modal (圖五 & 圖六) -->
+    <!-- 5. 小隊設定 Modal -->
     <div v-if="showSquadModal" class="modal-overlay" @click.self="showSquadModal = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -216,7 +257,7 @@
             </div>
           </div>
           <div class="danger-zone margin-t">
-            <button class="btn-link text-red font-bold" @click="deleteActiveSquad">刪除小隊</button>
+            <button class="btn-link text-red font-bold" @click="confirmDeleteSquad">刪除小隊</button>
           </div>
         </div>
         <div class="modal-footer">
@@ -226,7 +267,7 @@
       </div>
     </div>
 
-    <!-- 6. 席位配置 Modal (圖七 & 圖八) -->
+    <!-- 6. 席位配置 Modal (圖一對齊成員圖二樣式) -->
     <div v-if="showSlotModal" class="modal-overlay" @click.self="showSlotModal = false">
       <div class="modal-card slot-modal-card">
         <div class="modal-header">
@@ -239,17 +280,19 @@
             {{ activeTeamForSlot?.name }} - {{ activeSquadForSlot?.name }} - 第 {{ activeSlotIndex + 1 }} 席
           </div>
 
-          <!-- 推薦流派 (標籤按鈕) -->
+          <!-- 推薦流派：對齊成員編輯的圖文膠囊按鈕 (圖一與圖二對應) -->
           <div class="form-block">
             <div class="block-title"><span class="req">*</span>推薦流派</div>
-            <div class="school-tag-grid">
+            <div class="school-pills-group">
               <button 
                 v-for="s in availableSchools" 
                 :key="s.name"
-                :class="['school-tag-btn', { active: slotForm.liupai_list.includes(s.name) }]"
+                :class="['school-btn-card', { active: slotForm.liupai_list.includes(s.name) }]"
+                :style="{ '--badge-color': s.color, '--badge-bg': s.bg }"
                 @click="toggleSlotSchool(s.name)"
               >
-                {{ s.name }}
+                <img :src="getSchoolImg(s.file)" class="btn-img-icon" />
+                <span>{{ s.name }}</span>
               </button>
             </div>
           </div>
@@ -269,11 +312,12 @@
             </div>
           </div>
 
-          <!-- 推薦配裝/技能 (絕技、群俠百家、流派技能) - 圖八對應選單 -->
+          <!-- 推薦技能 (原推薦配裝) -->
           <div class="form-block margin-t">
-            <div class="block-title">推薦配裝</div>
+            <div class="block-title">推薦技能</div>
             <div class="sub-hint">與聯賽排表中的配裝資訊一致，可從歷史記錄選擇或手動輸入，每項最長 20 字。</div>
 
+            <!-- 絕技 (單選修復) -->
             <div class="skill-input-row margin-t">
               <label>絕技：</label>
               <div class="custom-dropdown-container">
@@ -290,7 +334,7 @@
                     v-for="j in juejiOptions" 
                     :key="j" 
                     class="dropdown-item"
-                    @click="selectJueji(j)"
+                    @mousedown.prevent.stop="selectJueji(j)"
                   >
                     {{ j }}
                   </div>
@@ -298,6 +342,7 @@
               </div>
             </div>
 
+            <!-- 群俠百家 (複選修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -314,7 +359,7 @@
                     v-for="q in qunxiaOptions" 
                     :key="q" 
                     :class="['dropdown-item', { selected: isQunxiaSelected(q) }]"
-                    @click="toggleQunxia(q)"
+                    @mousedown.prevent.stop="toggleQunxia(q)"
                   >
                     <span>{{ q }}</span>
                     <i v-if="isQunxiaSelected(q)" class="mdi mdi-check check-icon"></i>
@@ -323,6 +368,7 @@
               </div>
             </div>
 
+            <!-- 流派技能 (複選修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -339,7 +385,7 @@
                     v-for="l in liupaiSkillOptions" 
                     :key="l" 
                     :class="['dropdown-item', { selected: isLiupaiSelected(l) }]"
-                    @click="toggleLiupaiSkill(l)"
+                    @mousedown.prevent.stop="toggleLiupaiSkill(l)"
                   >
                     <span>{{ l }}</span>
                     <i v-if="isLiupaiSelected(l)" class="mdi mdi-check check-icon"></i>
@@ -350,7 +396,7 @@
 
           </div>
 
-          <!-- 描述 (最多 200 字) -->
+          <!-- 描述 -->
           <div class="form-block margin-t">
             <div class="block-title">描述</div>
             <div class="textarea-wrapper margin-t">
@@ -373,29 +419,57 @@
       </div>
     </div>
 
+    <!-- 7. 美化置中刪除確認 Modal (圖四對應) -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-body">
+          <div class="warning-icon-wrapper">
+            <i class="mdi mdi-alert-circle warning-icon"></i>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-msg">{{ confirmMessage }}</p>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-const currentView = ref('list') // 'list' | 'editor'
+const currentView = ref('list')
 const searchQuery = ref('')
+const showDetails = ref(false) // 顯示詳情開關 (圖五對應)
 
-// 預設流派
+// 可選流派 (對齊 Members.vue 格式與圖標)
 const availableSchools = [
-  { name: '九靈', color: '#8b5cf6' },
-  { name: '滄瀾', color: '#0284c7' },
-  { name: '潮光', color: '#38bdf8' },
-  { name: '玄機', color: '#84cc16' },
-  { name: '碎夢', color: '#06b6d4' },
-  { name: '神相', color: '#6366f1' },
-  { name: '素問', color: '#f43f5e' },
-  { name: '血河', color: '#e11d48' },
-  { name: '鐵衣', color: '#d97706' },
-  { name: '鴻音', color: '#ec4899' },
-  { name: '龍吟', color: '#10b981' }
+  { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
+  { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
+  { name: '九靈', file: 'jl', color: '#8b5cf6', bg: '#f3e8ff' },
+  { name: '神相', file: 'sx', color: '#6366f1', bg: '#e0e7ff' },
+  { name: '碎夢', file: 'sm', color: '#06b6d4', bg: '#cffaff' },
+  { name: '素問', file: 'sw', color: '#f43f5e', bg: '#ffe4e6' },
+  { name: '龍吟', file: 'ly', color: '#10b981', bg: '#d1fae5' },
+  { name: '玄機', file: 'xj', color: '#84cc16', bg: '#ecfccb' },
+  { name: '潮光', file: 'cg', color: '#38bdf8', bg: '#f0f9ff' },
+  { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' },
+  { name: '鴻音', file: 'hy', color: '#ec4899', bg: '#fce7f3' }
 ]
+
+const getSchoolImg = (fileName) => {
+  if (!fileName) return ''
+  return new URL(`../../assets/schools/${fileName}.png`, import.meta.url).href
+}
+
+const getSchoolImgByName = (schoolName) => {
+  const found = availableSchools.find(s => s.name === schoolName)
+  return found ? getSchoolImg(found.file) : ''
+}
 
 // 個人職能 (17項)
 const personalRoleOptions = [
@@ -414,7 +488,6 @@ const juejiOptions = ['狂發一怒', '太極圖']
 const qunxiaOptions = ['咚咚跳台', '雲影濁香']
 const liupaiSkillOptions = ['約定', '清泉']
 
-// 流派顏色映射 (用於席位背景)
 const schoolColorMap = {
   '鐵衣': '#fef3c7',
   '血河': '#ffe4e6',
@@ -427,6 +500,24 @@ const schoolColorMap = {
   '潮光': '#f0f9ff',
   '滄瀾': '#e0e7ff',
   '鴻音': '#fce7f3'
+}
+
+// 置中刪除確認 Modal (圖四)
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
+const executeConfirmAction = () => {
+  if (confirmActionCallback) confirmActionCallback()
+  showConfirmModal.value = false
 }
 
 // 預設範本列表
@@ -452,7 +543,6 @@ const filteredTemplates = computed(() => {
   return templateList.value.filter(t => t.name.toLowerCase().includes(searchQuery.value.toLowerCase().trim()))
 })
 
-// 生成範本資料結構 (預設包含團隊、小隊、6席位)
 function createEmptySlot() {
   return {
     id: Math.random(),
@@ -492,7 +582,6 @@ function createSampleTeams() {
   ]
 }
 
-// 當前進行編輯的模板
 const activeTemplate = ref(null)
 
 const enterEditor = (tpl) => {
@@ -500,7 +589,7 @@ const enterEditor = (tpl) => {
   currentView.value = 'editor'
 }
 
-// 模板 Modal (圖二)
+// 模板 Modal
 const showTemplateModal = ref(false)
 const editingTemplateId = ref(null)
 const templateForm = ref({ name: '', desc: '' })
@@ -540,13 +629,17 @@ const saveTemplate = () => {
   showTemplateModal.value = false
 }
 
-const deleteTemplate = (id) => {
-  if (confirm('確定要刪除該模板嗎？')) {
-    templateList.value = templateList.value.filter(t => t.id !== id)
-  }
+const confirmDeleteTemplate = (tpl) => {
+  triggerConfirmModal(
+    '刪除模板',
+    `確定要刪除模板「${tpl.name}」嗎？`,
+    () => {
+      templateList.value = templateList.value.filter(t => t.id !== tpl.id)
+    }
+  )
 }
 
-// 編輯器內的團隊與小隊新增操作
+// 團隊/小隊新增
 const addTeam = () => {
   const num = activeTemplate.value.teams.length + 1
   activeTemplate.value.teams.push(createEmptyTeam(`團隊 ${num}`))
@@ -557,7 +650,7 @@ const addSquadToTeam = (team) => {
   team.squads.push(createEmptySquad(squadNum - 1))
 }
 
-// 團隊 Modal (圖四)
+// 團隊 Modal
 const showTeamModal = ref(false)
 const activeTeamIndex = ref(null)
 const teamForm = ref({ name: '', desc: '' })
@@ -578,14 +671,19 @@ const saveTeamModal = () => {
   showTeamModal.value = false
 }
 
-const deleteActiveTeam = () => {
-  if (confirm('確定要刪除整個團隊嗎？')) {
-    activeTemplate.value.teams.splice(activeTeamIndex.value, 1)
-    showTeamModal.value = false
-  }
+const confirmDeleteTeam = () => {
+  const team = activeTemplate.value.teams[activeTeamIndex.value]
+  triggerConfirmModal(
+    '刪除團隊',
+    `確定刪除「${team.name}」？刪除後可點擊「添加團隊」重新創建。`,
+    () => {
+      activeTemplate.value.teams.splice(activeTeamIndex.value, 1)
+      showTeamModal.value = false
+    }
+  )
 }
 
-// 小隊 Modal (圖五 & 圖六)
+// 小隊 Modal
 const showSquadModal = ref(false)
 const activeTeamForSquad = ref(null)
 const activeSquadIndex = ref(null)
@@ -613,21 +711,26 @@ const saveSquadModal = () => {
   showSquadModal.value = false
 }
 
-const deleteActiveSquad = () => {
-  if (confirm('確定要刪除該小隊嗎？')) {
-    activeTeamForSquad.value.squads.splice(activeSquadIndex.value, 1)
-    showSquadModal.value = false
-  }
+const confirmDeleteSquad = () => {
+  const squadName = squadForm.value.name
+  const teamName = activeTeamForSquad.value.name
+  triggerConfirmModal(
+    '刪除小隊',
+    `確定刪除「${teamName} · ${squadName}」？刪除後可點團隊右側「添加小隊」恢復。`,
+    () => {
+      activeTeamForSquad.value.squads.splice(activeSquadIndex.value, 1)
+      showSquadModal.value = false
+    }
+  )
 }
 
-// 席位配置 Modal (圖七 & 圖八)
+// 席位配置 Modal
 const showSlotModal = ref(false)
 const activeTeamForSlot = ref(null)
 const activeSquadForSlot = ref(null)
 const activeSlot = ref(null)
 const activeSlotIndex = ref(0)
-
-const activeSkillDropdown = ref(null) // 'jueji' | 'qunxia' | 'liupai' | null
+const activeSkillDropdown = ref(null)
 
 const slotForm = ref({
   liupai_list: [],
@@ -658,23 +761,16 @@ const openSlotModal = (team, squad, slot, slotIdx) => {
 
 const toggleSlotSchool = (sName) => {
   const idx = slotForm.value.liupai_list.indexOf(sName)
-  if (idx > -1) {
-    slotForm.value.liupai_list.splice(idx, 1)
-  } else {
-    slotForm.value.liupai_list.push(sName)
-  }
+  if (idx > -1) slotForm.value.liupai_list.splice(idx, 1)
+  else slotForm.value.liupai_list.push(sName)
 }
 
 const toggleSlotRole = (rName) => {
   const idx = slotForm.value.zhineng_list.indexOf(rName)
-  if (idx > -1) {
-    slotForm.value.zhineng_list.splice(idx, 1)
-  } else {
-    slotForm.value.zhineng_list.push(rName)
-  }
+  if (idx > -1) slotForm.value.zhineng_list.splice(idx, 1)
+  else slotForm.value.zhineng_list.push(rName)
 }
 
-// 下拉選單技能選擇
 const selectJueji = (jName) => {
   slotForm.value.jueji_pz = jName
   activeSkillDropdown.value = null
@@ -725,17 +821,11 @@ const clearSlot = (slot) => {
   slot.desc = ''
 }
 
-// 卡片與文字視覺展現
-const getSlotDisplayText = (slot) => {
-  const parts = []
+const getSlotRoleText = (slot) => {
   if (slot.zhineng_list && slot.zhineng_list.length > 0) {
-    parts.push(slot.zhineng_list.join(' / '))
+    return slot.zhineng_list.join(' / ')
   }
-  if (slot.liupai_list && slot.liupai_list.length > 0) {
-    parts.push(slot.liupai_list.join(' / '))
-  }
-  if (parts.length === 0) return '未配置'
-  return parts.join(' - ')
+  return '未配置'
 }
 
 const getSlotCardStyle = (slot) => {
@@ -766,6 +856,7 @@ onUnmounted(() => {
 .sub-notice { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0 0 20px 0; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #3b82f6; }
 
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
@@ -786,11 +877,15 @@ onUnmounted(() => {
 .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
 .data-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
 
-/* 編輯器內部佈局 (圖三) */
+/* 編輯器內部佈局 */
 .editor-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
 .back-title-group { display: flex; align-items: center; gap: 12px; }
 .btn-back { background: none; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; color: #475569; }
 .editing-tpl-name { font-size: 16px; font-weight: bold; color: #1e293b; }
+
+.editor-top-actions { display: flex; align-items: center; gap: 10px; }
+.switch-control { display: flex; align-items: center; gap: 8px; }
+.switch-label-text { font-size: 12px; color: #475569; font-weight: bold; }
 
 .teams-container { display: flex; flex-direction: column; gap: 24px; }
 .team-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
@@ -799,7 +894,7 @@ onUnmounted(() => {
 .icon-sm { font-size: 14px; color: #94a3b8; }
 .add-squad-btn { background: none; border: 1px dashed #3b82f6; color: #3b82f6; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 
-.squads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.squads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .squad-card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; }
 .squad-card-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: bold; margin-bottom: 8px; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
 .squad-card-head:hover { background: #f1f5f9; }
@@ -807,14 +902,25 @@ onUnmounted(() => {
 .squad-cog-icon { color: #94a3b8; font-size: 14px; }
 
 .slots-container { display: flex; flex-direction: column; gap: 6px; }
-.slot-card { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.15s; }
+.slot-card { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer; transition: all 0.15s; }
 .slot-card:hover { border-color: #3b82f6; }
-.slot-card-content { font-size: 11px; color: #334155; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-.slot-remove-x { font-size: 14px; color: #94a3b8; cursor: pointer; font-weight: bold; opacity: 0; transition: opacity 0.15s; }
+.slot-compact-body { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #1e293b; font-weight: 500; overflow: hidden; }
+.slot-school-icons { display: flex; align-items: center; gap: 2px; }
+.slot-icon-badge { width: 16px; height: 16px; object-fit: contain; }
+.slot-role-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 詳情視圖樣式 (圖五對應) */
+.slot-card.detail-mode { flex-direction: column; align-items: flex-start; padding: 8px 10px; }
+.slot-detail-body { display: flex; flex-direction: column; gap: 2px; width: 100%; font-size: 11px; color: #475569; }
+.detail-head { display: flex; align-items: center; gap: 4px; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
+.detail-role-title { font-size: 12px; }
+.detail-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.slot-remove-x { position: absolute; right: 6px; top: 6px; font-size: 14px; color: #94a3b8; cursor: pointer; font-weight: bold; opacity: 0; transition: opacity 0.15s; }
 .slot-card:hover .slot-remove-x { opacity: 1; }
 .slot-remove-x:hover { color: #ef4444; }
 
-/* Modal 彈窗與元件 (對應圖二, 四, 五, 六, 七, 八) */
+/* Modal 彈窗與元件 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
 .small-card { width: 380px; }
@@ -841,27 +947,49 @@ onUnmounted(() => {
 .danger-zone { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #f1f5f9; }
 .text-gray-val { font-size: 13px; color: #475569; font-weight: 500; }
 
-/* 席位配置彈窗 (圖七 & 圖八) */
+/* 席位配置 Modal (圖一對齊圖二膠囊按鈕樣式) */
 .slot-location-tag { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-bottom: 15px; }
 .form-block { display: flex; flex-direction: column; gap: 8px; }
 .block-title { font-weight: bold; font-size: 13px; color: #1e293b; }
 .sub-hint { font-size: 11px; color: #94a3b8; line-height: 1.4; }
 
-.school-tag-grid, .role-tag-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-.school-tag-btn, .role-tag-btn { background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #475569; transition: all 0.15s; }
-.school-tag-btn.active, .role-tag-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; font-weight: bold; }
+.school-pills-group { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.school-btn-card { border: 1px solid #cbd5e1; background: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+.school-btn-card.active { border-color: var(--badge-color); background: var(--badge-bg); color: var(--badge-color); font-weight: bold; }
+.btn-img-icon { width: 18px; height: 18px; object-fit: contain; }
+
+.role-tag-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.role-tag-btn { background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #475569; transition: all 0.15s; }
+.role-tag-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; font-weight: bold; }
 
 .skill-input-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .skill-input-row label { width: 80px; font-weight: bold; color: #334155; }
 .skill-input-field { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
 
-/* 技能下拉面板 (圖八對應) */
+/* 技能下拉面板 */
 .custom-dropdown-container { position: relative; flex: 1; }
 .skill-dropdown-panel { position: absolute; top: 100%; left: 0; width: 100%; margin-top: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 160px; overflow-y: auto; z-index: 120; padding: 4px 0; }
 .dropdown-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; cursor: pointer; color: #334155; }
 .dropdown-item:hover { background: #f1f5f9; }
 .dropdown-item.selected { color: #2563eb; font-weight: bold; background: #eff6ff; }
 .check-icon { font-size: 16px; color: #2563eb; }
+
+/* 置中刪除確認 Modal (圖四對應) */
+.confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
+.confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
+.warning-icon { font-size: 28px; color: #d97706; }
+.confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
+.confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+
+/* Switch 開關樣式 */
+.switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 18px; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
+input:checked + .slider { background-color: #3b82f6; }
+input:checked + .slider:before { transform: translateX(16px); }
 
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .margin-l { margin-left: 10px; }
