@@ -51,7 +51,7 @@
           <div class="prep-header">
             <h2>職能管理</h2>
             <p class="sub-notice">
-              個人職能、團隊職能、小隊職能三類維護流派列表，互不干擾。個人職能用於幫會成員角色卡片「戰備偏好」及排表卡片多選。
+              按個人職能、小隊職能分別維護選項表，互不混用。拖動右側握把可保存當前類型內的順序。
             </p>
           </div>
 
@@ -62,34 +62,37 @@
             </div>
 
             <div class="right-actions">
-              <button class="btn-primary" @click="openRoleModal()">+ 新增職能類型</button>
+              <button class="btn-primary" @click="openRoleModal()">
+                + 新增{{ roleCategory === 'personal' ? '個人' : '小隊' }}職能
+              </button>
               <button class="btn-secondary margin-l" @click="importRoleTemplate">導入通用模板</button>
             </div>
           </div>
 
+          <!-- 精簡欄位後的職能表格 -->
           <div class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th width="60">#</th>
                   <th>職能名稱</th>
                   <th>描述</th>
-                  <th>職能身份</th>
-                  <th>排表標籤</th>
-                  <th width="90">標籤開關</th>
-                  <th width="100">隱藏職業名</th>
-                  <th width="90">職能邊框</th>
-                  <th width="90">排序值</th>
+                  <th width="100">標籤開關</th>
+                  <th width="110">拖曳排序</th>
                   <th width="110">操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(role, index) in roleList" :key="role.id">
-                  <td class="drag-cell"><span class="drag-icon">⊹</span> {{ index + 1 }}</td>
+                <tr 
+                  v-for="(role, index) in currentRoleList" 
+                  :key="role.id"
+                  draggable="true"
+                  @dragstart="onDragStart(index)"
+                  @dragover.prevent
+                  @drop="onDrop(index)"
+                  :class="{ 'dragging-row': dragIndex === index }"
+                >
                   <td class="font-bold">{{ role.name }}</td>
                   <td>{{ role.desc || '—' }}</td>
-                  <td>{{ role.identity || '—' }}</td>
-                  <td>{{ role.tag || '—' }}</td>
                   <td>
                     <label class="switch">
                       <input type="checkbox" v-model="role.tagSwitch" />
@@ -97,22 +100,18 @@
                     </label>
                   </td>
                   <td>
-                    <label class="switch">
-                      <input type="checkbox" v-model="role.hideEquip" />
-                      <span class="slider"></span>
-                    </label>
+                    <div class="drag-handle-cell" title="按住拖曳上下拉動排序">
+                      <span class="drag-icon">☰</span>
+                      <span class="drag-text">拖曳</span>
+                    </div>
                   </td>
-                  <td>
-                    <label class="switch">
-                      <input type="checkbox" v-model="role.borderSwitch" />
-                      <span class="slider"></span>
-                    </label>
-                  </td>
-                  <td><input type="number" v-model.number="role.sortOrder" class="sort-input" /></td>
                   <td>
                     <button class="btn-link" @click="openRoleModal(role)">編輯</button>
                     <button class="btn-link text-red margin-l" @click="deleteRole(role.id)">刪除</button>
                   </td>
+                </tr>
+                <tr v-if="currentRoleList.length === 0">
+                  <td colspan="5" class="empty-cell">暫無職能資料</td>
                 </tr>
               </tbody>
             </table>
@@ -157,7 +156,7 @@
           </div>
         </div>
 
-        <!-- Tab 3: 排表模板 (150人矩陣) -->
+        <!-- Tab 3: 排表模板 -->
         <div v-else-if="currentTab === 'template'">
           <div class="prep-header">
             <h2>排表模板 (150人標準陣型)</h2>
@@ -170,14 +169,17 @@
                 <div v-for="(squad, sIdx) in team.squads" :key="sIdx" class="squad-box">
                   <div class="squad-head">
                     <span>{{ squad.name }}</span>
-                    <input type="text" v-model="squad.zhineng" placeholder="設定小隊職能" class="squad-input" />
+                    <select v-model="squad.zhineng" class="squad-input">
+                      <option value="">選擇小隊職能</option>
+                      <option v-for="sq in squadRoleList" :key="sq.id" :value="sq.name">{{ sq.name }}</option>
+                    </select>
                   </div>
                   <div class="slot-list">
                     <div v-for="(slot, slotIdx) in squad.slots" :key="slotIdx" class="slot-item">
                       <span class="slot-num">#{{ slotIdx + 1 }}</span>
                       <select v-model="slot.zhineng_list[0]" class="slot-select">
-                        <option value="">選取職能</option>
-                        <option v-for="r in roleList" :key="r.id" :value="r.name">{{ r.name }}</option>
+                        <option value="">選取個人職能</option>
+                        <option v-for="r in personalRoleList" :key="r.id" :value="r.name">{{ r.name }}</option>
                       </select>
                     </div>
                   </div>
@@ -209,7 +211,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(q, idx) in questionList" :key="q.id">
+                <tr v-for="q in questionList" :key="q.id">
                   <td>{{ q.sort_order }}</td>
                   <td class="font-bold">{{ q.title }}</td>
                   <td>{{ q.type === 'radio' ? '單選題' : q.type === 'checkbox' ? '多選題' : '簡答題' }}</td>
@@ -330,7 +332,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -341,42 +343,73 @@ const username = ref('VIP')
 const currentTab = ref('roles')
 const roleCategory = ref('personal')
 
-// 1. 職能數據
-const DEFAULT_ROLES = [
-  { id: 1, name: 'D潮拆塔', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 1 },
-  { id: 2, name: '保鏢拆', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 2 },
-  { id: 3, name: '埋頭猛拆', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 3 },
-  { id: 4, name: '塔仇主T', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 4 },
-  { id: 5, name: '增益絕', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 5 },
-  { id: 6, name: '奶絕', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 6 },
-  { id: 7, name: '指揮', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 7 },
-  { id: 8, name: '清泉人傷', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 8 },
-  { id: 9, name: '清泉保活', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 9 },
-  { id: 10, name: '灌大團', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 10 },
-  { id: 11, name: '點殺', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 11 },
-  { id: 12, name: '燒屍體', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 12 },
-  { id: 13, name: '破甲人傷', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 13 },
-  { id: 14, name: '純保鏢', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 14 },
-  { id: 15, name: '統戰', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 15 },
-  { id: 16, name: '騰龍保鏢', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 16 },
-  { id: 17, name: '騰龍合軸', desc: '—', identity: '—', tag: '—', tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: 17 }
-]
+// 1. 個人職能數據
+const personalRoleList = ref([
+  { id: 1, name: 'D潮拆塔', desc: '—', tagSwitch: false },
+  { id: 2, name: '保鏢拆', desc: '—', tagSwitch: false },
+  { id: 3, name: '埋頭猛拆', desc: '—', tagSwitch: false },
+  { id: 4, name: '塔仇主T', desc: '—', tagSwitch: false },
+  { id: 5, name: '增益絕', desc: '—', tagSwitch: false },
+  { id: 6, name: '奶絕', desc: '—', tagSwitch: false },
+  { id: 7, name: '指揮', desc: '—', tagSwitch: false },
+  { id: 8, name: '清泉人傷', desc: '—', tagSwitch: false },
+  { id: 9, name: '清泉保活', desc: '—', tagSwitch: false },
+  { id: 10, name: '灌大團', desc: '—', tagSwitch: false },
+  { id: 11, name: '點殺', desc: '—', tagSwitch: false },
+  { id: 12, name: '燒屍體', desc: '—', tagSwitch: false },
+  { id: 13, name: '破甲人傷', desc: '—', tagSwitch: false },
+  { id: 14, name: '純保鏢', desc: '—', tagSwitch: false },
+  { id: 15, name: '統戰', desc: '—', tagSwitch: false },
+  { id: 16, name: '騰龍保鏢', desc: '—', tagSwitch: false },
+  { id: 17, name: '騰龍合軸', desc: '—', tagSwitch: false }
+])
 
-// 2. 配裝數據
-const DEFAULT_BUILDS = [
+// 2. 小隊職能數據 (從圖二提取)
+const squadRoleList = ref([
+  { id: 101, name: '保鏢隊', desc: '—', tagSwitch: false },
+  { id: 102, name: '雙碎隊', desc: '—', tagSwitch: false },
+  { id: 103, name: '雙神隊', desc: '—', tagSwitch: false },
+  { id: 104, name: '塔前隊', desc: '—', tagSwitch: false },
+  { id: 105, name: '塔後隊', desc: '—', tagSwitch: false },
+  { id: 106, name: '請假隊', desc: '—', tagSwitch: false },
+  { id: 107, name: '輪空隊', desc: '—', tagSwitch: false }
+])
+
+// 動態依據子分頁取得當前編輯的職能清單
+const currentRoleList = computed(() => {
+  return roleCategory.value === 'personal' ? personalRoleList.value : squadRoleList.value
+})
+
+// 拖曳排序邏輯
+const dragIndex = ref(null)
+
+const onDragStart = (index) => {
+  dragIndex.value = index
+}
+
+const onDrop = (targetIndex) => {
+  if (dragIndex.value === null || dragIndex.value === targetIndex) return
+  const list = currentRoleList.value
+  const movedItem = list.splice(dragIndex.value, 1)[0]
+  list.splice(targetIndex, 0, movedItem)
+  dragIndex.value = null
+}
+
+// 配裝數據
+const buildList = ref([
   { id: 1, name: '拆塔爆發流', jueji: '殘陽夜月', qunxia: '方承意', zhuangbei: '75百煉破甲套' },
   { id: 2, name: '主T高防禦流', jueji: '太極圖', qunxia: '葉雪青', zhuangbei: '75百煉禦鐵套' },
   { id: 3, name: '廣域純奶流', jueji: '長歌獻君', qunxia: '無情', zhuangbei: '75百煉素問套' }
-]
+])
 
-// 3. 報名問題數據
-const DEFAULT_QUESTIONS = [
+// 報名問題數據
+const questionList = ref([
   { id: 1, title: '本週聯賽是否能準時出席？', type: 'radio', options: ['能準時出席', '需要請假', '不確定/晚到'], is_required: true, sort_order: 1 },
   { id: 2, title: '請選擇您的主力流派與次要流派', type: 'text', options: [], is_required: true, sort_order: 2 },
   { id: 3, title: '請填寫您的 Discord / 語音頻道 ID', type: 'text', options: [], is_required: false, sort_order: 3 }
-]
+])
 
-// 4. 排表數據生成
+// 排表數據生成
 const DEFAULT_TEAM_NAMES = ['一隊', '二隊', '三隊', '四隊', '五隊']
 
 function createDefaultSlot() {
@@ -416,25 +449,21 @@ function createDefaultTemplate() {
   }
 }
 
-// 頁面狀態
-const roleList = ref([...DEFAULT_ROLES])
+const templateData = ref(createDefaultTemplate())
+
+// Modal 控制邏輯
 const showRoleModal = ref(false)
 const editingRoleId = ref(null)
 const roleForm = ref({ name: '', desc: '' })
 
-const buildList = ref([...DEFAULT_BUILDS])
 const showBuildModal = ref(false)
 const editingBuildId = ref(null)
 const buildForm = ref({ name: '', jueji: '', qunxia: '', zhuangbei: '' })
 
-const templateData = ref(createDefaultTemplate())
-
-const questionList = ref([...DEFAULT_QUESTIONS])
 const showQuestionModal = ref(false)
 const editingQuestionId = ref(null)
 const questionForm = ref({ title: '', type: 'radio', optionsStr: '', is_required: true })
 
-// 操作函數
 const openRoleModal = (role = null) => {
   if (role) {
     editingRoleId.value = role.id
@@ -448,17 +477,30 @@ const openRoleModal = (role = null) => {
 
 const saveRole = () => {
   if (!roleForm.value.name.trim()) return alert('請輸入職能名稱！')
+  const targetList = currentRoleList.value
+
   if (editingRoleId.value) {
-    const idx = roleList.value.findIndex(r => r.id === editingRoleId.value)
-    if (idx > -1) roleList.value[idx] = { ...roleList.value[idx], ...roleForm.value }
+    const idx = targetList.findIndex(r => r.id === editingRoleId.value)
+    if (idx > -1) targetList[idx] = { ...targetList[idx], ...roleForm.value }
   } else {
-    roleList.value.push({ id: Date.now(), ...roleForm.value, tagSwitch: false, hideEquip: false, borderSwitch: false, sortOrder: roleList.value.length + 1 })
+    targetList.push({ 
+      id: Date.now(), 
+      name: roleForm.value.name.trim(),
+      desc: roleForm.value.desc.trim(),
+      tagSwitch: false
+    })
   }
   showRoleModal.value = false
 }
 
 const deleteRole = (id) => {
-  if (confirm('確定要刪除該職能嗎？')) roleList.value = roleList.value.filter(r => r.id !== id)
+  if (confirm('確定要刪除該職能嗎？')) {
+    if (roleCategory.value === 'personal') {
+      personalRoleList.value = personalRoleList.value.filter(r => r.id !== id)
+    } else {
+      squadRoleList.value = squadRoleList.value.filter(r => r.id !== id)
+    }
+  }
 }
 
 const openBuildModal = (b = null) => {
@@ -568,8 +610,13 @@ const handleLogout = () => {
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
 .data-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
-.drag-cell { display: flex; align-items: center; gap: 8px; color: #94a3b8; }
-.sort-input { width: 50px; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: center; font-size: 12px; }
+
+/* 拖曳欄位樣式 */
+.data-table tr[draggable="true"] { cursor: grab; }
+.data-table tr.dragging-row { opacity: 0.4; background: #f1f5f9; }
+.drag-handle-cell { display: flex; align-items: center; gap: 6px; color: #64748b; user-select: none; }
+.drag-icon { font-size: 16px; color: #94a3b8; }
+.drag-text { font-size: 12px; }
 
 /* 150人排表矩陣樣式 */
 .template-matrix { display: flex; flex-direction: column; gap: 20px; }
@@ -578,7 +625,7 @@ const handleLogout = () => {
 .squad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .squad-box { background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; }
 .squad-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 12px; }
-.squad-input { width: 90px; padding: 2px 6px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; }
+.squad-input { width: 100px; padding: 2px 6px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; }
 .slot-list { display: flex; flex-direction: column; gap: 4px; }
 .slot-item { display: flex; align-items: center; justify-content: space-between; font-size: 11px; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; }
 .slot-select { font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; }
@@ -605,4 +652,5 @@ input:checked + .slider:before { transform: translateX(16px); }
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .margin-l { margin-left: 10px; }
 .empty-tab-box { text-align: center; padding: 50px; color: #94a3b8; }
+.empty-cell { text-align: center; color: #94a3b8; padding: 20px; }
 </style>
