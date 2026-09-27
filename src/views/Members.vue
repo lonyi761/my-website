@@ -101,7 +101,7 @@
                 <td>{{ index + 1 }}</td>
                 <td class="font-bold">{{ member.name }}</td>
 
-                <!-- 流派點擊跳出快切選單 (對應圖三三) -->
+                <!-- 流派快切選單 -->
                 <td v-if="columns.school">
                   <div class="school-popover-wrapper" @click.stop>
                     <div class="school-cell clickable" @click="toggleSchoolPopover(member.id)" title="點擊切換流派">
@@ -112,10 +112,9 @@
                         :alt="member.currentSchool" 
                       />
                       <span v-else class="school-text-badge">{{ member.currentSchool }}</span>
-                      <span v-if="member.specTag" class="spec-tag">{{ member.specTag }}</span>
                     </div>
 
-                    <!-- 點擊圖示後顯示的選單 (PopOver) -->
+                    <!-- PopOver 快切選單 -->
                     <div v-if="activePopoverMemberId === member.id" class="school-popover-box">
                       <div class="popover-arrow"></div>
                       <button 
@@ -135,9 +134,31 @@
                   </div>
                 </td>
 
+                <!-- 幫眾狀態快切選單 -->
                 <td v-if="columns.status">
-                  <span :class="['status-badge', getStatusClass(member.status)]">{{ member.status }}</span>
+                  <div class="status-popover-wrapper" @click.stop>
+                    <span 
+                      :class="['status-badge', 'clickable', getStatusClass(member.status)]"
+                      @click="toggleStatusPopover(member.id)"
+                      title="點擊切換狀態"
+                    >
+                      {{ member.status }}
+                    </span>
+
+                    <div v-if="activeStatusPopoverMemberId === member.id" class="status-popover-box">
+                      <div class="popover-arrow"></div>
+                      <button 
+                        v-for="st in ['幫眾', '學徒', '退幫']" 
+                        :key="st"
+                        :class="['popover-status-btn', getStatusClass(st), { active: member.status === st }]"
+                        @click="quickSwitchStatus(member, st)"
+                      >
+                        {{ st }}
+                      </button>
+                    </div>
+                  </div>
                 </td>
+
                 <td v-if="columns.godlyWeapon">{{ member.hasGodlyWeapon ? '有' : '—' }}</td>
                 <td v-if="columns.attendance">{{ member.attendance || 0 }}</td>
                 <td v-if="columns.leave">{{ member.leave || 0 }}</td>
@@ -247,9 +268,6 @@
               <select v-model="memberForm.currentSchool">
                 <option v-for="s in memberForm.schools" :key="s" :value="s">{{ s }}</option>
               </select>
-
-              <label class="margin-l">姿勢/標籤：</label>
-              <input type="text" v-model="memberForm.specTag" placeholder="如：御、素心" style="width: 80px;" />
             </div>
 
             <div class="form-row">
@@ -395,19 +413,22 @@ const showMenu = ref(false)
 const username = ref('VIP')
 const role = ref('admin')
 
-// 記錄當前點開流派快切選單的成員 ID
 const activePopoverMemberId = ref(null)
+const activeStatusPopoverMemberId = ref(null)
 
 const toggleSchoolPopover = (memberId) => {
-  if (activePopoverMemberId.value === memberId) {
-    activePopoverMemberId.value = null
-  } else {
-    activePopoverMemberId.value = memberId
-  }
+  activeStatusPopoverMemberId.value = null
+  activePopoverMemberId.value = activePopoverMemberId.value === memberId ? null : memberId
+}
+
+const toggleStatusPopover = (memberId) => {
+  activePopoverMemberId.value = null
+  activeStatusPopoverMemberId.value = activeStatusPopoverMemberId.value === memberId ? null : memberId
 }
 
 const closePopover = () => {
   activePopoverMemberId.value = null
+  activeStatusPopoverMemberId.value = null
   showMenu.value = false
 }
 
@@ -416,9 +437,14 @@ const quickSwitchSchool = (member, schoolName) => {
   activePopoverMemberId.value = null
 }
 
-// 幫會列表
+const quickSwitchStatus = (member, status) => {
+  member.status = status
+  activeStatusPopoverMemberId.value = null
+}
+
+// 預設幫會：百錵谷酒池肉林
 const guildList = ref([
-  { id: 1, name: '天下雲五' },
+  { id: 1, name: '百錵谷酒池肉林' },
   { id: 2, name: '未分配' }
 ])
 const currentGuildId = ref(1)
@@ -426,7 +452,7 @@ const showGuildEditModal = ref(false)
 const targetEditGuild = ref(null)
 const editingGuildName = ref('')
 
-// 可選流派與對應 PNG 檔名
+// 可選流派與 PNG 檔名
 const availableSchools = ref([
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -445,12 +471,12 @@ const getSchoolImg = (fileName) => {
   return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
 }
 
-// 成員列表資料
+// 成員清單
 const members = ref([
-  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', specTag: '御', hasGodlyWeapon: false, guild: '天下雲五', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', attendance: 12, leave: 0, rolePref: '禦' },
-  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', specTag: '', hasGodlyWeapon: true, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 15, leave: 1, rolePref: '' },
-  { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', specTag: '', hasGodlyWeapon: false, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 10, leave: 0, rolePref: '' },
-  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', specTag: '素心', hasGodlyWeapon: false, guild: '天下雲五', status: '幫眾', contact: '', notes: '', tether: '', attendance: 8, leave: 0, rolePref: '' }
+  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', attendance: 12, leave: 0, rolePref: '禦' },
+  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 15, leave: 1, rolePref: '' },
+  { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 10, leave: 0, rolePref: '' },
+  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 8, leave: 0, rolePref: '' }
 ])
 
 const searchQuery = ref('')
@@ -489,9 +515,8 @@ const memberForm = ref({
   formerNames: [],
   schools: [],
   currentSchool: '',
-  specTag: '',
   hasGodlyWeapon: false,
-  guild: '天下雲五',
+  guild: '百錵谷酒池肉林',
   status: '幫眾',
   contact: '',
   notes: '',
@@ -501,12 +526,12 @@ const memberForm = ref({
 
 // 截圖與批量
 const showImportModal = ref(false)
-const importTargetGuild = ref('天下雲五')
+const importTargetGuild = ref('百錵谷酒池肉林')
 const fileInput = ref(null)
 const ocrPreviewList = ref([])
 
 const showBatchModal = ref(false)
-const batchTargetGuild = ref('天下雲五')
+const batchTargetGuild = ref('百錵谷酒池肉林')
 
 // 依幫會篩選
 const currentGuildName = computed(() => {
@@ -637,7 +662,6 @@ const openMemberModal = (member = null) => {
       formerNames: [],
       schools: [],
       currentSchool: '',
-      specTag: '',
       hasGodlyWeapon: false,
       guild: currentGuildName.value,
       status: '幫眾',
@@ -694,7 +718,6 @@ const confirmImport = () => {
       formerNames: [],
       schools: [item.school],
       currentSchool: item.school,
-      specTag: '',
       hasGodlyWeapon: false,
       guild: importTargetGuild.value,
       status: '幫眾',
@@ -791,22 +814,28 @@ const handleLogout = () => {
 .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; }
 
-/* 表格欄位與浮動 PopOver 選單 (對應圖三三風格) */
+/* 表格欄位與 PopOver 選單 */
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; position: relative; }
 .data-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
 
-.school-popover-wrapper { position: relative; display: inline-block; }
+.school-popover-wrapper, .status-popover-wrapper { position: relative; display: inline-block; }
 .school-cell.clickable { cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 6px; transition: background 0.2s; }
 .school-cell.clickable:hover { background: #f1f5f9; }
 .school-img-badge { width: 24px; height: 24px; object-fit: contain; }
 .school-text-badge { background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
 
-/* 氣泡選單 PopOver (對應圖三三) */
-.school-popover-box {
+.status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
+.status-badge.clickable { cursor: pointer; transition: transform 0.15s; }
+.status-badge.clickable:hover { transform: scale(1.08); }
+.status-green { background: #dcfce7; color: #16a34a; }
+.status-blue { background: #e0e7ff; color: #4338ca; }
+.status-gray { background: #f1f5f9; color: #64748b; }
+
+.school-popover-box, .status-popover-box {
   position: absolute;
-  bottom: 110%;
+  bottom: 115%;
   left: 50%;
   transform: translateX(-50%);
   background: #ffffff;
@@ -849,11 +878,19 @@ const handleLogout = () => {
 }
 .popover-btn-img { width: 16px; height: 16px; object-fit: contain; }
 
-.spec-tag { border: 1px solid #cbd5e1; color: #64748b; font-size: 11px; padding: 0 4px; border-radius: 4px; }
-.status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; }
-.status-green { background: #dcfce7; color: #16a34a; }
-.status-blue { background: #e0e7ff; color: #4338ca; }
-.status-gray { background: #f1f5f9; color: #64748b; }
+.popover-status-btn {
+  border: 1px solid transparent;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.popover-status-btn.active {
+  box-shadow: 0 0 0 2px #3b82f6;
+  font-weight: bold;
+}
+
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }
