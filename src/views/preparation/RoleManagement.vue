@@ -89,6 +89,24 @@
         </div>
       </div>
     </div>
+
+    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-body">
+          <div class="warning-icon-wrapper">
+            <i class="mdi mdi-alert-circle warning-icon"></i>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-msg">{{ confirmMessage }}</p>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -96,6 +114,24 @@
 import { ref, computed } from 'vue'
 
 const roleCategory = ref('personal')
+
+// 美化置中刪除確認 Modal 狀態
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
+const executeConfirmAction = () => {
+  if (confirmActionCallback) confirmActionCallback()
+  showConfirmModal.value = false
+}
 
 const personalRoleList = ref([
   { id: 1, name: 'D潮拆塔', desc: '—', tagSwitch: false },
@@ -169,10 +205,22 @@ const saveRole = () => {
 }
 
 const deleteRole = (id) => {
-  if (confirm('確定要刪除該職能嗎？')) {
-    if (roleCategory.value === 'personal') personalRoleList.value = personalRoleList.value.filter(r => r.id !== id)
-    else squadRoleList.value = squadRoleList.value.filter(r => r.id !== id)
-  }
+  const list = currentRoleList.value
+  const target = list.find(r => r.id === id)
+  const targetName = target ? target.name : ''
+  const categoryName = roleCategory.value === 'personal' ? '個人職能' : '小隊職能'
+
+  triggerConfirmModal(
+    `刪除${categoryName}`,
+    `確定要刪除${categoryName}「${targetName}」嗎？刪除後無法恢復。`,
+    () => {
+      if (roleCategory.value === 'personal') {
+        personalRoleList.value = personalRoleList.value.filter(r => r.id !== id)
+      } else {
+        squadRoleList.value = squadRoleList.value.filter(r => r.id !== id)
+      }
+    }
+  )
 }
 </script>
 
@@ -185,6 +233,7 @@ const deleteRole = (id) => {
 .sub-tab-btn.active { color: #2563eb; font-weight: bold; }
 .sub-tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: #2563eb; }
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
@@ -215,6 +264,16 @@ input:checked + .slider:before { transform: translateX(16px); }
 .form-row label { width: 80px; font-weight: bold; }
 .form-row input[type="text"] { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
 .req { color: #ef4444; }
+
+/* 置中刪除確認 Modal */
+.confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
+.confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
+.warning-icon { font-size: 28px; color: #d97706; }
+.confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
+.confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 20px; }
 </style>

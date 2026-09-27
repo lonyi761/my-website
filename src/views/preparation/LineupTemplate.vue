@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <!-- 2. 排表矩陣編輯視圖 (圖三 & 圖五) -->
+    <!-- 2. 排表矩陣編輯視圖 -->
     <div v-else-if="currentView === 'editor'" class="editor-container">
       <div class="editor-header-bar">
         <div class="back-title-group">
@@ -61,7 +61,7 @@
         </div>
 
         <div class="editor-top-actions">
-          <!-- 顯示詳情開關 (圖五對應) -->
+          <!-- 顯示詳情開關 -->
           <div class="switch-control">
             <span class="switch-label-text">顯示詳情</span>
             <label class="switch">
@@ -96,7 +96,7 @@
                 <i class="mdi mdi-cog-outline squad-cog-icon"></i>
               </div>
 
-              <!-- 6個席位列表 (精簡 vs 詳情視圖) -->
+              <!-- 6個席位列表 -->
               <div class="slots-container">
                 <div 
                   v-for="(slot, slotIdx) in squad.slots" 
@@ -105,10 +105,9 @@
                   :style="getSlotCardStyle(slot)"
                   @click="openSlotModal(team, squad, slot, slotIdx)"
                 >
-                  <!-- 1. 精簡檢視 (只顯示流派圖標 + 職能名稱) -->
+                  <!-- 精簡檢視 -->
                   <template v-if="!showDetails">
                     <div class="slot-compact-body">
-                      <!-- 流派圖標列表 (僅顯示 Icon) -->
                       <div class="slot-school-icons" v-if="slot.liupai_list && slot.liupai_list.length > 0">
                         <img 
                           v-for="sName in slot.liupai_list" 
@@ -122,7 +121,7 @@
                     </div>
                   </template>
 
-                  <!-- 2. 詳情檢視 (圖五對應) -->
+                  <!-- 詳情檢視 -->
                   <template v-else>
                     <div class="slot-detail-body">
                       <div class="detail-head">
@@ -267,12 +266,12 @@
       </div>
     </div>
 
-    <!-- 6. 席位配置 Modal (圖一對齊成員圖二樣式) -->
-    <div v-if="showSlotModal" class="modal-overlay" @click.self="showSlotModal = false">
-      <div class="modal-card slot-modal-card">
+    <!-- 6. 席位配置 Modal -->
+    <div v-if="showSlotModal" class="modal-overlay" @click.self="closeSlotModal">
+      <div class="modal-card slot-modal-card" @click="closeAllSkillDropdowns">
         <div class="modal-header">
           <h3>席位配置</h3>
-          <span class="close-btn" @click="showSlotModal = false">&times;</span>
+          <span class="close-btn" @click="closeSlotModal">&times;</span>
         </div>
 
         <div class="modal-body">
@@ -280,7 +279,7 @@
             {{ activeTeamForSlot?.name }} - {{ activeSquadForSlot?.name }} - 第 {{ activeSlotIndex + 1 }} 席
           </div>
 
-          <!-- 推薦流派：對齊成員編輯的圖文膠囊按鈕 (圖一與圖二對應) -->
+          <!-- 推薦流派 -->
           <div class="form-block">
             <div class="block-title"><span class="req">*</span>推薦流派</div>
             <div class="school-pills-group">
@@ -297,7 +296,7 @@
             </div>
           </div>
 
-          <!-- 推薦職能 (個人職能標籤按鈕) -->
+          <!-- 推薦職能 -->
           <div class="form-block margin-t">
             <div class="block-title">推薦職能</div>
             <div class="role-tag-grid">
@@ -312,12 +311,12 @@
             </div>
           </div>
 
-          <!-- 推薦技能 (原推薦配裝) -->
+          <!-- 推薦技能（修復為右側獨立箭頭拉選單） -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
             <div class="sub-hint">與聯賽排表中的配裝資訊一致，可從歷史記錄選擇或手動輸入，每項最長 20 字。</div>
 
-            <!-- 絕技 (單選修復) -->
+            <!-- 絕技 -->
             <div class="skill-input-row margin-t">
               <label>絕技：</label>
               <div class="custom-dropdown-container">
@@ -327,14 +326,23 @@
                   placeholder="輸入或選擇絕技" 
                   maxlength="20"
                   class="skill-input-field"
-                  @focus="activeSkillDropdown = 'jueji'"
+                  @click.stop
                 />
+                <button 
+                  type="button" 
+                  class="dropdown-toggle-btn" 
+                  @click.stop="toggleSkillDropdown('jueji')"
+                  title="點擊展開選單"
+                >
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'jueji' }]"></i>
+                </button>
+
                 <div v-if="activeSkillDropdown === 'jueji'" class="skill-dropdown-panel" @click.stop>
                   <div 
                     v-for="j in juejiOptions" 
                     :key="j" 
                     class="dropdown-item"
-                    @mousedown.prevent.stop="selectJueji(j)"
+                    @click="selectJueji(j)"
                   >
                     {{ j }}
                   </div>
@@ -342,7 +350,7 @@
               </div>
             </div>
 
-            <!-- 群俠百家 (複選修復) -->
+            <!-- 群俠百家 -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -352,14 +360,23 @@
                   placeholder="輸入或選擇群俠百家 (可複選)" 
                   maxlength="20"
                   class="skill-input-field"
-                  @focus="activeSkillDropdown = 'qunxia'"
+                  @click.stop
                 />
+                <button 
+                  type="button" 
+                  class="dropdown-toggle-btn" 
+                  @click.stop="toggleSkillDropdown('qunxia')"
+                  title="點擊展開選單"
+                >
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia' }]"></i>
+                </button>
+
                 <div v-if="activeSkillDropdown === 'qunxia'" class="skill-dropdown-panel" @click.stop>
                   <div 
                     v-for="q in qunxiaOptions" 
                     :key="q" 
                     :class="['dropdown-item', { selected: isQunxiaSelected(q) }]"
-                    @mousedown.prevent.stop="toggleQunxia(q)"
+                    @click="toggleQunxia(q)"
                   >
                     <span>{{ q }}</span>
                     <i v-if="isQunxiaSelected(q)" class="mdi mdi-check check-icon"></i>
@@ -368,7 +385,7 @@
               </div>
             </div>
 
-            <!-- 流派技能 (複選修復) -->
+            <!-- 流派技能 -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -378,14 +395,23 @@
                   placeholder="輸入或選擇流派技能 (可複選)" 
                   maxlength="20"
                   class="skill-input-field"
-                  @focus="activeSkillDropdown = 'liupai'"
+                  @click.stop
                 />
+                <button 
+                  type="button" 
+                  class="dropdown-toggle-btn" 
+                  @click.stop="toggleSkillDropdown('liupai')"
+                  title="點擊展開選單"
+                >
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'liupai' }]"></i>
+                </button>
+
                 <div v-if="activeSkillDropdown === 'liupai'" class="skill-dropdown-panel" @click.stop>
                   <div 
                     v-for="l in liupaiSkillOptions" 
                     :key="l" 
                     :class="['dropdown-item', { selected: isLiupaiSelected(l) }]"
-                    @mousedown.prevent.stop="toggleLiupaiSkill(l)"
+                    @click="toggleLiupaiSkill(l)"
                   >
                     <span>{{ l }}</span>
                     <i v-if="isLiupaiSelected(l)" class="mdi mdi-check check-icon"></i>
@@ -413,13 +439,13 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" @click="showSlotModal = false">取消</button>
+          <button class="btn-secondary" @click="closeSlotModal">取消</button>
           <button class="btn-primary" @click="saveSlotModal">確定</button>
         </div>
       </div>
     </div>
 
-    <!-- 7. 美化置中刪除確認 Modal (圖四對應) -->
+    <!-- 7. 美化置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -444,9 +470,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const currentView = ref('list')
 const searchQuery = ref('')
-const showDetails = ref(false) // 顯示詳情開關 (圖五對應)
+const showDetails = ref(false)
 
-// 可選流派 (對齊 Members.vue 格式與圖標)
 const availableSchools = [
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -471,19 +496,16 @@ const getSchoolImgByName = (schoolName) => {
   return found ? getSchoolImg(found.file) : ''
 }
 
-// 個人職能 (17項)
 const personalRoleOptions = [
   'D潮拆塔', '保鏢拆', '埋頭猛拆', '塔仇主T', '增益絕', '奶絕', '指揮',
   '清泉人傷', '清泉保活', '灌大團', '點殺', '燒屍體', '破甲人傷',
   '純保鏢', '統戰', '騰龍保鏢', '騰龍合軸'
 ]
 
-// 小隊職能 (7項)
 const squadRoleOptions = [
   '保鏢隊', '雙碎隊', '雙神隊', '塔前隊', '塔後隊', '請假隊', '輪空隊'
 ]
 
-// 既有技能數據
 const juejiOptions = ['狂發一怒', '太極圖']
 const qunxiaOptions = ['咚咚跳台', '雲影濁香']
 const liupaiSkillOptions = ['約定', '清泉']
@@ -502,7 +524,7 @@ const schoolColorMap = {
   '鴻音': '#fce7f3'
 }
 
-// 置中刪除確認 Modal (圖四)
+// 置中刪除確認 Modal
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -759,6 +781,23 @@ const openSlotModal = (team, squad, slot, slotIdx) => {
   showSlotModal.value = true
 }
 
+const closeSlotModal = () => {
+  showSlotModal.value = false
+  activeSkillDropdown.value = null
+}
+
+const closeAllSkillDropdowns = () => {
+  activeSkillDropdown.value = null
+}
+
+const toggleSkillDropdown = (type) => {
+  if (activeSkillDropdown.value === type) {
+    activeSkillDropdown.value = null
+  } else {
+    activeSkillDropdown.value = type
+  }
+}
+
 const toggleSlotSchool = (sName) => {
   const idx = slotForm.value.liupai_list.indexOf(sName)
   if (idx > -1) slotForm.value.liupai_list.splice(idx, 1)
@@ -837,16 +876,12 @@ const getSlotCardStyle = (slot) => {
   return { backgroundColor: '#f1f5f9' }
 }
 
-const handleGlobalClick = () => {
-  activeSkillDropdown.value = null
-}
-
 onMounted(() => {
-  window.addEventListener('click', handleGlobalClick)
+  window.addEventListener('click', closeAllSkillDropdowns)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('click', handleGlobalClick)
+  window.removeEventListener('click', closeAllSkillDropdowns)
 })
 </script>
 
@@ -909,7 +944,7 @@ onUnmounted(() => {
 .slot-icon-badge { width: 16px; height: 16px; object-fit: contain; }
 .slot-role-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 詳情視圖樣式 (圖五對應) */
+/* 詳情視圖樣式 */
 .slot-card.detail-mode { flex-direction: column; align-items: flex-start; padding: 8px 10px; }
 .slot-detail-body { display: flex; flex-direction: column; gap: 2px; width: 100%; font-size: 11px; color: #475569; }
 .detail-head { display: flex; align-items: center; gap: 4px; font-weight: bold; color: #1e293b; margin-bottom: 4px; }
@@ -947,7 +982,7 @@ onUnmounted(() => {
 .danger-zone { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #f1f5f9; }
 .text-gray-val { font-size: 13px; color: #475569; font-weight: 500; }
 
-/* 席位配置 Modal (圖一對齊圖二膠囊按鈕樣式) */
+/* 席位配置 Modal (膠囊圖示按鈕對齊圖一/圖二) */
 .slot-location-tag { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-bottom: 15px; }
 .form-block { display: flex; flex-direction: column; gap: 8px; }
 .block-title { font-weight: bold; font-size: 13px; color: #1e293b; }
@@ -964,17 +999,21 @@ onUnmounted(() => {
 
 .skill-input-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .skill-input-row label { width: 80px; font-weight: bold; color: #334155; }
-.skill-input-field { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
 
-/* 技能下拉面板 */
-.custom-dropdown-container { position: relative; flex: 1; }
+/* 技能輸入框與右側下拉按鈕 */
+.custom-dropdown-container { position: relative; flex: 1; display: flex; align-items: center; }
+.skill-input-field { width: 100%; padding: 6px 30px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
+.dropdown-toggle-btn { position: absolute; right: 4px; background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px 6px; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+.dropdown-toggle-btn i { transition: transform 0.2s; }
+.dropdown-toggle-btn i.rotate { transform: rotate(180deg); }
+
 .skill-dropdown-panel { position: absolute; top: 100%; left: 0; width: 100%; margin-top: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 160px; overflow-y: auto; z-index: 120; padding: 4px 0; }
 .dropdown-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 13px; cursor: pointer; color: #334155; }
 .dropdown-item:hover { background: #f1f5f9; }
 .dropdown-item.selected { color: #2563eb; font-weight: bold; background: #eff6ff; }
 .check-icon { font-size: 16px; color: #2563eb; }
 
-/* 置中刪除確認 Modal (圖四對應) */
+/* 置中刪除確認 Modal */
 .confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
 .confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }

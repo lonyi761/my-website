@@ -136,6 +136,24 @@
         </div>
       </div>
     </div>
+
+    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-body">
+          <div class="warning-icon-wrapper">
+            <i class="mdi mdi-alert-circle warning-icon"></i>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-msg">{{ confirmMessage }}</p>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -146,6 +164,24 @@ const questionList = ref([
   { id: 1, title: '本場聯賽開車', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 1 },
   { id: 2, title: '本場聯賽保車', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 2 }
 ])
+
+// 美化置中刪除確認 Modal 狀態
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
+const executeConfirmAction = () => {
+  if (confirmActionCallback) confirmActionCallback()
+  showConfirmModal.value = false
+}
 
 const questionDragIndex = ref(null)
 const onQuestionDragStart = (index) => { questionDragIndex.value = index }
@@ -233,7 +269,15 @@ const saveQuestion = () => {
 }
 
 const deleteQuestion = (id) => {
-  if (confirm('確定要刪除該問題嗎？')) questionList.value = questionList.value.filter(q => q.id !== id)
+  const q = questionList.value.find(item => item.id === id)
+  const qTitle = q ? q.title : ''
+  triggerConfirmModal(
+    '刪除報名問題',
+    `確定要刪除問題「${qTitle}」嗎？刪除後無法恢復。`,
+    () => {
+      questionList.value = questionList.value.filter(q => q.id !== id)
+    }
+  )
 }
 </script>
 
@@ -242,6 +286,7 @@ const deleteQuestion = (id) => {
 .header-with-btn { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .sub-notice { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0 0 20px 0; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #3b82f6; }
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
@@ -294,6 +339,15 @@ input:checked + .slider:before { transform: translateX(16px); }
 .sort-input-group { display: flex; align-items: center; flex: 1; }
 .sort-num-input { width: 80px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; }
 .type-hint-text { font-size: 12px; color: #94a3b8; }
+
+/* 置中刪除確認 Modal */
+.confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
+.confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
+.warning-icon { font-size: 28px; color: #d97706; }
+.confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
+.confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
 
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }

@@ -99,6 +99,24 @@
         </div>
       </div>
     </div>
+
+    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-body">
+          <div class="warning-icon-wrapper">
+            <i class="mdi mdi-alert-circle warning-icon"></i>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-msg">{{ confirmMessage }}</p>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -107,6 +125,24 @@ import { ref, computed } from 'vue'
 
 const skillCategory = ref('jueji')
 const searchSkillQuery = ref('')
+
+// 美化置中刪除確認 Modal 狀態
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
+const executeConfirmAction = () => {
+  if (confirmActionCallback) confirmActionCallback()
+  showConfirmModal.value = false
+}
 
 const juejiSkillList = ref([
   { id: 1, content: '狂發一怒', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' },
@@ -190,11 +226,19 @@ const saveSkill = () => {
 }
 
 const deleteSkill = (id) => {
-  if (confirm('確定要刪除該技能嗎？')) {
-    if (skillCategory.value === 'jueji') juejiSkillList.value = juejiSkillList.value.filter(s => s.id !== id)
-    else if (skillCategory.value === 'qunxia') qunxiaSkillList.value = qunxiaSkillList.value.filter(s => s.id !== id)
-    else liupaiSkillList.value = liupaiSkillList.value.filter(s => s.id !== id)
-  }
+  const list = currentSkillList.value
+  const target = list.find(s => s.id === id)
+  const targetName = target ? target.content : ''
+
+  triggerConfirmModal(
+    '刪除技能',
+    `確定要刪除${skillCategoryLabel.value}「${targetName}」嗎？刪除後無法恢復。`,
+    () => {
+      if (skillCategory.value === 'jueji') juejiSkillList.value = juejiSkillList.value.filter(s => s.id !== id)
+      else if (skillCategory.value === 'qunxia') qunxiaSkillList.value = qunxiaSkillList.value.filter(s => s.id !== id)
+      else liupaiSkillList.value = liupaiSkillList.value.filter(s => s.id !== id)
+    }
+  )
 }
 </script>
 
@@ -216,6 +260,7 @@ const deleteSkill = (id) => {
 .font-bold { font-weight: bold; }
 
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
@@ -249,6 +294,15 @@ const deleteSkill = (id) => {
 .textarea-wrapper { position: relative; flex: 1; display: flex; flex-direction: column; }
 .skill-textarea { width: 100%; height: 80px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; resize: none; box-sizing: border-box; outline: none; }
 .char-counter { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: #94a3b8; pointer-events: none; }
+
+/* 置中刪除確認 Modal */
+.confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
+.confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
+.warning-icon { font-size: 28px; color: #d97706; }
+.confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
+.confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
 
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }

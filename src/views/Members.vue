@@ -420,6 +420,23 @@
       </div>
     </div>
 
+    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-body">
+          <div class="warning-icon-wrapper">
+            <i class="mdi mdi-alert-circle warning-icon"></i>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-msg">{{ confirmMessage }}</p>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -435,6 +452,24 @@ const role = ref('admin')
 
 const activePopoverMemberId = ref(null)
 const activeStatusPopoverMemberId = ref(null)
+
+// 美化置中刪除確認 Modal 狀態 (圖四對應)
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
+const executeConfirmAction = () => {
+  if (confirmActionCallback) confirmActionCallback()
+  showConfirmModal.value = false
+}
 
 // 戰備個人職能（17項）
 const personalRoleOptions = [
@@ -501,7 +536,7 @@ const getSchoolImg = (fileName) => {
   return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
 }
 
-// 成員清單 (已移除出勤與請假，修正預設職能偏好)
+// 成員清單
 const members = ref([
   { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', rolePref: '未設置', rolePrefList: [] },
   { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] },
@@ -512,7 +547,7 @@ const members = ref([
 const searchQuery = ref('')
 const selectedMemberIds = ref([])
 
-// 表格列控制 (已移除出勤與請假)
+// 表格列控制
 const showColumnModal = ref(false)
 const columnList = [
   { key: 'school', label: '流派' },
@@ -624,16 +659,21 @@ const saveGuildName = () => {
   }
 }
 
+// 移除幫會：置中確認彈窗
 const deleteGuild = () => {
-  if (confirm(`確定要移除幫會【${targetEditGuild.value.name}】嗎？該幫會的成員將移至【未分配】。`)) {
-    const targetName = targetEditGuild.value.name
-    members.value.forEach(m => {
-      if (m.guild === targetName) m.guild = '未分配'
-    })
-    guildList.value = guildList.value.filter(g => g.id !== targetEditGuild.value.id)
-    currentGuildId.value = guildList.value[0]?.id || 1
-    showGuildEditModal.value = false
-  }
+  const targetName = targetEditGuild.value.name
+  triggerConfirmModal(
+    '移除幫會',
+    `確定要移除幫會【${targetName}】嗎？該幫會的成員將移至【未分配】。`,
+    () => {
+      members.value.forEach(m => {
+        if (m.guild === targetName) m.guild = '未分配'
+      })
+      guildList.value = guildList.value.filter(g => g.id !== targetEditGuild.value.id)
+      currentGuildId.value = guildList.value[0]?.id || 1
+      showGuildEditModal.value = false
+    }
+  )
 }
 
 const isAllSelected = computed(() => {
@@ -693,10 +733,15 @@ const handleAddSchool = () => {
   }
 }
 
+// 刪除自訂流派：置中確認彈窗
 const deleteSchool = (schoolName) => {
-  if (confirm(`確定要刪除流派【${schoolName}】嗎？`)) {
-    availableSchools.value = availableSchools.value.filter(s => s.name !== schoolName)
-  }
+  triggerConfirmModal(
+    '刪除流派',
+    `確定要刪除流派【${schoolName}】嗎？`,
+    () => {
+      availableSchools.value = availableSchools.value.filter(s => s.name !== schoolName)
+    }
+  )
 }
 
 const openMemberModal = (member = null) => {
@@ -751,10 +796,17 @@ const saveMember = () => {
   showMemberModal.value = false
 }
 
+// 刪除成員：置中確認彈窗
 const deleteMember = (id) => {
-  if (confirm('確定要刪除該成員嗎？')) {
-    members.value = members.value.filter(m => m.id !== id)
-  }
+  const m = members.value.find(item => item.id === id)
+  const mName = m ? m.name : ''
+  triggerConfirmModal(
+    '刪除成員',
+    `確定要刪除成員【${mName}】嗎？刪除後無法恢復。`,
+    () => {
+      members.value = members.value.filter(item => item.id !== id)
+    }
+  )
 }
 
 const triggerFileUpload = () => {
@@ -807,12 +859,18 @@ const handleBatchMove = () => {
   showBatchModal.value = false
 }
 
+// 批量刪除成員：置中確認彈窗
 const handleBatchDelete = () => {
-  if (confirm(`確定要刪除選中的 ${selectedMemberIds.value.length} 名成員嗎？`)) {
-    members.value = members.value.filter(m => !selectedMemberIds.value.includes(m.id))
-    selectedMemberIds.value = []
-    showBatchModal.value = false
-  }
+  const count = selectedMemberIds.value.length
+  triggerConfirmModal(
+    '批量刪除成員',
+    `確定要刪除選中的 ${count} 名成員嗎？刪除後無法恢復。`,
+    () => {
+      members.value = members.value.filter(m => !selectedMemberIds.value.includes(m.id))
+      selectedMemberIds.value = []
+      showBatchModal.value = false
+    }
+  )
 }
 
 onMounted(() => {
@@ -872,6 +930,7 @@ const handleLogout = () => {
 .left-actions { display: flex; gap: 10px; align-items: center; }
 .search-input { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; }
@@ -971,7 +1030,7 @@ const handleLogout = () => {
 .btn-add-school { border: 1px dashed #3b82f6; background: #eff6ff; color: #3b82f6; padding: 4px 10px; border-radius: 20px; font-size: 12px; cursor: pointer; }
 .del-school-x { margin-left: 4px; color: #ef4444; font-weight: bold; cursor: pointer; }
 
-/* 下拉複選框組件樣式 (對應圖二) */
+/* 下拉複選框組件樣式 */
 .custom-select-wrapper { position: relative; flex: 1; }
 .custom-select-input { 
   display: flex; 
@@ -1027,6 +1086,15 @@ const handleLogout = () => {
 }
 
 .check-icon { font-size: 16px; color: #2563eb; }
+
+/* 置中刪除確認 Modal (圖四對應) */
+.confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
+.confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
+.warning-icon { font-size: 28px; color: #d97706; }
+.confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
+.confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
 
 /* 彈窗基礎 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
