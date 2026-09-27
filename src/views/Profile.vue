@@ -101,7 +101,7 @@
                 <td>{{ index + 1 }}</td>
                 <td class="font-bold">{{ member.name }}</td>
 
-                <!-- 流派點擊跳出快切選單 -->
+                <!-- 流派快切選單 -->
                 <td v-if="columns.school">
                   <div class="school-popover-wrapper" @click.stop>
                     <div class="school-cell clickable" @click="toggleSchoolPopover(member.id)" title="點擊切換流派">
@@ -114,7 +114,7 @@
                       <span v-else class="school-text-badge">{{ member.currentSchool }}</span>
                     </div>
 
-                    <!-- PopOver 快切選單 -->
+                    <!-- PopOver 選單 -->
                     <div v-if="activePopoverMemberId === member.id" class="school-popover-box">
                       <div class="popover-arrow"></div>
                       <button 
@@ -134,7 +134,7 @@
                   </div>
                 </td>
 
-                <!-- 幫眾狀態點擊快切選單 -->
+                <!-- 幫眾狀態快切選單 -->
                 <td v-if="columns.status">
                   <div class="status-popover-wrapper" @click.stop>
                     <span 
@@ -443,7 +443,7 @@ const quickSwitchStatus = (member, status) => {
   activeStatusPopoverMemberId.value = null
 }
 
-// 幫會列表 (更新預設幫會名稱)
+// 預設幫會：百錵谷酒池肉林
 const guildList = ref([
   { id: 1, name: '百錵谷酒池肉林' },
   { id: 2, name: '未分配' }
@@ -453,7 +453,7 @@ const showGuildEditModal = ref(false)
 const targetEditGuild = ref(null)
 const editingGuildName = ref('')
 
-// 可選流派與對應 PNG 檔名
+// 可選流派與 PNG 檔名
 const availableSchools = ref([
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -472,7 +472,7 @@ const getSchoolImg = (fileName) => {
   return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
 }
 
-// 成員列表資料
+// 成員清單（預設百錵谷酒池肉林，且更新錵小錵）
 const members = ref([
   { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', attendance: 12, leave: 0, rolePref: '禦' },
   { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', attendance: 15, leave: 1, rolePref: '' },
@@ -815,7 +815,7 @@ const handleLogout = () => {
 .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; }
 
-/* 表格欄位與 PopOver 快切選單 */
+/* 表格欄位與 PopOver 選單 */
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; position: relative; }
@@ -827,7 +827,6 @@ const handleLogout = () => {
 .school-img-badge { width: 24px; height: 24px; object-fit: contain; }
 .school-text-badge { background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
 
-/* 狀態標籤與快切 */
 .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
 .status-badge.clickable { cursor: pointer; transition: transform 0.15s; }
 .status-badge.clickable:hover { transform: scale(1.08); }
@@ -835,7 +834,6 @@ const handleLogout = () => {
 .status-blue { background: #e0e7ff; color: #4338ca; }
 .status-gray { background: #f1f5f9; color: #64748b; }
 
-/* 氣泡選單 PopOver */
 .school-popover-box, .status-popover-box {
   position: absolute;
   bottom: 115%;
