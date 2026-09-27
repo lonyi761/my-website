@@ -31,15 +31,13 @@
 
     <!-- 主要內容區 -->
     <div class="prep-main">
-      <!-- 左側選單 -->
+      <!-- 左側選單 (已刪除 廣場招募 與 積分) -->
       <aside class="prep-sidebar">
         <ul class="sidebar-menu">
           <li :class="{ active: currentTab === 'roles' }" @click="currentTab = 'roles'">職能管理</li>
           <li :class="{ active: currentTab === 'skill' }" @click="currentTab = 'skill'">技能管理</li>
           <li :class="{ active: currentTab === 'template' }" @click="currentTab = 'template'">排表模板</li>
-          <li :class="{ active: currentTab === 'recruit' }" @click="currentTab = 'recruit'">廣場招募</li>
           <li :class="{ active: currentTab === 'faq' }" @click="currentTab = 'faq'">報名問題</li>
-          <li :class="{ active: currentTab === 'points' }" @click="currentTab = 'points'">積分</li>
         </ul>
       </aside>
 
@@ -68,7 +66,6 @@
             </div>
           </div>
 
-          <!-- 職能表格 -->
           <div class="table-container">
             <table class="data-table">
               <thead>
@@ -217,48 +214,65 @@
           </div>
         </div>
 
-        <!-- Tab 5: 報名問題 -->
+        <!-- Tab 4: 報名問題 (圖一對應) -->
         <div v-else-if="currentTab === 'faq'">
           <div class="prep-header">
-            <h2>報名問題管理</h2>
-            <p class="sub-notice">設定成員報名聯賽時需要填寫的調查題目。</p>
+            <div class="header-with-btn">
+              <h2>報名問題</h2>
+              <button class="btn-primary" @click="openQuestionModal()">+ 新增報名問題</button>
+            </div>
+            <p class="sub-notice">
+              維護本戶組供成員報名的表格問題，拖動左側圖標調整順序，成員報名頁面將看到這些題目。
+            </p>
           </div>
-          <div class="toolbar">
-            <button class="btn-primary" @click="openQuestionModal()">+ 新增報名問題</button>
-          </div>
+
           <div class="table-container">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th width="60">排序</th>
-                  <th>題目名稱</th>
-                  <th>問題類型</th>
-                  <th>選項內容</th>
+                  <th width="40"></th>
+                  <th>題幹</th>
+                  <th width="100">題型</th>
+                  <th>選項 / 提示</th>
                   <th width="80">必填</th>
-                  <th width="120">操作</th>
+                  <th width="110">操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="q in questionList" :key="q.id">
-                  <td>{{ q.sort_order }}</td>
+                <tr 
+                  v-for="(q, idx) in questionList" 
+                  :key="q.id"
+                  draggable="true"
+                  @dragstart="onQuestionDragStart(idx)"
+                  @dragover.prevent
+                  @drop="onQuestionDrop(idx)"
+                  :class="{ 'dragging-row': questionDragIndex === idx }"
+                >
+                  <td>
+                    <div class="drag-handle-cell" title="按住拖曳上下拉動排序">
+                      <span class="drag-icon">☰</span>
+                    </div>
+                  </td>
                   <td class="font-bold">{{ q.title }}</td>
-                  <td>{{ q.type === 'radio' ? '單選題' : q.type === 'checkbox' ? '多選題' : '簡答題' }}</td>
-                  <td>{{ q.options.join(' / ') || '—' }}</td>
+                  <td>
+                    <span class="type-badge">{{ getQuestionTypeLabel(q.type) }}</span>
+                  </td>
+                  <td>
+                    <span v-if="q.type === 'text'" class="text-gray">{{ q.placeholder || '—' }}</span>
+                    <span v-else>{{ q.options.join(' / ') || '—' }}</span>
+                  </td>
                   <td>{{ q.is_required ? '是' : '否' }}</td>
                   <td>
                     <button class="btn-link" @click="openQuestionModal(q)">編輯</button>
                     <button class="btn-link text-red margin-l" @click="deleteQuestion(q.id)">刪除</button>
                   </td>
                 </tr>
+                <tr v-if="questionList.length === 0">
+                  <td colspan="6" class="empty-cell">暫無報名問題數據，可點右上角「新增報名問題」添加</td>
+                </tr>
               </tbody>
             </table>
           </div>
-        </div>
-
-        <!-- 其他頁籤占位 -->
-        <div v-else class="empty-tab-box">
-          <h3>{{ currentTab === 'recruit' ? '廣場招募' : '積分管理' }}</h3>
-          <p>功能開發中...</p>
         </div>
 
       </main>
@@ -323,7 +337,7 @@
       </div>
     </div>
 
-    <!-- 報名問題 Modal -->
+    <!-- 報名問題 Modal (圖二、圖三對應) -->
     <div v-if="showQuestionModal" class="modal-overlay" @click.self="showQuestionModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -331,30 +345,95 @@
           <span class="close-btn" @click="showQuestionModal = false">&times;</span>
         </div>
         <div class="modal-body">
-          <div class="form-row">
-            <label><span class="req">*</span>題目名稱：</label>
-            <input type="text" v-model="questionForm.title" placeholder="請輸入問題標題" />
+          <!-- 題幹 (200字限制) -->
+          <div class="form-row align-start">
+            <label><span class="req">*</span>題幹：</label>
+            <div class="input-with-counter">
+              <input 
+                type="text" 
+                v-model="questionForm.title" 
+                maxlength="200" 
+                placeholder="成員端看到的問題" 
+                class="counter-input"
+              />
+              <span class="input-char-counter">{{ questionForm.title.length }} / 200</span>
+            </div>
           </div>
-          <div class="form-row">
-            <label>問題類型：</label>
-            <select v-model="questionForm.type">
-              <option value="radio">單選題</option>
-              <option value="checkbox">多選題</option>
-              <option value="text">簡答題</option>
-            </select>
+
+          <!-- 題型按鈕組 -->
+          <div class="form-row margin-t">
+            <label><span class="req">*</span>題型：</label>
+            <div class="type-btn-group">
+              <button 
+                :class="['type-btn', { active: questionForm.type === 'radio' }]" 
+                @click="questionForm.type = 'radio'"
+              >
+                單選
+              </button>
+              <button 
+                :class="['type-btn', { active: questionForm.type === 'checkbox' }]" 
+                @click="questionForm.type = 'checkbox'"
+              >
+                多選
+              </button>
+              <button 
+                :class="['type-btn', { active: questionForm.type === 'text' }]" 
+                @click="questionForm.type = 'text'"
+              >
+                文本
+              </button>
+            </div>
           </div>
-          <div class="form-row" v-if="questionForm.type !== 'text'">
-            <label>選項 (逗號分開)：</label>
-            <input type="text" v-model="questionForm.optionsStr" placeholder="選項一, 選項二, 選項三" />
+
+          <!-- 選項 (單選 / 多選時顯示 - 圖二) -->
+          <div v-if="questionForm.type !== 'text'" class="form-row align-start margin-t">
+            <label><span class="req">*</span>選項：</label>
+            <div class="options-container">
+              <div v-for="(opt, idx) in questionForm.options" :key="idx" class="option-row">
+                <input type="text" v-model="questionForm.options[idx]" class="option-input" placeholder="請輸入選項" />
+                <button class="btn-link text-red" @click="questionForm.options.splice(idx, 1)">刪除</button>
+              </div>
+              <button class="add-option-btn" @click="questionForm.options.push('')">添加選項</button>
+            </div>
           </div>
-          <div class="form-row">
-            <label>是否必填：</label>
-            <input type="checkbox" v-model="questionForm.is_required" />
+
+          <!-- 占位提示 (文本時顯示 - 圖三) -->
+          <div v-else class="form-row align-start margin-t">
+            <label>占位提示：</label>
+            <div class="input-with-counter">
+              <input 
+                type="text" 
+                v-model="questionForm.placeholder" 
+                maxlength="200" 
+                placeholder="成員端輸入框提示 (選填)" 
+                class="counter-input"
+              />
+              <span class="input-char-counter">{{ questionForm.placeholder.length }} / 200</span>
+            </div>
           </div>
+
+          <!-- 必填開關 -->
+          <div class="form-row margin-t">
+            <label>必填：</label>
+            <label class="switch">
+              <input type="checkbox" v-model="questionForm.is_required" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 排序數字 -->
+          <div class="form-row margin-t">
+            <label>排序：</label>
+            <div class="sort-input-group">
+              <input type="number" v-model.number="questionForm.sort_order" class="sort-num-input" />
+              <span class="type-hint-text margin-l">也可在列表中拖動調整順序</span>
+            </div>
+          </div>
+
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" @click="showQuestionModal = false">取消</button>
-          <button class="btn-primary" @click="saveQuestion">確定</button>
+          <button class="btn-primary" @click="saveQuestion">保存</button>
         </div>
       </div>
     </div>
@@ -498,7 +577,6 @@ const saveSkill = () => {
       targetList[idx].lastUsed = nowStr
     }
   } else {
-    // 新增於列表最上方 (unshift)
     targetList.unshift({
       id: Date.now(),
       content,
@@ -517,12 +595,101 @@ const deleteSkill = (id) => {
   }
 }
 
-// 報名問題數據
+// 報名問題數據與邏輯
 const questionList = ref([
-  { id: 1, title: '本週聯賽是否能準時出席？', type: 'radio', options: ['能準時出席', '需要請假', '不確定/晚到'], is_required: true, sort_order: 1 },
-  { id: 2, title: '請選擇您的主力流派與次要流派', type: 'text', options: [], is_required: true, sort_order: 2 },
-  { id: 3, title: '請填寫您的 Discord / 語音頻道 ID', type: 'text', options: [], is_required: false, sort_order: 3 }
+  { id: 1, title: '本場聯賽開車', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 1 },
+  { id: 2, title: '本場聯賽保車', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 2 }
 ])
+
+const questionDragIndex = ref(null)
+const onQuestionDragStart = (index) => { questionDragIndex.value = index }
+const onQuestionDrop = (targetIndex) => {
+  if (questionDragIndex.value === null || questionDragIndex.value === targetIndex) return
+  const movedItem = questionList.value.splice(questionDragIndex.value, 1)[0]
+  questionList.value.splice(targetIndex, 0, movedItem)
+  questionDragIndex.value = null
+}
+
+const showQuestionModal = ref(false)
+const editingQuestionId = ref(null)
+const questionForm = ref({
+  title: '',
+  type: 'radio',
+  options: ['能', '不能'],
+  placeholder: '',
+  is_required: true,
+  sort_order: 1
+})
+
+const getQuestionTypeLabel = (type) => {
+  if (type === 'radio') return '單選'
+  if (type === 'checkbox') return '多選'
+  return '文本'
+}
+
+const openQuestionModal = (q = null) => {
+  if (q) {
+    editingQuestionId.value = q.id
+    questionForm.value = { 
+      title: q.title,
+      type: q.type,
+      options: [...q.options],
+      placeholder: q.placeholder || '',
+      is_required: q.is_required,
+      sort_order: q.sort_order
+    }
+  } else {
+    editingQuestionId.value = null
+    questionForm.value = {
+      title: '',
+      type: 'radio',
+      options: ['能', '不能'],
+      placeholder: '',
+      is_required: true,
+      sort_order: questionList.value.length + 1
+    }
+  }
+  showQuestionModal.value = true
+}
+
+const saveQuestion = () => {
+  const title = questionForm.value.title.trim()
+  if (!title) return alert('請輸入題幹！')
+
+  if (questionForm.value.type !== 'text' && questionForm.value.options.length === 0) {
+    return alert('請至少新增一個選項！')
+  }
+
+  const cleanOptions = questionForm.value.options.map(s => s.trim()).filter(Boolean)
+
+  if (editingQuestionId.value) {
+    const idx = questionList.value.findIndex(q => q.id === editingQuestionId.value)
+    if (idx > -1) {
+      questionList.value[idx] = {
+        ...questionForm.value,
+        title,
+        options: cleanOptions,
+        id: editingQuestionId.value
+      }
+    }
+  } else {
+    // 新增置頂
+    questionList.value.unshift({
+      id: Date.now(),
+      title,
+      type: questionForm.value.type,
+      options: cleanOptions,
+      placeholder: questionForm.value.placeholder.trim(),
+      is_required: questionForm.value.is_required,
+      sort_order: questionForm.value.sort_order
+    })
+  }
+  showQuestionModal.value = false
+}
+
+const deleteQuestion = (id) => {
+  if (confirm('確定要刪除該問題嗎？')) questionList.value = questionList.value.filter(q => q.id !== id)
+}
 
 // 排表數據生成
 const DEFAULT_TEAM_NAMES = ['一隊', '二隊', '三隊', '四隊', '五隊']
@@ -571,10 +738,6 @@ const showRoleModal = ref(false)
 const editingRoleId = ref(null)
 const roleForm = ref({ name: '', desc: '' })
 
-const showQuestionModal = ref(false)
-const editingQuestionId = ref(null)
-const questionForm = ref({ title: '', type: 'radio', optionsStr: '', is_required: true })
-
 const openRoleModal = (role = null) => {
   if (role) {
     editingRoleId.value = role.id
@@ -612,33 +775,6 @@ const deleteRole = (id) => {
       squadRoleList.value = squadRoleList.value.filter(r => r.id !== id)
     }
   }
-}
-
-const openQuestionModal = (q = null) => {
-  if (q) {
-    editingQuestionId.value = q.id
-    questionForm.value = { ...q, optionsStr: q.options.join(', ') }
-  } else {
-    editingQuestionId.value = null
-    questionForm.value = { title: '', type: 'radio', optionsStr: '', is_required: true }
-  }
-  showQuestionModal.value = true
-}
-
-const saveQuestion = () => {
-  if (!questionForm.value.title.trim()) return alert('請輸入題目名稱！')
-  const opts = questionForm.value.optionsStr ? questionForm.value.optionsStr.split(',').map(s => s.trim()).filter(Boolean) : []
-  if (editingQuestionId.value) {
-    const idx = questionList.value.findIndex(q => q.id === editingQuestionId.value)
-    if (idx > -1) questionList.value[idx] = { ...questionForm.value, options: opts, id: editingQuestionId.value }
-  } else {
-    questionList.value.push({ id: Date.now(), ...questionForm.value, options: opts, sort_order: questionList.value.length + 1 })
-  }
-  showQuestionModal.value = false
-}
-
-const deleteQuestion = (id) => {
-  if (confirm('確定要刪除該問題嗎？')) questionList.value = questionList.value.filter(q => q.id !== id)
 }
 
 onMounted(() => {
@@ -699,6 +835,8 @@ const handleLogout = () => {
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
 
+.type-badge { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
@@ -729,7 +867,7 @@ const handleLogout = () => {
 input:checked + .slider { background-color: #3b82f6; }
 input:checked + .slider:before { transform: translateX(16px); }
 
-/* Modal 彈窗細節 */
+/* Modal 彈窗細節 (對應圖二、圖三) */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
 .small-card { width: 380px; }
@@ -749,6 +887,23 @@ input:checked + .slider:before { transform: translateX(16px); }
 .textarea-wrapper { position: relative; flex: 1; display: flex; flex-direction: column; }
 .skill-textarea { width: 100%; height: 80px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; resize: none; box-sizing: border-box; outline: none; }
 .char-counter { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: #94a3b8; pointer-events: none; }
+
+/* 題型與選項 (圖二/圖三) */
+.type-btn-group { display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; }
+.type-btn { padding: 6px 16px; border: none; background: #ffffff; font-size: 12px; cursor: pointer; color: #475569; transition: all 0.2s; }
+.type-btn.active { background: #5b7db1; color: white; font-weight: bold; }
+
+.options-container { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.option-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+.option-input { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+.add-option-btn { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; font-weight: bold; text-align: center; margin-top: 4px; }
+
+.input-with-counter { position: relative; flex: 1; display: flex; align-items: center; }
+.counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; outline: none; }
+.input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
+
+.sort-input-group { display: flex; align-items: center; flex: 1; }
+.sort-num-input { width: 80px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; }
 
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .margin-l { margin-left: 10px; }
