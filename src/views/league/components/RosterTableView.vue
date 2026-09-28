@@ -1,18 +1,27 @@
 <template>
   <div class="spreadsheet-view-wrapper">
     
-    <!-- 圖六：頂部 Banner 資訊列 (拿掉+號，字體放大) -->
+    <!-- 頂部 Banner 資訊列 -->
     <div class="spreadsheet-header-banner">
       <span class="banner-title">
         {{ leagueInfo.guild || '百錵谷酒池肉林' }} &nbsp;&nbsp; {{ leagueInfo.type || '幫會聯賽' }} &nbsp;&nbsp; {{ formatShortDate(leagueInfo.startTime) }}
       </span>
     </div>
 
-    <!-- 圖三：獨立可編輯備註橫幅欄位 (字體放大) -->
+    <!-- 中間可編輯備註橫幅 (置中 + 字體大小可調) -->
     <div class="top-editable-banner-box">
       <div v-if="!isEditingTopBanner" class="banner-display-text" @click="isEditingTopBanner = true" title="點擊編輯橫幅備註">
-        {{ topBannerText || '可編輯備註區' }}
+        <span class="banner-text-content" :style="{ fontSize: topBannerFontSize + 'px' }">
+          {{ topBannerText || '可編輯備註區' }}
+        </span>
         <i class="mdi mdi-pencil-outline edit-icon"></i>
+
+        <!-- 字體大小微調按鈕組 -->
+        <div class="font-size-adjuster" @click.stop>
+          <button class="btn-font-size" @click="changeTopFontSize(-1)" title="縮小字體">A-</button>
+          <span class="size-num">{{ topBannerFontSize }}px</span>
+          <button class="btn-font-size" @click="changeTopFontSize(1)" title="放大字體">A+</button>
+        </div>
       </div>
       <input 
         v-else 
@@ -20,7 +29,8 @@
         v-model="topBannerText" 
         @blur="isEditingTopBanner = false" 
         @keyup.enter="isEditingTopBanner = false" 
-        class="banner-input-field" 
+        class="banner-input-field text-center" 
+        :style="{ fontSize: topBannerFontSize + 'px' }"
         placeholder="請輸入橫幅備註內容..." 
         v-focus
       />
@@ -67,7 +77,7 @@
                   @drop="$emit('drop-slot', { team, squad, slot })"
                   @click="$emit('click-slot', { team, squad, slot, slotIdx })"
                 >
-                  <!-- 圖一 & 圖二：小隊欄 (變窄，點擊開啟編輯團隊 Modal) -->
+                  <!-- 小隊欄 (點擊開啟編輯團隊 Modal) -->
                   <td 
                     v-if="slotIdx === 0" 
                     :rowspan="squad.slots.length" 
@@ -82,7 +92,7 @@
                     </div>
                   </td>
 
-                  <!-- 圖一：暱稱欄 (字體/寬度加大、上下空間增加、支援拖拽) -->
+                  <!-- 暱稱欄 (支援拖拽上位，顯示預設/推薦流派) -->
                   <td 
                     class="member-cell" 
                     :draggable="!!slot.assignedMember" 
@@ -92,27 +102,38 @@
                       <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
                       <span class="member-name-text">{{ slot.assignedMember.name }}</span>
                     </template>
+                    <template v-else-if="slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0">
+                      <div class="guideline-school-icons">
+                        <img 
+                          v-for="sName in slot.templateConfig.schools" 
+                          :key="sName" 
+                          :src="getSchoolImgByName(sName)" 
+                          class="slot-school-icon" 
+                        />
+                      </div>
+                      <span class="slot-placeholder-text">席位配置</span>
+                    </template>
                     <template v-else>
                       <span class="slot-placeholder-text">點擊配置席位</span>
                     </template>
                   </td>
 
-                  <!-- 圖一：職能 (防文字吃色) -->
+                  <!-- 職能 (讀取成員職能或席位推薦職能) -->
                   <td class="role-cell">
                     {{ getSlotRoleSummary(slot) }}
                   </td>
 
-                  <!-- 圖一：技能分配 (群俠百家) -->
+                  <!-- 技能分配 (群俠百家) -->
                   <td class="skill-cell">
                     {{ slot.qunxia || slot.templateConfig?.qunxia || '—' }}
                   </td>
 
-                  <!-- 圖一：技能分配 (流派技能) -->
+                  <!-- 技能分配 (流派技能) -->
                   <td class="skill-cell">
                     {{ slot.zhuangbei || slot.templateConfig?.zhuangbei || '—' }}
                   </td>
 
-                  <!-- 圖一：絕技 -->
+                  <!-- 絕技 -->
                   <td class="jueji-cell">
                     {{ slot.jueji || slot.templateConfig?.jueji || '—' }}
                   </td>
@@ -122,20 +143,31 @@
           </table>
         </div>
 
-        <!-- 圖三：團隊備註區 (移除前面固定引導文字) -->
+        <!-- 團隊底部備註 (靠左，支援字體大小微調) -->
         <div class="spreadsheet-team-footer">
           <div v-if="team.desc" class="team-main-desc">
             {{ team.desc }}
           </div>
 
-          <!-- 可編輯備註區 (圖四對應) -->
+          <!-- 可編輯備註區 -->
           <div class="team-bottom-extra-note" @click="editTeamBottomNote(team)">
-            <template v-if="team.bottomNote">
-              {{ team.bottomNote }}
-            </template>
-            <template v-else>
-              <span class="placeholder-note-text">可編輯備註區</span>
-            </template>
+            <div class="bottom-note-content-row">
+              <span 
+                v-if="team.bottomNote" 
+                class="note-text"
+                :style="{ fontSize: (team.bottomNoteFontSize || 14) + 'px' }"
+              >
+                {{ team.bottomNote }}
+              </span>
+              <span v-else class="placeholder-note-text">可編輯備註區</span>
+              
+              <!-- 下方字體大小按鈕 -->
+              <div class="font-size-adjuster" @click.stop>
+                <button class="btn-font-size" @click="changeBottomFontSize(team, -1)" title="縮小字體">A-</button>
+                <span class="size-num">{{ team.bottomNoteFontSize || 14 }}px</span>
+                <button class="btn-font-size" @click="changeBottomFontSize(team, 1)" title="放大字體">A+</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -163,8 +195,17 @@ const vFocus = {
 
 const isEditingTopBanner = ref(false)
 const topBannerText = ref('我是團隊備註會顯示的地方')
+const topBannerFontSize = ref(15)
 
-// 圖六：日期格式化 (MM/DD HH:mm)
+const changeTopFontSize = (delta) => {
+  topBannerFontSize.value = Math.max(12, Math.min(26, topBannerFontSize.value + delta))
+}
+
+const changeBottomFontSize = (team, delta) => {
+  if (!team.bottomNoteFontSize) team.bottomNoteFontSize = 14
+  team.bottomNoteFontSize = Math.max(12, Math.min(26, team.bottomNoteFontSize + delta))
+}
+
 const formatShortDate = (timeStr) => {
   if (!timeStr) return '10/10 20:00'
   return timeStr.replace(/^\d{4}-/, '').replace('-', '/')
@@ -193,15 +234,9 @@ const getColorLabel = (colorHex) => {
 
 const getTeamHeaderStyle = (team) => {
   if (team.color) {
-    return {
-      backgroundColor: team.color,
-      color: '#ffffff'
-    }
+    return { backgroundColor: team.color, color: '#ffffff' }
   }
-  return {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff'
-  }
+  return { backgroundColor: '#3b82f6', color: '#ffffff' }
 }
 
 const getSlotRowStyle = (slot) => {
@@ -212,8 +247,12 @@ const getSlotRowStyle = (slot) => {
   return { backgroundColor: '#ffffff' }
 }
 
+// 支援讀取「成員職能」或「席位推薦職能」
 const getSlotRoleSummary = (slot) => {
   if (slot.roles && slot.roles.length > 0) return slot.roles.join('、')
+  if (slot.templateConfig && slot.templateConfig.roles && slot.templateConfig.roles.length > 0) {
+    return slot.templateConfig.roles.join('、')
+  }
   return '點擊配置職能'
 }
 
@@ -236,7 +275,6 @@ const editTeamBottomNote = (team) => {
   gap: 14px;
 }
 
-/* 圖六：頂部 Banner */
 .spreadsheet-header-banner {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -251,24 +289,28 @@ const editTeamBottomNote = (team) => {
   letter-spacing: 0.5px;
 }
 
-/* 圖三：可編輯備註橫幅 */
+/* 中間可編輯備註 (居中對齊) */
 .top-editable-banner-box {
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 10px 16px;
-  font-size: 15px;
   font-weight: 500;
   color: #1e293b;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 .banner-display-text {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
 }
-.banner-display-text:hover {
-  color: #2563eb;
+.banner-text-content {
+  font-weight: bold;
 }
 .edit-icon {
   font-size: 15px;
@@ -278,13 +320,45 @@ const editTeamBottomNote = (team) => {
   width: 100%;
   border: none;
   outline: none;
-  font-size: 15px;
-  font-weight: 500;
+  font-weight: bold;
   color: #1e293b;
   background: transparent;
 }
+.text-center {
+  text-align: center;
+}
 
-/* 團隊表格 Layout */
+/* 字體大小微調按鈕控制項 */
+.font-size-adjuster {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  margin-left: 10px;
+}
+.btn-font-size {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  font-size: 10px;
+  padding: 1px 5px;
+  cursor: pointer;
+  color: #334155;
+  font-weight: bold;
+}
+.btn-font-size:hover {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+.size-num {
+  font-size: 11px;
+  color: #64748b;
+}
+
 .spreadsheet-teams-grid {
   display: flex;
   flex-direction: column;
@@ -334,7 +408,6 @@ const editTeamBottomNote = (team) => {
   margin-left: 8px;
 }
 
-/* 表格樣式 (圖一：字體/寬度放大、小隊欄變窄、上下空間增多) */
 .table-scroll-container {
   overflow-x: auto;
   width: 100%;
@@ -358,7 +431,6 @@ const editTeamBottomNote = (team) => {
   border: 1px solid #e2e8f0;
 }
 
-/* 圖一：小隊資訊置於最左側欄位 (縮窄) */
 .squad-info-cell {
   background: #f8fafc;
   vertical-align: middle;
@@ -398,7 +470,6 @@ const editTeamBottomNote = (team) => {
   filter: brightness(0.96);
 }
 
-/* 圖五：成員與文字高對比，避免職業底色洗掉字體 */
 .member-cell {
   display: flex;
   align-items: center;
@@ -407,6 +478,11 @@ const editTeamBottomNote = (team) => {
   font-weight: bold;
   font-size: 13px;
   color: #1e293b !important;
+}
+.guideline-school-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 .slot-school-icon {
   width: 18px;
@@ -430,7 +506,6 @@ const editTeamBottomNote = (team) => {
   text-overflow: ellipsis;
 }
 
-/* 圖三：團隊底部備註 (移除固定開頭文字，放大字體) */
 .spreadsheet-team-footer {
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
@@ -447,9 +522,8 @@ const editTeamBottomNote = (team) => {
   line-height: 1.5;
 }
 
-/* 可編輯備註區 (圖四對應) */
+/* 下方可編輯備註列 (靠左 + 可調字體大小) */
 .team-bottom-extra-note {
-  font-size: 14px;
   font-weight: 500;
   color: #1e293b;
   cursor: pointer;
@@ -461,10 +535,16 @@ const editTeamBottomNote = (team) => {
 }
 .team-bottom-extra-note:hover {
   border-color: #3b82f6;
-  color: #2563eb;
   background: #f0f9ff;
+}
+.bottom-note-content-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 .placeholder-note-text {
   color: #94a3b8;
+  font-size: 13px;
 }
 </style>

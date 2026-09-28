@@ -16,7 +16,7 @@
 
     <div class="roster-main-container">
       
-      <!-- 1. 左側待選成員組件 (模組化) -->
+      <!-- 1. 左側待選成員組件 -->
       <RosterSidebar 
         :guildName="leagueInfo.guild"
         :allMembers="allMembers"
@@ -112,7 +112,7 @@
           </div>
         </div>
 
-        <!-- 2. 右側矩陣視圖 (模組化 - `layoutMode === 'matrix'`) -->
+        <!-- 2. 右側矩陣視圖 -->
         <RosterMatrixView 
           v-if="layoutMode === 'matrix'"
           :matrixTeams="matrixTeams"
@@ -130,7 +130,7 @@
           @remove-member-slot="removeMemberFromSlot"
         />
 
-        <!-- 3. 右側試算表視圖 (模組化 - `layoutMode === 'table'`) -->
+        <!-- 3. 右側試算表視圖 (補齊所有事件連動：拖拽與彈窗) -->
         <RosterTableView 
           v-else-if="layoutMode === 'table'"
           :leagueInfo="leagueInfo"
@@ -138,6 +138,9 @@
           :availableSchools="availableSchools"
           :schoolColorMap="schoolColorMap"
           @click-slot="handleSlotClick"
+          @drag-start-slot="onDragStartSlot"
+          @drop-slot="onDropOnSlot"
+          @open-edit-team="openEditTeamModal"
         />
 
       </main>
@@ -1115,76 +1118,8 @@ const allMembers = ref([
   { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePreference: ['奶絕', '清泉保活'], rolePrefList: ['奶絕', '清泉保活'], assigned: false }
 ])
 
-const getSecondarySchool = (member) => {
-  if (!member || !member.schools || member.schools.length < 2) return ''
-  return member.schools.find(s => s !== member.currentSchool) || ''
-}
-
 const searchMemberQuery = ref('')
 const activeSchoolFilter = ref(null)
-const expandedSchools = ref(['鐵衣', '血河', '九靈', '素問', '潮光', '龍吟'])
-
-const toggleSchoolFilter = (sName) => {
-  activeSchoolFilter.value = activeSchoolFilter.value === sName ? null : sName
-}
-
-const toggleAccordion = (sName) => {
-  const idx = expandedSchools.value.indexOf(sName)
-  if (idx > -1) expandedSchools.value.splice(idx, 1)
-  else expandedSchools.value.push(sName)
-}
-
-const filteredSchoolAccordion = computed(() => {
-  if (activeSchoolFilter.value) {
-    return availableSchools.filter(s => s.name === activeSchoolFilter.value)
-  }
-  return availableSchools
-})
-
-const getUnassignedMembersBySchool = (schoolName) => {
-  const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
-  return allMembers.value.filter(m => {
-    if (!m) return false
-    const matchGuild = m.guild === targetGuild
-    const notAssigned = !m.assigned
-    const matchSearch = !searchMemberQuery.value || (m.name && m.name.includes(searchMemberQuery.value.trim()))
-
-    let matchSchool = false
-    if (showSecondarySchool.value) {
-      matchSchool = m.schools ? m.schools.includes(schoolName) : (m.currentSchool === schoolName)
-    } else {
-      matchSchool = (m.currentSchool === schoolName)
-    }
-
-    return matchGuild && matchSchool && notAssigned && matchSearch
-  })
-}
-
-const getUnassignedCountBySchool = (schoolName) => {
-  return getUnassignedMembersBySchool(schoolName).length
-}
-
-const allUnassignedMembersList = computed(() => {
-  const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
-  if (!Array.isArray(allMembers.value)) return []
-  return allMembers.value.filter(m => {
-    if (!m) return false
-    const matchGuild = m.guild === targetGuild
-    const notAssigned = !m.assigned
-    const matchSearch = !searchMemberQuery.value || (m.name && m.name.includes(searchMemberQuery.value.trim()))
-
-    let matchSchool = true
-    if (activeSchoolFilter.value) {
-      if (showSecondarySchool.value) {
-        matchSchool = m.schools ? m.schools.includes(activeSchoolFilter.value) : (m.currentSchool === activeSchoolFilter.value)
-      } else {
-        matchSchool = (m.currentSchool === activeSchoolFilter.value)
-      }
-    }
-
-    return matchGuild && notAssigned && matchSearch && matchSchool
-  })
-})
 
 const showAddMemberModal = ref(false)
 const showRoleDropdownInNewMember = ref(false)
@@ -1562,7 +1497,6 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
-// 【排表信息】多選 Helper
 const isInfoQunxiaSelected = (qName) => {
   if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
   return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1589,7 +1523,6 @@ const toggleInfoLiupai = (lName) => {
   tempSlotZhuangbei.value = list.join(', ')
 }
 
-// 【席位配置】多選 Helper
 const isConfigQunxiaSelected = (qName) => {
   if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
   return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1783,11 +1716,6 @@ const activeBatchDropdown = ref(null)
 const toggleBatchRowDropdown = (key) => {
   if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
   else activeBatchDropdown.value = key
-}
-
-const getRowSchoolBgStyle = (schoolName) => {
-  const bg = schoolColorMap[schoolName] || '#ffffff'
-  return { backgroundColor: bg }
 }
 
 const isBatchRowRoleSelected = (m, roleName) => {
