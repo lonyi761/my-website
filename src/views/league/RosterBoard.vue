@@ -130,7 +130,7 @@
           @remove-member-slot="removeMemberFromSlot"
         />
 
-        <!-- 3. 右側試算表視圖 (補齊所有事件連動：拖拽與彈窗) -->
+        <!-- 3. 右側試算表視圖 -->
         <RosterTableView 
           v-else-if="layoutMode === 'table'"
           :leagueInfo="leagueInfo"
@@ -1047,6 +1047,9 @@ const availableSchools = [
   { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
 ]
 
+// 5 種固定遊戲團隊預設顏色
+const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
+
 const teamColorOptions = [
   { color: '#84cc16', label: '淺綠色' },
   { color: '#eab308', label: '金黃色' },
@@ -1202,7 +1205,7 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊盤面數據
+// 團隊盤面數據 (固定5種顏色)
 const matrixTeams = ref([
   {
     id: 1,
@@ -1282,11 +1285,12 @@ const addTeam = () => {
     return
   }
   const num = matrixTeams.value.length + 1
+  const defaultColor = defaultTeamColors[(num - 1) % defaultTeamColors.length]
   matrixTeams.value.push({
     id: Date.now(),
     name: `團隊 ${num}`,
     desc: '',
-    color: '',
+    color: defaultColor,
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: Date.now() + i,
       name: `${i + 1}隊`,

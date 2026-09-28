@@ -1,39 +1,46 @@
 <template>
   <div class="spreadsheet-view-wrapper">
     
-    <!-- 頂部 Banner 資訊列 -->
+    <!-- 頂部 Banner 資訊列 (格式：幫會名稱 幫會聯賽 MM/DD HH:mm) -->
     <div class="spreadsheet-header-banner">
       <span class="banner-title">
         {{ leagueInfo.guild || '百錵谷酒池肉林' }} &nbsp;&nbsp; {{ leagueInfo.type || '幫會聯賽' }} &nbsp;&nbsp; {{ formatShortDate(leagueInfo.startTime) }}
       </span>
     </div>
 
-    <!-- 中間可編輯備註橫幅 (置中 + 字體大小可調) -->
+    <!-- 中間可編輯備註橫幅 (點擊編輯模式，預設隱藏調整按鈕) -->
     <div class="top-editable-banner-box">
-      <div v-if="!isEditingTopBanner" class="banner-display-text" @click="isEditingTopBanner = true" title="點擊編輯橫幅備註">
-        <span class="banner-text-content" :style="{ fontSize: topBannerFontSize + 'px' }">
+      <!-- 1. 預設展示模式 (極簡無按鈕，適合導出圖片) -->
+      <div 
+        v-if="!isEditingTopBanner" 
+        class="banner-display-text" 
+        :style="{ fontSize: topBannerFontSize + 'px' }"
+        @click="isEditingTopBanner = true" 
+        title="點擊進入編輯備註"
+      >
+        <span class="banner-text-content">
           {{ topBannerText || '可編輯備註區' }}
         </span>
-        <i class="mdi mdi-pencil-outline edit-icon"></i>
+      </div>
 
-        <!-- 字體大小微調按鈕組 -->
-        <div class="font-size-adjuster" @click.stop>
-          <button class="btn-font-size" @click="changeTopFontSize(-1)" title="縮小字體">A-</button>
-          <span class="size-num">{{ topBannerFontSize }}px</span>
-          <button class="btn-font-size" @click="changeTopFontSize(1)" title="放大字體">A+</button>
+      <!-- 2. 點擊後的編輯模式 (含字體微調與完成按鈕) -->
+      <div v-else class="banner-edit-container" @click.stop>
+        <input 
+          type="text" 
+          v-model="topBannerText" 
+          class="banner-input-field text-center" 
+          :style="{ fontSize: topBannerFontSize + 'px' }"
+          placeholder="請輸入橫幅備註內容..." 
+          v-focus
+          @keyup.enter="isEditingTopBanner = false"
+        />
+        <div class="font-size-controls">
+          <button type="button" class="btn-font-size" @click="changeTopFontSize(-1)" title="縮小字體">A-</button>
+          <span class="size-label">{{ topBannerFontSize }}px</span>
+          <button type="button" class="btn-font-size" @click="changeTopFontSize(1)" title="放大字體">A+</button>
+          <button type="button" class="btn-done-sm" @click="isEditingTopBanner = false">完成</button>
         </div>
       </div>
-      <input 
-        v-else 
-        type="text" 
-        v-model="topBannerText" 
-        @blur="isEditingTopBanner = false" 
-        @keyup.enter="isEditingTopBanner = false" 
-        class="banner-input-field text-center" 
-        :style="{ fontSize: topBannerFontSize + 'px' }"
-        placeholder="請輸入橫幅備註內容..." 
-        v-focus
-      />
     </div>
 
     <!-- 團隊表格 -->
@@ -43,12 +50,15 @@
         :key="team.id" 
         class="spreadsheet-team-card"
       >
-        <!-- 團隊名稱頂部欄位 (點擊開啟編輯團隊 Modal) -->
-        <div class="spreadsheet-team-header-bar" :style="getTeamHeaderStyle(team)" @click="$emit('open-edit-team', tIdx)">
+        <!-- 團隊名稱頂部欄位 (對齊圖三：僅保留前方顏色圓點，移除後方多餘文字) -->
+        <div 
+          class="spreadsheet-team-header-bar" 
+          :style="getTeamHeaderStyle(team, tIdx)" 
+          @click="$emit('open-edit-team', tIdx)"
+        >
           <span class="team-header-title">
-            <span v-if="team.color" class="team-color-dot" :style="{ backgroundColor: team.color }"></span>
+            <span class="team-color-dot-white"></span>
             {{ team.name }}
-            <span v-if="team.color" class="color-tag-name">【顯示{{ getColorLabel(team.color) }}🟢】</span>
           </span>
           <i class="mdi mdi-pencil-outline header-edit-pencil"></i>
         </div>
@@ -118,7 +128,7 @@
                     </template>
                   </td>
 
-                  <!-- 職能 (讀取成員職能或席位推薦職能) -->
+                  <!-- 職能 -->
                   <td class="role-cell">
                     {{ getSlotRoleSummary(slot) }}
                   </td>
@@ -143,29 +153,68 @@
           </table>
         </div>
 
-        <!-- 團隊底部備註 (靠左，支援字體大小微調) -->
+        <!-- 團隊底部備註 (對齊圖四 & 圖五：點擊才開啟編輯，預設乾淨無按鈕) -->
         <div class="spreadsheet-team-footer">
-          <div v-if="team.desc" class="team-main-desc">
-            {{ team.desc }}
+          <!-- 1. 團隊備註 -->
+          <div class="team-note-wrapper">
+            <div 
+              v-if="editingTeamDescId !== team.id" 
+              class="note-display-box" 
+              :style="{ fontSize: (team.descFontSize || 14) + 'px' }"
+              @click="editingTeamDescId = team.id"
+              title="點擊編輯團隊備註"
+            >
+              <span v-if="team.desc" class="note-text-bold">{{ team.desc }}</span>
+              <span v-else class="placeholder-note-text">點擊新增團隊備註</span>
+            </div>
+
+            <div v-else class="note-edit-box" @click.stop>
+              <input 
+                type="text" 
+                v-model="team.desc" 
+                class="note-inline-input" 
+                :style="{ fontSize: (team.descFontSize || 14) + 'px' }"
+                placeholder="請輸入團隊備註..." 
+                v-focus
+                @keyup.enter="editingTeamDescId = null"
+              />
+              <div class="font-size-controls">
+                <button type="button" class="btn-font-size" @click="adjustTeamDescFontSize(team, -1)">A-</button>
+                <span class="size-label">{{ team.descFontSize || 14 }}px</span>
+                <button type="button" class="btn-font-size" @click="adjustTeamDescFontSize(team, 1)">A+</button>
+                <button type="button" class="btn-done-sm" @click="editingTeamDescId = null">完成</button>
+              </div>
+            </div>
           </div>
 
-          <!-- 可編輯備註區 -->
-          <div class="team-bottom-extra-note" @click="editTeamBottomNote(team)">
-            <div class="bottom-note-content-row">
-              <span 
-                v-if="team.bottomNote" 
-                class="note-text"
-                :style="{ fontSize: (team.bottomNoteFontSize || 14) + 'px' }"
-              >
-                {{ team.bottomNote }}
-              </span>
+          <!-- 2. 下方可編輯備註區 -->
+          <div class="team-note-wrapper">
+            <div 
+              v-if="editingTeamBottomNoteId !== team.id" 
+              class="note-display-box extra-note-box" 
+              :style="{ fontSize: (team.bottomNoteFontSize || 14) + 'px' }"
+              @click="editingTeamBottomNoteId = team.id"
+              title="點擊編輯自訂備註"
+            >
+              <span v-if="team.bottomNote" class="note-text-bold">{{ team.bottomNote }}</span>
               <span v-else class="placeholder-note-text">可編輯備註區</span>
-              
-              <!-- 下方字體大小按鈕 -->
-              <div class="font-size-adjuster" @click.stop>
-                <button class="btn-font-size" @click="changeBottomFontSize(team, -1)" title="縮小字體">A-</button>
-                <span class="size-num">{{ team.bottomNoteFontSize || 14 }}px</span>
-                <button class="btn-font-size" @click="changeBottomFontSize(team, 1)" title="放大字體">A+</button>
+            </div>
+
+            <div v-else class="note-edit-box" @click.stop>
+              <input 
+                type="text" 
+                v-model="team.bottomNote" 
+                class="note-inline-input" 
+                :style="{ fontSize: (team.bottomNoteFontSize || 14) + 'px' }"
+                placeholder="請輸入自訂備註..." 
+                v-focus
+                @keyup.enter="editingTeamBottomNoteId = null"
+              />
+              <div class="font-size-controls">
+                <button type="button" class="btn-font-size" @click="adjustTeamBottomFontSize(team, -1)">A-</button>
+                <span class="size-label">{{ team.bottomNoteFontSize || 14 }}px</span>
+                <button type="button" class="btn-font-size" @click="adjustTeamBottomFontSize(team, 1)">A+</button>
+                <button type="button" class="btn-done-sm" @click="editingTeamBottomNoteId = null">完成</button>
               </div>
             </div>
           </div>
@@ -193,17 +242,30 @@ const vFocus = {
   mounted: (el) => el.focus()
 }
 
+// 頂部中間備註
 const isEditingTopBanner = ref(false)
 const topBannerText = ref('我是團隊備註會顯示的地方')
 const topBannerFontSize = ref(15)
 
+// 團隊備註編輯狀態控制
+const editingTeamDescId = ref(null)
+const editingTeamBottomNoteId = ref(null)
+
+// 5 種團隊預設固定顏色
+const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
+
 const changeTopFontSize = (delta) => {
-  topBannerFontSize.value = Math.max(12, Math.min(26, topBannerFontSize.value + delta))
+  topBannerFontSize.value = Math.max(12, Math.min(28, topBannerFontSize.value + delta))
 }
 
-const changeBottomFontSize = (team, delta) => {
+const adjustTeamDescFontSize = (team, delta) => {
+  if (!team.descFontSize) team.descFontSize = 14
+  team.descFontSize = Math.max(12, Math.min(28, team.descFontSize + delta))
+}
+
+const adjustTeamBottomFontSize = (team, delta) => {
   if (!team.bottomNoteFontSize) team.bottomNoteFontSize = 14
-  team.bottomNoteFontSize = Math.max(12, Math.min(26, team.bottomNoteFontSize + delta))
+  team.bottomNoteFontSize = Math.max(12, Math.min(28, team.bottomNoteFontSize + delta))
 }
 
 const formatShortDate = (timeStr) => {
@@ -221,22 +283,17 @@ const getSchoolImgByName = (schoolName) => {
   return found ? getSchoolImg(found.file) : ''
 }
 
-const getColorLabel = (colorHex) => {
-  const map = {
-    '#84cc16': '藍綠色',
-    '#eab308': '金色',
-    '#06b6d4': '淺藍色',
-    '#3b82f6': '深藍色',
-    '#a855f7': '淡紫色'
-  }
-  return map[colorHex] || '藍綠色'
+const getTeamColor = (team, tIdx) => {
+  if (team && team.color) return team.color
+  return defaultTeamColors[tIdx % defaultTeamColors.length]
 }
 
-const getTeamHeaderStyle = (team) => {
-  if (team.color) {
-    return { backgroundColor: team.color, color: '#ffffff' }
+const getTeamHeaderStyle = (team, tIdx) => {
+  const color = getTeamColor(team, tIdx)
+  return {
+    backgroundColor: color,
+    color: '#ffffff'
   }
-  return { backgroundColor: '#3b82f6', color: '#ffffff' }
 }
 
 const getSlotRowStyle = (slot) => {
@@ -247,20 +304,12 @@ const getSlotRowStyle = (slot) => {
   return { backgroundColor: '#ffffff' }
 }
 
-// 支援讀取「成員職能」或「席位推薦職能」
 const getSlotRoleSummary = (slot) => {
   if (slot.roles && slot.roles.length > 0) return slot.roles.join('、')
   if (slot.templateConfig && slot.templateConfig.roles && slot.templateConfig.roles.length > 0) {
     return slot.templateConfig.roles.join('、')
   }
   return '點擊配置職能'
-}
-
-const editTeamBottomNote = (team) => {
-  const val = prompt('請輸入團隊下方自訂備註內容：', team.bottomNote || '')
-  if (val !== null) {
-    team.bottomNote = val.trim()
-  }
 }
 </script>
 
@@ -289,14 +338,12 @@ const editTeamBottomNote = (team) => {
   letter-spacing: 0.5px;
 }
 
-/* 中間可編輯備註 (居中對齊) */
+/* 中間可編輯備註 (居中對齊，極簡無按鈕) */
 .top-editable-banner-box {
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 10px 16px;
-  font-weight: 500;
-  color: #1e293b;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -306,57 +353,71 @@ const editTeamBottomNote = (team) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   width: 100%;
-}
-.banner-text-content {
   font-weight: bold;
+  color: #1e293b;
 }
-.edit-icon {
-  font-size: 15px;
-  color: #94a3b8;
+.banner-display-text:hover {
+  color: #2563eb;
+}
+.banner-edit-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 .banner-input-field {
-  width: 100%;
-  border: none;
+  flex: 1;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 8px;
   outline: none;
   font-weight: bold;
   color: #1e293b;
-  background: transparent;
+  background: #f0f9ff;
 }
 .text-center {
   text-align: center;
 }
 
-/* 字體大小微調按鈕控制項 */
-.font-size-adjuster {
-  display: inline-flex;
+/* 字體大小微調控制項 */
+.font-size-controls {
+  display: flex;
   align-items: center;
   gap: 4px;
   background: #f1f5f9;
   padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid #cbd5e1;
-  margin-left: 10px;
 }
 .btn-font-size {
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 3px;
-  font-size: 10px;
-  padding: 1px 5px;
+  font-size: 11px;
+  padding: 2px 6px;
   cursor: pointer;
   color: #334155;
   font-weight: bold;
 }
 .btn-font-size:hover {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
+  background: #e2e8f0;
 }
-.size-num {
+.size-label {
   font-size: 11px;
   color: #64748b;
+  min-width: 28px;
+  text-align: center;
+}
+.btn-done-sm {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  margin-left: 4px;
 }
 
 .spreadsheet-teams-grid {
@@ -390,17 +451,12 @@ const editTeamBottomNote = (team) => {
   align-items: center;
   gap: 8px;
 }
-.team-color-dot {
-  width: 14px;
-  height: 14px;
+.team-color-dot-white {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  background-color: #ffffff;
   display: inline-block;
-  border: 1px solid rgba(255,255,255,0.6);
-}
-.color-tag-name {
-  font-size: 13px;
-  font-weight: normal;
-  opacity: 0.9;
 }
 .header-edit-pencil {
   font-size: 16px;
@@ -506,6 +562,7 @@ const editTeamBottomNote = (team) => {
   text-overflow: ellipsis;
 }
 
+/* 團隊備註與可編輯備註區 */
 .spreadsheet-team-footer {
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
@@ -514,37 +571,43 @@ const editTeamBottomNote = (team) => {
   flex-direction: column;
   gap: 8px;
 }
-.team-main-desc {
-  font-size: 14px;
-  font-weight: bold;
-  color: #1e293b;
-  font-style: normal;
-  line-height: 1.5;
+.team-note-wrapper {
+  width: 100%;
 }
-
-/* 下方可編輯備註列 (靠左 + 可調字體大小) */
-.team-bottom-extra-note {
-  font-weight: 500;
-  color: #1e293b;
-  cursor: pointer;
+.note-display-box {
   padding: 8px 12px;
   background: #ffffff;
   border: 1px dashed #cbd5e1;
   border-radius: 6px;
-  transition: all 0.2s;
+  cursor: pointer;
+  color: #1e293b;
+  transition: all 0.15s;
 }
-.team-bottom-extra-note:hover {
+.note-display-box:hover {
   border-color: #3b82f6;
   background: #f0f9ff;
 }
-.bottom-note-content-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
+.note-text-bold {
+  font-weight: bold;
 }
 .placeholder-note-text {
   color: #94a3b8;
   font-size: 13px;
+}
+.note-edit-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  padding: 6px 10px;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+}
+.note-inline-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-weight: bold;
+  color: #1e293b;
 }
 </style>
