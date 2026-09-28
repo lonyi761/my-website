@@ -1,14 +1,14 @@
 <template>
   <div class="spreadsheet-view-wrapper">
     
-    <!-- 頂部 Banner 資訊列 (支援開關控制：showHeaderTitle) -->
+    <!-- 頂部 Banner 資訊列 -->
     <div v-if="showHeaderTitle" class="spreadsheet-header-banner">
       <span class="banner-title">
         {{ leagueInfo.guild || '百錵谷酒池肉林' }} &nbsp;&nbsp; {{ leagueInfo.type || '幫會聯賽' }} &nbsp;&nbsp; {{ formatShortDate(leagueInfo.startTime) }}
       </span>
     </div>
 
-    <!-- 中間可編輯備註橫幅 (支援開關控制：showHeaderNote) -->
+    <!-- 中間可編輯備註橫幅 -->
     <div v-if="showHeaderNote" class="top-editable-banner-box" @click="startEditTopBanner">
       <!-- 1. 展示模式 (無雜項按鈕，極致乾淨，適合圖片導出) -->
       <div 
@@ -21,7 +21,7 @@
         </span>
       </div>
 
-      <!-- 2. 編輯模式 (含字體微調與完成按鈕) -->
+      <!-- 2. 編輯模式 -->
       <div v-else class="banner-edit-container" @click.stop>
         <input 
           type="text" 
@@ -79,12 +79,11 @@
                   v-for="(slot, slotIdx) in squad.slots" 
                   :key="slot.id" 
                   class="slot-data-row"
-                  :style="getSlotRowStyle(slot)"
                   @dragover.prevent
                   @drop="$emit('drop-slot', { team, squad, slot })"
                   @click="$emit('click-slot', { team, squad, slot, slotIdx })"
                 >
-                  <!-- 小隊欄 -->
+                  <!-- ★ 小隊欄 (加入 position: relative 與 z-index: 2，解決 html2canvas 導出時 rowspan 內容被遮蓋 Bug) ★ -->
                   <td 
                     v-if="slotIdx === 0" 
                     :rowspan="squad.slots.length" 
@@ -99,9 +98,10 @@
                     </div>
                   </td>
 
-                  <!-- 暱稱欄 -->
+                  <!-- ★ 背景色掛在獨立的 td 元素上，避免 tr 的背景塗抹層刷掉跨行欄位 ★ -->
                   <td 
                     class="member-cell" 
+                    :style="getSlotRowStyle(slot)"
                     :draggable="!!slot.assignedMember" 
                     @dragstart.stop="$emit('drag-start-slot', { team, squad, slot })"
                   >
@@ -126,22 +126,22 @@
                   </td>
 
                   <!-- 職能 -->
-                  <td class="role-cell">
+                  <td class="role-cell" :style="getSlotRowStyle(slot)">
                     {{ getSlotRoleSummary(slot) }}
                   </td>
 
                   <!-- 技能分配 (群俠百家) -->
-                  <td class="skill-cell">
+                  <td class="skill-cell" :style="getSlotRowStyle(slot)">
                     {{ slot.qunxia || slot.templateConfig?.qunxia || '—' }}
                   </td>
 
                   <!-- 技能分配 (流派技能) -->
-                  <td class="skill-cell">
+                  <td class="skill-cell" :style="getSlotRowStyle(slot)">
                     {{ slot.zhuangbei || slot.templateConfig?.zhuangbei || '—' }}
                   </td>
 
                   <!-- 絕技 -->
-                  <td class="jueji-cell">
+                  <td class="jueji-cell" :style="getSlotRowStyle(slot)">
                     {{ slot.jueji || slot.templateConfig?.jueji || '—' }}
                   </td>
                 </tr>
@@ -150,7 +150,7 @@
           </table>
         </div>
 
-        <!-- 團隊底部備註與下方自訂備註 -->
+        <!-- 團隊底部備註 -->
         <div class="spreadsheet-team-footer">
           <!-- 1. 團隊備註區塊 -->
           <div class="team-note-wrapper" @click="editingTeamDescId = team.id">
@@ -239,7 +239,6 @@ const vFocus = {
   mounted: (el) => el.focus()
 }
 
-// 頂部橫幅備註狀態
 const isEditingTopBanner = ref(false)
 const topBannerText = ref('我是團隊備註會顯示的地方')
 const topBannerFontSize = ref(15)
@@ -248,11 +247,9 @@ const startEditTopBanner = () => {
   isEditingTopBanner.value = true
 }
 
-// 團隊備註與自訂備註編輯控制
 const editingTeamDescId = ref(null)
 const editingTeamBottomNoteId = ref(null)
 
-// 5 種團隊固定預設色彩
 const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
 
 const changeTopFontSize = (delta) => {
@@ -495,16 +492,19 @@ const getSlotRoleSummary = (slot) => {
   border: 1px solid #e2e8f0;
 }
 
+/* ★ 小隊欄位加上 position: relative 與 z-index: 2，徹底防止被後續列的背景色覆蓋 ★ */
 .squad-info-cell {
-  background: #f8fafc;
+  background-color: #f8fafc !important;
   vertical-align: middle;
   text-align: center;
   padding: 10px 4px !important;
   cursor: pointer;
+  position: relative;
+  z-index: 2;
   transition: background 0.15s;
 }
 .squad-info-cell:hover {
-  background: #f1f5f9;
+  background-color: #f1f5f9 !important;
 }
 .squad-info-box {
   text-align: center;
