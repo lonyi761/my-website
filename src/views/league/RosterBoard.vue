@@ -1,5 +1,5 @@
 <template>
-  <div class="roster-board-layout" @click="closeAllPopovers">
+  <div class="roster-board-layout" @click="closeAllSkillDropdowns">
     <!-- 頂部頁籤與資訊 -->
     <div class="roster-header-bar">
       <div class="header-left-info">
@@ -16,14 +16,14 @@
 
     <div class="roster-main-container">
       
-      <!-- ================= 左側：待選成員區塊 (圖一 & 圖二對應) ================= -->
+      <!-- ================= 左側：待選成員區塊 ================= -->
       <aside class="pending-sidebar">
         <!-- 幫會資訊串接 -->
         <div class="guild-select-box">
           <span class="guild-name-display">{{ leagueInfo.guild || '百錵谷酒池肉林' }}</span>
         </div>
 
-        <!-- 搜尋與標題列 (左側: 待選成員+，右側: 流派/全員 - 圖一與圖二) -->
+        <!-- 搜尋與標題列 -->
         <div class="pending-filter-bar">
           <div class="pending-title-group">
             <div class="title-left-box">
@@ -69,7 +69,7 @@
           </div>
         </div>
 
-        <!-- 1. 按流派分類的手風琴列表 (流派模式 - 圖一) -->
+        <!-- 1. 按流派分類的手風琴列表 -->
         <div v-if="pendingViewMode === 'school'" class="school-accordion-list">
           <div 
             v-for="s in filteredSchoolAccordion" 
@@ -114,7 +114,7 @@
           </div>
         </div>
 
-        <!-- 2. 一整排向下的全員清單 (全員模式 - 圖二) -->
+        <!-- 2. 一整排向下的全員清單 -->
         <div v-else-if="pendingViewMode === 'all'" class="all-members-flow-list">
           <div 
             v-for="m in allUnassignedMembersList" 
@@ -146,78 +146,24 @@
 
       <!-- ================= 右側：團隊矩陣排表區塊 ================= -->
       <main class="matrix-content-area">
-        <!-- 團隊工具列 -->
+        <!-- 團隊工具列 (修訂順序：團隊配置 | 保存陣容 | +添加團隊 | 批量編輯 | [開關] 顯示副職 | 清空陣容) -->
         <div class="matrix-toolbar">
           <div class="toolbar-left">
-            <div class="toolbar-title-with-gear">
-              <span class="toolbar-section-title">團隊配置</span>
-              
-              <!-- ⚙️ 團隊配置設定彈窗 -->
-              <div class="team-config-popover-wrapper" @click.stop>
-                <button 
-                  class="btn-icon-gear" 
-                  @click="showTeamConfigPopover = !showTeamConfigPopover" 
-                  title="團隊配置設置"
-                >
-                  <i class="mdi mdi-cog-outline"></i>
-                </button>
-
-                <div v-if="showTeamConfigPopover" class="team-config-popover-panel">
-                  <div class="popover-hint-text">點「常駐頁面」放到工具欄上</div>
-
-                  <div class="popover-switch-row">
-                    <span>錄屏配置</span>
-                    <label class="switch-sm"><input type="checkbox" /><span class="slider-sm"></span></label>
-                  </div>
-                  <div class="popover-switch-row">
-                    <span>輪換模式</span>
-                    <label class="switch-sm"><input type="checkbox" /><span class="slider-sm"></span></label>
-                  </div>
-                  <div class="popover-switch-row">
-                    <span>詳情模式</span>
-                    <label class="switch-sm"><input type="checkbox" /><span class="slider-sm"></span></label>
-                  </div>
-                  <div class="popover-switch-row">
-                    <span>沉浸模式</span>
-                    <label class="switch-sm"><input type="checkbox" /><span class="slider-sm"></span></label>
-                  </div>
-
-                  <!-- 篩選副職開關 -->
-                  <div class="popover-switch-row highlight">
-                    <span class="font-bold">篩選副職</span>
-                    <label class="switch-sm">
-                      <input type="checkbox" v-model="showSecondarySchool" />
-                      <span class="slider-sm"></span>
-                    </label>
-                  </div>
-
-                  <div class="popover-badges-block margin-t">
-                    <div class="badges-title">成員卡片顯示</div>
-                    <div class="badges-flex">
-                      <span class="badge-chip active">職能</span>
-                      <span class="badge-chip active">職能標籤</span>
-                      <span class="badge-chip active">橙武</span>
-                      <span class="badge-chip active">一線牽</span>
-                      <span class="badge-chip active">錄屏</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+            <span class="toolbar-section-title">團隊配置</span>
             <button class="btn-secondary-sm margin-l" @click="saveRosterBoard">保存陣容</button>
             <button class="btn-primary-sm margin-l" @click="addTeam">+ 添加團隊</button>
+            <button class="btn-secondary-sm margin-l" @click="openBatchEditModal">批量編輯</button>
 
-            <!-- 其他操作下拉 -->
-            <div class="custom-dropdown-wrapper margin-l" @click.stop>
-              <button class="btn-secondary-sm" @click="showOtherOpsDropdown = !showOtherOpsDropdown">
-                其他操作 <i class="mdi mdi-chevron-down"></i>
-              </button>
-              <div v-if="showOtherOpsDropdown" class="ops-dropdown-menu">
-                <div class="ops-item" @click="openBatchEditModal">批量編輯</div>
-                <div class="ops-item text-red" @click="confirmClearRoster">清空陣容</div>
-              </div>
+            <!-- 顯示副職獨立開關 (圖一/圖二對應) -->
+            <div class="inline-switch-group margin-l">
+              <span class="switch-label-text">顯示副職</span>
+              <label class="switch-sm">
+                <input type="checkbox" v-model="showSecondarySchool" />
+                <span class="slider-sm"></span>
+              </label>
             </div>
+
+            <button class="btn-link text-red margin-l font-bold" @click="confirmClearRoster">清空陣容</button>
           </div>
 
           <!-- 選擇陣容模板下拉 -->
@@ -242,11 +188,11 @@
           </div>
         </div>
 
-        <!-- 團隊矩陣 -->
+        <!-- 團隊矩陣 (圖一 & 圖四對應) -->
         <div class="teams-matrix-wrapper">
           <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
             
-            <!-- 團隊標頭列 -->
+            <!-- 團隊標頭列 (顯示團隊名稱 + 團隊備註) -->
             <div class="team-header-row">
               <div class="team-title-edit-group" @click="openEditTeamModal(tIdx)" title="編輯團隊名稱與小隊職能">
                 <span class="team-row-title">{{ team.name }}</span>
@@ -262,11 +208,15 @@
               </button>
             </div>
 
-            <!-- 小隊網格 -->
+            <!-- 小隊網格 (小隊備註顯示於名稱下方 - 圖四對應) -->
             <div class="squads-matrix-grid">
               <div v-for="(squad, sIdx) in team.squads" :key="squad.id" class="squad-column-box">
                 <div class="squad-column-head">
-                  {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
+                  <div class="squad-head-title">
+                    {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
+                  </div>
+                  <!-- 小隊備註：顯示於小隊名稱下方 (圖四對應) -->
+                  <div v-if="squad.desc" class="squad-head-desc">{{ squad.desc }}</div>
                 </div>
 
                 <div class="slots-vertical-list">
@@ -290,12 +240,14 @@
                       <div class="assigned-slot-content">
                         <div class="member-head-info">
                           <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
+                          
                           <img 
                             v-if="showSecondarySchool && getSecondarySchool(slot.assignedMember)" 
                             :src="getSchoolImgByName(getSecondarySchool(slot.assignedMember))" 
                             class="slot-school-icon-sub" 
                             title="副職業"
                           />
+
                           <span class="slot-member-name">{{ slot.assignedMember.name }}</span>
                         </div>
                         <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
@@ -327,7 +279,7 @@
 
     <!-- ================= 彈窗組件 ================= -->
 
-    <!-- 1. 編輯團隊 Modal -->
+    <!-- 1. 編輯團隊 Modal (美化排版，圖三對應) -->
     <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -392,10 +344,10 @@
                 <table class="edit-squads-table">
                   <thead>
                     <tr>
-                      <th width="180">小隊名</th>
-                      <th>職能</th>
+                      <th width="150">小隊名</th>
+                      <th width="150">職能</th>
                       <th>備註</th>
-                      <th width="80" class="text-center">操作</th>
+                      <th width="70" class="text-center">操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -436,9 +388,9 @@
       </div>
     </div>
 
-    <!-- 2. 格子有人時：排表信息 Modal -->
+    <!-- 2. 格子有人時：排表信息 Modal (圖五對應，技能抓取戰備下拉) -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
-      <div class="modal-card slot-info-modal">
+      <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
           <h3>排表信息</h3>
           <div class="modal-header-actions">
@@ -468,6 +420,7 @@
             </div>
           </div>
 
+          <!-- 聯賽職能 (17項個人職能) -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 聯賽職能</div>
             <div class="role-pills-grid margin-t">
@@ -482,19 +435,53 @@
             </div>
           </div>
 
+          <!-- 配裝信息 (推薦技能 - 帶下拉選單) -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 配裝信息</div>
+            
             <div class="skill-input-row margin-t">
               <label>絕技：</label>
-              <input type="text" v-model="tempSlotJueji" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
+              <div class="custom-dropdown-container">
+                <input type="text" v-model="tempSlotJueji" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
+                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('jueji_info')">
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'jueji_info' }]"></i>
+                </button>
+                <div v-if="activeSkillDropdown === 'jueji_info'" class="skill-dropdown-panel" @click.stop>
+                  <div v-for="j in juejiOptions" :key="j" class="dropdown-item" @mousedown.prevent.stop="tempSlotJueji = j; activeSkillDropdown = null">
+                    {{ j }}
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
-              <input type="text" v-model="tempSlotQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
+              <div class="custom-dropdown-container">
+                <input type="text" v-model="tempSlotQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
+                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('qunxia_info')">
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia_info' }]"></i>
+                </button>
+                <div v-if="activeSkillDropdown === 'qunxia_info'" class="skill-dropdown-panel" @click.stop>
+                  <div v-for="q in qunxiaOptions" :key="q" class="dropdown-item" @mousedown.prevent.stop="tempSlotQunxia = q; activeSkillDropdown = null">
+                    {{ q }}
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div class="skill-input-row margin-t">
               <label>裝備武蘊：</label>
-              <input type="text" v-model="tempSlotZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
+              <div class="custom-dropdown-container">
+                <input type="text" v-model="tempSlotZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
+                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('liupai_info')">
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'liupai_info' }]"></i>
+                </button>
+                <div v-if="activeSkillDropdown === 'liupai_info'" class="skill-dropdown-panel" @click.stop>
+                  <div v-for="l in liupaiSkillOptions" :key="l" class="dropdown-item" @mousedown.prevent.stop="tempSlotZhuangbei = l; activeSkillDropdown = null">
+                    {{ l }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -506,9 +493,9 @@
       </div>
     </div>
 
-    <!-- 3. 格子沒人時：席位配置 Modal -->
+    <!-- 3. 格子沒人時：席位配置 Modal (圖六對應) -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
-      <div class="modal-card slot-modal-card">
+      <div class="modal-card slot-modal-card" @click.stop>
         <div class="modal-header">
           <h3>席位配置</h3>
           <span class="close-btn" @click="showSlotConfigModal = false">&times;</span>
@@ -519,6 +506,7 @@
             {{ activeSlotTeamName }} - {{ activeSlotSquadName }} - 第 {{ activeSlotIndex + 1 }} 席
           </div>
 
+          <!-- 推薦流派 -->
           <div class="form-block">
             <div class="block-title"><span class="req">*</span>推薦流派</div>
             <div class="school-pills-group">
@@ -535,6 +523,7 @@
             </div>
           </div>
 
+          <!-- 推薦職能 (抓取個人職能) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦職能</div>
             <div class="role-tag-grid">
@@ -549,22 +538,57 @@
             </div>
           </div>
 
+          <!-- 推薦技能 (絕技, 群俠百家, 流派技能) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
+            
             <div class="skill-input-row margin-t">
               <label>絕技：</label>
-              <input type="text" v-model="tempConfigJueji" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
+              <div class="custom-dropdown-container">
+                <input type="text" v-model="tempConfigJueji" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
+                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('jueji_cfg')">
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'jueji_cfg' }]"></i>
+                </button>
+                <div v-if="activeSkillDropdown === 'jueji_cfg'" class="skill-dropdown-panel" @click.stop>
+                  <div v-for="j in juejiOptions" :key="j" class="dropdown-item" @mousedown.prevent.stop="tempConfigJueji = j; activeSkillDropdown = null">
+                    {{ j }}
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
-              <input type="text" v-model="tempConfigQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
+              <div class="custom-dropdown-container">
+                <input type="text" v-model="tempConfigQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
+                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('qunxia_cfg')">
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia_cfg' }]"></i>
+                </button>
+                <div v-if="activeSkillDropdown === 'qunxia_cfg'" class="skill-dropdown-panel" @click.stop>
+                  <div v-for="q in qunxiaOptions" :key="q" class="dropdown-item" @mousedown.prevent.stop="tempConfigQunxia = q; activeSkillDropdown = null">
+                    {{ q }}
+                  </div>
+                </div>
+              </div>
             </div>
+
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
-              <input type="text" v-model="tempConfigZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
+              <div class="custom-dropdown-container">
+                <input type="text" v-model="tempConfigZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
+                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('liupai_cfg')">
+                  <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'liupai_cfg' }]"></i>
+                </button>
+                <div v-if="activeSkillDropdown === 'liupai_cfg'" class="skill-dropdown-panel" @click.stop>
+                  <div v-for="l in liupaiSkillOptions" :key="l" class="dropdown-item" @mousedown.prevent.stop="tempConfigZhuangbei = l; activeSkillDropdown = null">
+                    {{ l }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
+          <!-- 描述 -->
           <div class="form-block margin-t">
             <div class="block-title">描述</div>
             <textarea v-model="tempConfigDesc" maxlength="200" placeholder="選填，例如這部分的戰術職能" class="skill-textarea h-80 margin-t"></textarea>
@@ -683,7 +707,7 @@
       </div>
     </div>
 
-    <!-- 5. 點擊待選成員「+」：新增成員 Modal (圖三對應) -->
+    <!-- 5. 點擊待選成員「+」：新增成員 Modal -->
     <div v-if="showAddMemberModal" class="modal-overlay" @click.self="showAddMemberModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -924,14 +948,31 @@ const squadRoleOptions = [
   '保鏢隊', '雙碎隊', '雙神隊', '塔前隊', '塔後隊', '請假隊', '輪空隊'
 ]
 
-// 團隊配置 PopOver 與「篩選副職」開關
-const showTeamConfigPopover = ref(false)
+// 下拉技能數據 (對齊技能管理)
+const juejiOptions = ['狂發一怒', '太極圖']
+const qunxiaOptions = ['咚咚跳台', '雲影濁香']
+const liupaiSkillOptions = ['約定', '清泉']
+
+const activeSkillDropdown = ref(null)
+
+const toggleSkillDropdown = (type) => {
+  if (activeSkillDropdown.value === type) activeSkillDropdown.value = null
+  else activeSkillDropdown.value = type
+}
+
+const closeAllSkillDropdowns = () => {
+  activeSkillDropdown.value = null
+  showOtherOpsDropdown.value = false
+  showTemplateDropdown.value = false
+}
+
+// 「顯示副職」獨立開關
 const showSecondarySchool = ref(false)
 
-// 待選模式: 'school' (流派) | 'all' (全員 - 圖一 / 圖二)
+// 待選模式: 'school' (流派) | 'all' (全員)
 const pendingViewMode = ref('school')
 
-// 真實成員數據 (含雙流派測試，如 行優: 鐵衣+龍吟, 章小燒: 血河+鐵衣)
+// 真實成員數據
 const allMembers = ref([
   { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '龍吟'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '錵小錵', rolePreference: ['D潮拆塔', '保鏢拆'], rolePrefList: ['D潮拆塔', '保鏢拆'], assigned: false },
   { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '行優', rolePreference: ['灌大團'], rolePrefList: ['灌大團'], assigned: false },
@@ -965,7 +1006,6 @@ const filteredSchoolAccordion = computed(() => {
   return availableSchools
 })
 
-// 流派模式：過濾成員
 const getUnassignedMembersBySchool = (schoolName) => {
   const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
   return allMembers.value.filter(m => {
@@ -988,7 +1028,6 @@ const getUnassignedCountBySchool = (schoolName) => {
   return getUnassignedMembersBySchool(schoolName).length
 }
 
-// 全員模式：整排向下流動清單 (圖二)
 const allUnassignedMembersList = computed(() => {
   const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
   return allMembers.value.filter(m => {
@@ -1009,7 +1048,6 @@ const allUnassignedMembersList = computed(() => {
   })
 })
 
-// 圖三對應：待選成員「+」新增成員 Modal 狀態
 const showAddMemberModal = ref(false)
 const showRoleDropdownInNewMember = ref(false)
 
@@ -1091,14 +1129,14 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊盤面結構
+// 團隊矩陣數據
 const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
-    desc: '我這是團隊備註會顯示的地方',
+    desc: '我是團隊備註會顯示的地方',
     squads: [
-      { id: 11, name: '一隊', zhineng: '塔後隊', desc: '', slots: createDefaultSlots() },
+      { id: 11, name: '一隊', zhineng: '塔後隊', desc: '我是顯示備註的地方', slots: createDefaultSlots() },
       { id: 12, name: '二隊', zhineng: '保鏢隊', desc: '', slots: createDefaultSlots() },
       { id: 13, name: '三隊', zhineng: '塔前隊', desc: '', slots: createDefaultSlots() },
       { id: 14, name: '四隊', zhineng: '', desc: '', slots: createDefaultSlots() },
@@ -1276,6 +1314,7 @@ const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotTeamName.value = team.name
   activeSlotSquadName.value = squad.name
   activeSlotIndex.value = slotIdx
+  activeSkillDropdown.value = null
 
   if (slot.assignedMember) {
     tempSlotRoles.value = [...(slot.roles || [])]
@@ -1337,6 +1376,7 @@ const saveSlotConfig = () => {
   showSlotConfigModal.value = false
 }
 
+// 編輯成員 Modal (現有成員資料雙向連動)
 const showMemberEditModal = ref(false)
 const showRoleDropdownInMemberEdit = ref(false)
 const editingMemberRef = ref(null)
@@ -1383,6 +1423,10 @@ const toggleMemberEditSchool = (sName) => {
       }
     }
   } else {
+    if (memberEditForm.value.schools.length >= 2) {
+      alert('最多只能選擇 2 個流派！')
+      return
+    }
     memberEditForm.value.schools.push(sName)
   }
 }
@@ -1411,6 +1455,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
+// 批量編輯 Modal
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -1445,6 +1490,7 @@ const saveBatchEdit = () => {
   showBatchEditModal.value = false
 }
 
+// 置中清空陣容 Modal
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -1471,6 +1517,7 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
+// 選擇陣容模板下拉
 const showTemplateDropdown = ref(false)
 const appliedTemplateName = ref('')
 
@@ -1487,12 +1534,6 @@ const applyRosterTemplate = (tpl) => {
     if (idx === 0) s.templateConfig.roles = ['統戰', '指揮']
     if (idx === 1) s.templateConfig.roles = ['保鏢拆', '純保鏢']
   })
-}
-
-const closeAllPopovers = () => {
-  showTeamConfigPopover.value = false
-  showOtherOpsDropdown.value = false
-  showTemplateDropdown.value = false
 }
 
 const formatArrayText = (arr) => {
@@ -1530,7 +1571,7 @@ const saveRosterBoard = () => {
 .pending-title { font-weight: bold; font-size: 13px; color: #334155; }
 .btn-icon-add { background: none; border: none; color: #3b82f6; font-size: 18px; font-weight: bold; cursor: pointer; }
 
-/* 待選模式切換按鈕 (圖一 / 圖二) */
+/* 待選模式切換按鈕 */
 .pending-mode-toggle { display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #ffffff; }
 .mode-pill-btn { padding: 2px 8px; border: none; background: white; font-size: 11px; cursor: pointer; color: #64748b; }
 .mode-pill-btn.active { background: #5b7db1; color: white; font-weight: bold; }
@@ -1554,7 +1595,7 @@ const saveRosterBoard = () => {
 
 .accordion-body { padding: 4px 0 8px 10px; display: flex; flex-direction: column; gap: 4px; }
 
-/* 全員向下流動模式 (圖二) */
+/* 全員向下流動模式 */
 .all-members-flow-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 
 .member-drag-card { display: flex; align-items: center; gap: 6px; background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: grab; color: #0369a1; transition: transform 0.15s; }
@@ -1568,31 +1609,10 @@ const saveRosterBoard = () => {
 .matrix-content-area { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-x: auto; }
 .matrix-toolbar { display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 10px; }
-.toolbar-title-with-gear { display: flex; align-items: center; gap: 6px; }
 .toolbar-section-title { font-size: 14px; font-weight: bold; color: #1e293b; }
-.btn-icon-gear { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; font-size: 15px; }
 
-/* ⚙️ 團隊配置 Popover 面板 (圖二 & 圖三) */
-.team-config-popover-wrapper { position: relative; display: inline-block; }
-.team-config-popover-panel {
-  position: absolute;
-  top: 120%;
-  left: 0;
-  width: 280px;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  padding: 16px;
-  z-index: 150;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.popover-hint-text { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
-.popover-switch-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #334155; }
-.popover-switch-row.highlight { background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px solid #f1f5f9; }
+.inline-switch-group { display: flex; align-items: center; gap: 6px; }
+.switch-label-text { font-size: 12px; color: #475569; font-weight: bold; }
 
 .switch-sm { position: relative; display: inline-block; width: 30px; height: 16px; }
 .switch-sm input { opacity: 0; width: 0; height: 0; }
@@ -1601,20 +1621,9 @@ const saveRosterBoard = () => {
 input:checked + .slider-sm { background-color: #3b82f6; }
 input:checked + .slider-sm:before { transform: translateX(14px); }
 
-.popover-badges-block { border-top: 1px solid #f1f5f9; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.badges-title { font-size: 11px; color: #94a3b8; font-weight: bold; }
-.badges-flex { display: flex; flex-wrap: wrap; gap: 6px; }
-.badge-chip { padding: 3px 10px; border-radius: 12px; font-size: 11px; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-.badge-chip.active { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; font-weight: bold; }
-
 .btn-secondary-sm { background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #334155; }
 .btn-primary-sm { background: #3b82f6; color: white; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .template-select-label { font-size: 12px; color: #64748b; font-weight: bold; }
-
-.custom-dropdown-wrapper { position: relative; }
-.ops-dropdown-menu { position: absolute; top: 100%; left: 0; margin-top: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100px; z-index: 100; }
-.ops-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
-.ops-item:hover { background: #f1f5f9; }
 
 .custom-select-wrapper { position: relative; width: 160px; }
 .custom-select-input { display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 12px; }
@@ -1622,7 +1631,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .dropdown-item:hover { background: #f1f5f9; }
 
-/* 團隊矩陣橫列 (圖一) */
+/* 團隊矩陣橫列 */
 .teams-matrix-wrapper { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
 .team-matrix-row { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; }
 
@@ -1637,7 +1646,10 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 
 .squads-matrix-grid { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; }
 .squad-column-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; }
-.squad-column-head { font-size: 12px; font-weight: bold; color: #475569; margin-bottom: 8px; text-align: center; }
+
+.squad-column-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; }
+.squad-head-title { font-size: 12px; font-weight: bold; color: #475569; }
+.squad-head-desc { font-size: 11px; color: #94a3b8; font-style: italic; margin-top: 2px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 
 .slots-vertical-list { display: flex; flex-direction: column; gap: 6px; }
 .matrix-slot-card { position: relative; height: 38px; border-radius: 4px; border: 1px dashed #cbd5e1; background: #ffffff; display: flex; align-items: center; padding: 0 8px; cursor: pointer; transition: all 0.15s; }
@@ -1659,6 +1671,34 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .slot-clear-x { position: absolute; right: 4px; top: 2px; font-size: 12px; color: #94a3b8; cursor: pointer; opacity: 0; }
 .matrix-slot-card:hover .slot-clear-x { opacity: 1; }
 .slot-clear-x:hover { color: #ef4444; }
+
+/* 下拉選單組件 */
+.custom-dropdown-container { position: relative; flex: 1; display: flex; align-items: center; }
+.dropdown-toggle-btn { position: absolute; right: 4px; background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px 6px; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+.dropdown-toggle-btn i { transition: transform 0.2s; }
+.dropdown-toggle-btn i.rotate { transform: rotate(180deg); }
+
+.skill-dropdown-panel { position: absolute; top: 100%; left: 0; width: 100%; margin-top: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 160px; overflow-y: auto; z-index: 120; padding: 4px 0; }
+
+/* 編輯團隊 Modal 樣式 */
+.modal-title-with-sub { display: flex; align-items: baseline; gap: 8px; }
+.modal-sub-desc { font-size: 12px; color: #94a3b8; font-weight: normal; }
+
+.team-tab-pills-row { display: flex; gap: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+.team-tab-pill { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #475569; }
+.team-tab-pill.active { background: #eff6ff; color: #2563eb; border-color: #3b82f6; font-weight: bold; }
+
+.squad-title-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.add-squad-link-btn { background: none; border: none; color: #3b82f6; font-weight: bold; font-size: 12px; cursor: pointer; }
+
+.team-squads-table-wrapper { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+.edit-squads-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.edit-squads-table th, .edit-squads-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.edit-squads-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
+.table-input { width: 100%; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; outline: none; }
+.table-select { padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; outline: none; }
+
+.empty-cell-sm { text-align: center; color: #94a3b8; padding: 15px; }
 
 /* Modal 通用 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
