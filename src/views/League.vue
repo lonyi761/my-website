@@ -11,7 +11,7 @@
     <!-- 主要內容區 -->
     <div class="league-main">
 
-      <!-- ================= 1. 聯賽列表視圖 ================= -->
+      <!-- ================= 1. 聯賽列表視圖 (圖六) ================= -->
       <div v-if="currentView === 'list'">
         <!-- 頂部工具列 -->
         <div class="league-header-bar">
@@ -197,11 +197,11 @@
 
                 <td class="text-gray">{{ item.notes || '—' }}</td>
 
-                <!-- 操作欄位修訂：編輯與刪除改為上下排列 -->
+                <!-- 操作欄位 (點擊排表進陣容調度頁) -->
                 <td>
                   <div class="action-cell-container">
                     <div class="action-pill-buttons">
-                      <button class="btn-pill-blue" @click="openRoster(item)">排表</button>
+                      <button class="btn-pill-blue" @click="openRosterBoard(item)">排表</button>
                       <button class="btn-pill-gray">數據</button>
                     </div>
                     <div class="action-link-stacked">
@@ -275,18 +275,15 @@
               </div>
             </div>
 
-            <!-- 開始時間與場次 (修訂：僅保留 20:00 與 20:30 兩種時間) -->
             <div class="form-row margin-t">
               <label><span class="req">*</span>開始時間：</label>
               <div class="time-picker-group">
-                <!-- 日期選擇器 -->
                 <div class="date-picker-wrapper" @click.stop>
                   <div class="picker-input-box" @click="toggleDatePicker">
                     <i class="mdi mdi-calendar-range icon-gray"></i>
                     <span>{{ leagueForm.date || '選擇日期' }}</span>
                   </div>
 
-                  <!-- 視覺化月曆彈窗 -->
                   <div v-if="showDatePicker" class="calendar-popover-panel">
                     <div class="calendar-head">
                       <span class="cal-nav-btn" @click="changeMonth(-1)">&lt;</span>
@@ -309,7 +306,6 @@
                   </div>
                 </div>
 
-                <!-- 時刻選擇器 (限定 20:00 與 20:30) -->
                 <div class="time-select-wrapper" @click.stop>
                   <div class="picker-input-box" @click="showTimePicker = !showTimePicker">
                     <span>{{ leagueForm.time }}</span>
@@ -327,7 +323,6 @@
                   </div>
                 </div>
 
-                <!-- 場次數 (上限 2) -->
                 <div class="match-count-group margin-l">
                   <span class="label-inline">場次數：</span>
                   <div class="count-btn-group">
@@ -365,7 +360,6 @@
             </div>
           </div>
 
-          <!-- 底部保存預設與提交列 -->
           <div class="form-bottom-actions margin-t">
             <label class="checkbox-label">
               <input type="checkbox" v-model="saveAsDefault" />
@@ -377,11 +371,18 @@
         </div>
       </div>
 
+      <!-- ================= 3. 聯賽排表調度矩陣視圖 (圖一 / 圖七 / 圖八) ================= -->
+      <div v-else-if="currentView === 'roster'">
+        <RosterBoard 
+          :leagueItem="activeLeagueForRoster" 
+          @back="currentView = 'list'" 
+        />
+      </div>
+
     </div>
 
     <!-- ================= 彈窗組件 ================= -->
 
-    <!-- 1. 複製已有聯賽 Modal (修訂：時間選單限定 20:00 與 20:30) -->
     <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -422,7 +423,6 @@
       </div>
     </div>
 
-    <!-- 2. 排表展示 Modal -->
     <div v-if="showRosterDisplayModal" class="modal-overlay" @click.self="showRosterDisplayModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -464,7 +464,6 @@
       </div>
     </div>
 
-    <!-- 3. 編輯對陣幫會 Modal -->
     <div v-if="showOpponentModal" class="modal-overlay" @click.self="showOpponentModal = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -488,7 +487,6 @@
       </div>
     </div>
 
-    <!-- 4. 編輯比賽結果 Modal -->
     <div v-if="showResultModal" class="modal-overlay" @click.self="showResultModal = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -539,7 +537,6 @@
       </div>
     </div>
 
-    <!-- 5. 置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -563,13 +560,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Navbar from '../components/layout/Navbar.vue'
+import RosterBoard from './league/RosterBoard.vue'
 
 const router = useRouter()
 const isDarkMode = ref(false)
 const username = ref('VIP')
 
-const currentView = ref('list')
+const currentView = ref('list') // 'list' | 'form' | 'roster'
 const editingLeagueId = ref(null)
+const activeLeagueForRoster = ref(null)
 
 // 篩選與選項
 const filterTitle = ref('')
@@ -595,7 +594,6 @@ const filterSortLabel = computed(() => {
   return found ? found.label : '創建時間倒序'
 })
 
-// 聯賽清單預設資料
 const leagueList = ref([
   {
     id: 1,
@@ -637,7 +635,6 @@ const filteredLeagueList = computed(() => {
   })
 })
 
-// 新建/編輯表單狀態
 const leagueForm = ref({
   type: '幫會聯賽',
   title: '',
@@ -650,14 +647,11 @@ const leagueForm = ref({
 
 const saveAsDefault = ref(false)
 
-// 月曆視覺化元件狀態
 const showDatePicker = ref(false)
 const calYear = ref(2026)
 const calMonth = ref(9)
 
-const toggleDatePicker = () => {
-  showDatePicker.value = !showDatePicker.value
-}
+const toggleDatePicker = () => { showDatePicker.value = !showDatePicker.value }
 
 const changeMonth = (delta) => {
   let m = calMonth.value + delta
@@ -690,14 +684,12 @@ const selectDate = (dateStr) => {
   }
 }
 
-// 時間下拉狀態 (修訂：僅提供 20:00 與 20:30)
 const showTimePicker = ref(false)
 const selectTime = (t) => {
   leagueForm.value.time = t
   showTimePicker.value = false
 }
 
-// 排表展示 Modal
 const showRosterDisplayModal = ref(false)
 const rosterConfig = ref({
   visibility: '全部團隊',
@@ -714,11 +706,10 @@ const rosterDisplaySummary = computed(() => {
   return `${rosterConfig.value.visibility} · ${rosterConfig.value.cardBadges.join('、')}`
 })
 
-// 複製已有 Modal
 const showCopyModal = ref(false)
 const copySourceId = ref('')
 const copyNewDate = ref('2026-10-24')
-const copyNewTime = ref('20:00') // 修訂：預設 20:00
+const copyNewTime = ref('20:00')
 const copyNewTitle = ref('')
 
 const sortedLeagueListForCopy = computed(() => {
@@ -748,7 +739,6 @@ const executeCopyLeague = () => {
   currentView.value = 'list'
 }
 
-// 視圖控制
 const openCreateView = () => {
   editingLeagueId.value = null
   leagueForm.value = {
@@ -805,7 +795,11 @@ const saveLeagueForm = () => {
   currentView.value = 'list'
 }
 
-// 對陣幫會 Modal
+const openRosterBoard = (item) => {
+  activeLeagueForRoster.value = item
+  currentView.value = 'roster'
+}
+
 const showOpponentModal = ref(false)
 const activeLeagueItem = ref(null)
 const tempOpponents = ref(['', ''])
@@ -826,7 +820,6 @@ const saveOpponents = () => {
   showOpponentModal.value = false
 }
 
-// 比賽結果 Modal
 const showResultModal = ref(false)
 const tempResults = ref(['unset', 'unset'])
 
@@ -846,7 +839,6 @@ const saveResults = () => {
   showResultModal.value = false
 }
 
-// 置中刪除確認 Modal
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -892,10 +884,6 @@ const closeAllDropdowns = () => {
   showTimePicker.value = false
 }
 
-const openRoster = (item) => {
-  alert(`開啟聯賽【${item.title}】的排表頁面`)
-}
-
 onMounted(() => {
   const user = JSON.parse(localStorage.getItem('user'))
   if (user) username.value = user.username
@@ -910,7 +898,6 @@ onMounted(() => {
 
 .league-main { flex: 1; max-width: 1400px; width: 100%; margin: 20px auto; padding: 0 20px; box-sizing: border-box; }
 
-/* 頂部工具列 */
 .league-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .page-title { margin: 0; font-size: 18px; font-weight: bold; color: #1e293b; }
 .header-right-tools { display: flex; align-items: center; gap: 12px; }
@@ -922,12 +909,10 @@ onMounted(() => {
 .btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 
-/* 篩選卡片 */
 .filter-card { background: #ffffff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filter-input-text { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; width: 120px; }
 
-/* 下拉選單 */
 .custom-select-wrapper { position: relative; width: 140px; }
 .custom-select-input { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; min-height: 20px; }
 .placeholder-text { color: #94a3b8; }
@@ -942,7 +927,6 @@ onMounted(() => {
 
 .btn-query { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #334155; }
 
-/* 表格欄位 */
 .table-container { background: #ffffff; border-radius: 8px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
@@ -951,7 +935,6 @@ onMounted(() => {
 .clickable-cell { cursor: pointer; display: inline-block; padding: 2px 4px; border-radius: 4px; transition: background 0.15s; }
 .clickable-cell:hover { background: #f1f5f9; }
 
-/* 上下垂直呈現對陣與結果 */
 .opponents-flex-vertical, .results-flex-vertical { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .vertical-row { display: flex; align-items: center; gap: 6px; }
 .match-tag-label { font-size: 11px; color: #64748b; font-weight: bold; }
@@ -968,7 +951,6 @@ onMounted(() => {
 .text-gray { color: #64748b; }
 .font-bold { font-weight: bold; }
 
-/* 操作欄位修訂：編輯與刪除改為上下排列 (圖四對應) */
 .action-cell-container { display: flex; align-items: center; gap: 12px; }
 .action-pill-buttons { display: flex; gap: 6px; }
 .action-link-stacked { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
@@ -978,7 +960,6 @@ onMounted(() => {
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
 
-/* 新建/編輯聯賽表單頁面 */
 .create-league-container { background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .create-header-bar { display: flex; justify-content: space-between; align-items: center; }
 .back-title-group { display: flex; align-items: center; gap: 15px; }
@@ -1028,7 +1009,6 @@ onMounted(() => {
 .form-bottom-actions { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 15px; }
 .checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #475569; cursor: pointer; }
 
-/* Modal 彈窗與卡片配置 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
 .small-card { width: 400px; }
@@ -1051,7 +1031,6 @@ onMounted(() => {
 .badge-toggle-btn { border: 1px solid #cbd5e1; background: white; padding: 4px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; color: #475569; }
 .badge-toggle-btn.active { border-color: #3b82f6; background: #eff6ff; color: #2563eb; font-weight: bold; }
 
-/* 置中刪除確認 Modal */
 .confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
 .confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
