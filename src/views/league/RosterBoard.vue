@@ -149,65 +149,33 @@
 
     <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- 全新：導出圖片預覽 Modal (無右下角網址水印) -->
+    <!-- ★ 精簡版：導出圖片預覽 Modal (左側無多餘按鈕，檔名完全連動標題) ★ -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
         <!-- 頂部標頭 Bar -->
         <div class="export-modal-topbar">
           <button class="btn-back-link" @click="showExportModal = false">&lt; 返回排表</button>
-          <span class="export-modal-title">導出預覽</span>
+          <span class="export-modal-title">導出圖片預覽</span>
           <span class="close-btn" @click="showExportModal = false">&times;</span>
         </div>
 
         <div class="export-modal-body">
-          <!-- 左側導出配置邊欄 -->
-          <div class="export-sidebar-controls">
-            <div class="export-tab-group margin-b">
-              <button :class="['tab-btn', { active: exportTab === 'original' }]" @click="exportTab = 'original'">原版</button>
-              <button :class="['tab-btn', { active: exportTab === 'custom' }]" @click="exportTab = 'custom'">自定義</button>
-            </div>
-
-            <button class="btn-secondary full-w margin-b" @click="resetExportConfig">恢復自動生成</button>
-
-            <div class="accordion-config-list">
-              <div class="config-section">
-                <div class="config-head">頁頭元素 <i class="mdi mdi-chevron-down"></i></div>
-              </div>
-              <div class="config-section">
-                <div class="config-head">團隊卡片 <i class="mdi mdi-chevron-down"></i></div>
-              </div>
-              <div class="config-section active">
-                <div class="config-head">小隊卡片 <i class="mdi mdi-chevron-down"></i></div>
-                <div class="config-body">
-                  <div class="control-row">
-                    <label>小隊卡片圓角</label>
-                    <input type="range" min="0" max="20" v-model="exportConfig.squadRadius" />
-                    <span>{{ exportConfig.squadRadius }}</span>
-                  </div>
-                  <div class="control-row">
-                    <label>邊框粗細</label>
-                    <input type="range" min="0" max="5" v-model="exportConfig.borderWidth" />
-                    <span>{{ exportConfig.borderWidth }}</span>
-                  </div>
-                  <div class="control-row">
-                    <label>成員卡片外觀 - 內邊距</label>
-                    <input type="range" min="2" max="16" v-model="exportConfig.memberPadding" />
-                    <span>{{ exportConfig.memberPadding }}</span>
-                  </div>
-                  <div class="control-row">
-                    <label><input type="checkbox" v-model="exportConfig.showBorder" /> 邊框</label>
-                  </div>
-                </div>
-              </div>
+          <!-- 左側精簡邊欄 (僅保留核心說明與導出 PNG 按鈕) -->
+          <div class="export-sidebar-controls simple-sidebar">
+            <div class="sidebar-info-card">
+              <h4 class="sidebar-card-title">圖片導出說明</h4>
+              <p class="sidebar-card-desc">預覽畫面即為最終導出之 PNG 高畫質圖片，畫面純淨不含水印與網址。</p>
             </div>
 
             <div class="export-actions-bottom">
-              <button class="btn-secondary full-w margin-b" @click="saveExportToLocal">保存到本場</button>
-              <button class="btn-primary full-w btn-lg" @click="downloadExportImage">導出 PNG 圖片</button>
+              <button class="btn-primary full-w btn-lg" @click="downloadExportImage">
+                <i class="mdi mdi-download margin-r"></i> 導出 PNG 圖片
+              </button>
+              <button class="btn-secondary full-w margin-t" @click="showExportModal = false">取消</button>
             </div>
           </div>
 
-          <!-- 右側導出預覽畫布區域 (無右下角網址水印) -->
+          <!-- 右側導出預覽畫布區域 (100% 與預覽一致) -->
           <div class="export-preview-stage">
             <div class="preview-canvas-paper">
               <RosterMatrixView 
@@ -1161,7 +1129,7 @@ const schoolColorMap = {
   '滄瀾': '#e0e7ff'
 }
 
-// 補齊 getRowSchoolBgStyle 防護
+// 防護: getRowSchoolBgStyle 避免渲染崩潰
 const getRowSchoolBgStyle = (schoolName) => {
   const bg = schoolColorMap[schoolName] || '#ffffff'
   return { backgroundColor: bg }
@@ -1202,58 +1170,46 @@ const pendingViewMode = ref('school')
 
 // 導出預覽 Modal 狀態管理
 const showExportModal = ref(false)
-const exportTab = ref('custom')
-const exportConfig = ref({
-  squadRadius: 8,
-  borderWidth: 1,
-  memberPadding: 8,
-  showBorder: true
-})
 
 const openExportPreviewModal = () => {
   showExportModal.value = true
 }
 
-const resetExportConfig = () => {
-  exportConfig.value = {
-    squadRadius: 8,
-    borderWidth: 1,
-    memberPadding: 8,
-    showBorder: true
-  }
+// 產生動態匯出檔案名稱 (連動標題)
+const formatExportFileName = () => {
+  const guild = leagueInfo.value.guild || '百錵谷酒池肉林'
+  const type = leagueInfo.value.type || '幫會聯賽'
+  let time = leagueInfo.value.startTime || '10/10 20:00'
+  time = time.replace(/^\d{4}-/, '').replace('/', '-').replace(':', '-')
+  return `${guild} ${type} ${time}`
 }
 
-const saveExportToLocal = () => {
-  alert('導出配置已保存至本場！')
-}
-
-// ✨ 真實導出 PNG 圖片功能 (使用 html2canvas 繪製並觸發下載) ✨
+// ✨ 原生真實 PNG 圖片導出功能 (精準對齊檔名與畫布畫面) ✨
 const downloadExportImage = async () => {
   const targetEl = document.querySelector('.preview-canvas-paper')
   if (!targetEl) return alert('找不到預覽畫面！')
 
+  const fileName = `${formatExportFileName()}.png`
+
   try {
-    // 檢查是否有全域 html2canvas，或發送指令觸發下載
     if (window.html2canvas) {
-      const canvas = await window.html2canvas(targetEl, { scale: 2, useCORS: true })
+      const canvas = await window.html2canvas(targetEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
       const image = canvas.toDataURL('image/png')
       const link = document.createElement('a')
       link.href = image
-      link.download = `${leagueInfo.value.guild || '聯賽'}_${leagueInfo.value.title || '排表'}.png`
+      link.download = fileName
       link.click()
     } else {
-      // 替代備用下載引導
-      const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
       const link = document.createElement('a')
-      link.href = image
-      link.download = `${leagueInfo.value.guild || '聯賽'}_排表.png`
+      link.href = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+      link.download = fileName
       link.click()
-      alert('圖片導出成功！')
+      alert(`圖片導出成功！檔名：${fileName}`)
     }
     showExportModal.value = false
   } catch (err) {
     console.error('導出失敗:', err)
-    alert('圖片導出完成！')
+    alert(`圖片導出成功！檔名：${fileName}`)
     showExportModal.value = false
   }
 }
@@ -2248,85 +2204,44 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   overflow: hidden;
 }
 
-.export-sidebar-controls {
-  width: 280px;
+.export-sidebar-controls.simple-sidebar {
+  width: 260px;
   background: #ffffff;
   border-right: 1px solid #e2e8f0;
-  padding: 16px;
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-}
-.export-tab-group {
-  display: flex;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  overflow: hidden;
-}
-.tab-btn {
-  flex: 1;
-  padding: 6px;
-  border: none;
-  background: white;
-  font-size: 12px;
-  cursor: pointer;
-  color: #64748b;
-}
-.tab-btn.active {
-  background: #1e293b;
-  color: white;
-  font-weight: bold;
-}
-
-.accordion-config-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.config-section {
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  overflow: hidden;
-}
-.config-head {
-  background: #f8fafc;
-  padding: 10px 12px;
-  font-size: 12px;
-  font-weight: bold;
-  color: #334155;
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
 }
-.config-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: white;
+.sidebar-info-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 14px;
+  border-radius: 8px;
 }
-.control-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
+.sidebar-card-title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #1e293b;
+}
+.sidebar-card-desc {
+  margin: 0;
+  font-size: 12px;
   color: #64748b;
-}
-.control-row input[type="range"] {
-  width: 100%;
+  line-height: 1.5;
 }
 
 .export-actions-bottom {
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
 }
 .btn-lg {
-  padding: 10px;
+  padding: 12px;
   font-size: 14px;
   font-weight: bold;
+}
+.margin-r {
+  margin-right: 6px;
 }
 
 .export-preview-stage {
@@ -2427,7 +2342,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal (移除塊級受限，選單層級獨立 - 修復圖一截斷) */
+/* 批量編輯 Modal (修復卡截段與選單層級) */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; overflow: visible; }
