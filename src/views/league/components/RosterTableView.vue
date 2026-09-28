@@ -8,9 +8,9 @@
       </span>
     </div>
 
-    <!-- 中間可編輯備註橫幅 (整條方框皆可點擊進入編輯) -->
+    <!-- 中間可編輯備註橫幅 (點擊整條方框任意處即可編輯) -->
     <div class="top-editable-banner-box" @click="startEditTopBanner">
-      <!-- 1. 預設展示模式 (點擊整個方框框即可進入編輯，適合導出) -->
+      <!-- 1. 展示模式 (無雜項按鈕，極致乾淨，適合圖片導出) -->
       <div 
         v-if="!isEditingTopBanner" 
         class="banner-display-text" 
@@ -21,7 +21,7 @@
         </span>
       </div>
 
-      <!-- 2. 編輯模式 (含字體大小調整與完成按鈕) -->
+      <!-- 2. 編輯模式 (含字體微調與完成按鈕) -->
       <div v-else class="banner-edit-container" @click.stop>
         <input 
           type="text" 
@@ -48,7 +48,7 @@
         :key="team.id" 
         class="spreadsheet-team-card"
       >
-        <!-- 團隊名稱頂部欄位 (底色不吃色，僅在前方顯示團隊顏色圓點 - 對齊圖三) -->
+        <!-- 團隊名稱頂部欄位 (不吃色，僅在前方顯示團隊顏色圓點 - 對齊圖三) -->
         <div 
           class="spreadsheet-team-header-bar" 
           @click="$emit('open-edit-team', tIdx)"
@@ -150,7 +150,7 @@
           </table>
         </div>
 
-        <!-- 團隊底部備註與下方自訂備註 (整條框區域點擊皆可進入編輯 - 對齊圖三/圖四) -->
+        <!-- 團隊底部備註與下方自訂備註 (整條框區域點擊皆可進入編輯 - 對齊圖三/圖四/圖五) -->
         <div class="spreadsheet-team-footer">
           <!-- 1. 團隊備註區塊 -->
           <div class="team-note-wrapper" @click="editingTeamDescId = team.id">
@@ -250,7 +250,7 @@ const startEditTopBanner = () => {
 const editingTeamDescId = ref(null)
 const editingTeamBottomNoteId = ref(null)
 
-// 5 種團隊固定預設色彩 (淺綠、金黃、淺藍、深藍、淡紫)
+// 5 種團隊固定預設色彩
 const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
 
 const changeTopFontSize = (delta) => {
@@ -285,14 +285,6 @@ const getSchoolImgByName = (schoolName) => {
 const getTeamColor = (team, tIdx) => {
   if (team && team.color) return team.color
   return defaultTeamColors[tIdx % defaultTeamColors.length]
-}
-
-const getTeamHeaderStyle = (team, tIdx) => {
-  return {
-    backgroundColor: '#f8fafc',
-    color: '#1e293b',
-    borderBottom: '2px solid #e2e8f0'
-  }
 }
 
 const getSlotRowStyle = (slot) => {
@@ -451,6 +443,8 @@ const getSlotRoleSummary = (slot) => {
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
   transition: background 0.15s;
 }
 .spreadsheet-team-header-bar:hover {

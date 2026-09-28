@@ -10,7 +10,7 @@
       </div>
 
       <div class="header-right-actions">
-        <!-- 點擊觸發導出預覽 Modal (對齊圖四/圖六) -->
+        <!-- 點擊觸發導出預覽 Modal -->
         <button class="btn-export" @click="openExportPreviewModal">導出圖片 <i class="mdi mdi-chevron-down"></i></button>
       </div>
     </div>
@@ -149,7 +149,7 @@
 
     <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- ★ 全新：導出圖片預覽 Modal (對齊圖四 / 圖六 / 圖七) ★ -->
+    <!-- 全新：導出圖片預覽 Modal (無右下角網址浮印 - 對齊圖八/圖九) -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
         <!-- 頂部標頭 Bar -->
@@ -160,7 +160,7 @@
         </div>
 
         <div class="export-modal-body">
-          <!-- 左側導出配置邊欄 (對齊圖五/圖六) -->
+          <!-- 左側導出配置邊欄 -->
           <div class="export-sidebar-controls">
             <div class="export-tab-group margin-b">
               <button :class="['tab-btn', { active: exportTab === 'original' }]" @click="exportTab = 'original'">原版</button>
@@ -207,10 +207,9 @@
             </div>
           </div>
 
-          <!-- 右側導出預覽畫布區域 (無右下角網址水印 - 圖四/圖八/圖九) -->
+          <!-- 右側導出預覽畫布區域 (純淨無水印) -->
           <div class="export-preview-stage">
             <div class="preview-canvas-paper">
-              <!-- 當前矩陣預覽 (圖八) -->
               <RosterMatrixView 
                 v-if="layoutMode === 'matrix'"
                 :matrixTeams="matrixTeams"
@@ -219,7 +218,6 @@
                 :showSecondarySchool="showSecondarySchool"
                 :showDetails="showDetails"
               />
-              <!-- 當前試算表預覽 (圖九) -->
               <RosterTableView 
                 v-else-if="layoutMode === 'table'"
                 :leagueInfo="leagueInfo"
@@ -1163,6 +1161,12 @@ const schoolColorMap = {
   '滄瀾': '#e0e7ff'
 }
 
+// 補齊 getRowSchoolBgStyle 避免批量編輯傳入成員點開時拋出 TypeError 崩潰白屏
+const getRowSchoolBgStyle = (schoolName) => {
+  const bg = schoolColorMap[schoolName] || '#ffffff'
+  return { backgroundColor: bg }
+}
+
 const personalRoleOptions = [
   'D潮拆塔', '保鏢拆', '埋頭猛拆', '塔仇主T', '增益絕', '奶絕', '指揮',
   '清泉人傷', '清泉保活', '灌大團', '點殺', '燒屍體', '破甲人傷',
@@ -1196,7 +1200,7 @@ const showDetails = ref(false)
 const layoutMode = ref('matrix')
 const pendingViewMode = ref('school')
 
-// ★ 導出預覽 Modal 狀態管理 (對齊圖四/圖六/圖七) ★
+// 導出預覽 Modal 狀態管理
 const showExportModal = ref(false)
 const exportTab = ref('custom')
 const exportConfig = ref({
@@ -1835,11 +1839,6 @@ const activeBatchDropdown = ref(null)
 const toggleBatchRowDropdown = (key) => {
   if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
   else activeBatchDropdown.value = key
-}
-
-const getRowSchoolBgStyle = (schoolName) => {
-  const bg = schoolColorMap[schoolName] || '#ffffff'
-  return { backgroundColor: bg }
 }
 
 const isBatchRowRoleSelected = (m, roleName) => {
