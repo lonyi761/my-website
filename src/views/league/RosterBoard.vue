@@ -18,12 +18,10 @@
       
       <!-- ================= 左側：待選成員區塊 ================= -->
       <aside class="pending-sidebar">
-        <!-- 幫會資訊串接 -->
         <div class="guild-select-box">
           <span class="guild-name-display">{{ leagueInfo.guild || '百錵谷酒池肉林' }}</span>
         </div>
 
-        <!-- 搜尋與標題列 -->
         <div class="pending-filter-bar">
           <div class="pending-title-group">
             <div class="title-left-box">
@@ -31,7 +29,6 @@
               <button class="btn-icon-add" @click="openAddMemberModal" title="新增成員">+</button>
             </div>
 
-            <!-- 流派 / 全員 切換按鈕 -->
             <div class="pending-mode-toggle">
               <button 
                 :class="['mode-pill-btn', { active: pendingViewMode === 'school' }]" 
@@ -91,7 +88,7 @@
                 :key="m.id + '_' + s.name"
                 class="member-drag-card"
                 draggable="true"
-                @dragstart="onDragStartMember(m)"
+                @dragstart="onDragStartPendingMember(m)"
                 @click="openFullMemberEditModal(m)"
                 title="按住拖拽至排表，或點擊編輯成員資料"
               >
@@ -121,7 +118,7 @@
             :key="m.id"
             class="member-drag-card"
             draggable="true"
-            @dragstart="onDragStartMember(m)"
+            @dragstart="onDragStartPendingMember(m)"
             @click="openFullMemberEditModal(m)"
             title="按住拖拽至排表，或點擊編輯成員資料"
           >
@@ -146,7 +143,7 @@
 
       <!-- ================= 右側：團隊矩陣排表區塊 ================= -->
       <main class="matrix-content-area">
-        <!-- 團隊工具列 (修訂順序：團隊配置 | 保存陣容 | +添加團隊 | 批量編輯 | [開關] 顯示副職 | 清空陣容) -->
+        <!-- 團隊工具列 -->
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
@@ -154,7 +151,7 @@
             <button class="btn-primary-sm margin-l" @click="addTeam">+ 添加團隊</button>
             <button class="btn-secondary-sm margin-l" @click="openBatchEditModal">批量編輯</button>
 
-            <!-- 顯示副職獨立開關 (圖一/圖二對應) -->
+            <!-- 顯示副職獨立開關 -->
             <div class="inline-switch-group margin-l">
               <span class="switch-label-text">顯示副職</span>
               <label class="switch-sm">
@@ -188,11 +185,11 @@
           </div>
         </div>
 
-        <!-- 團隊矩陣 (圖一 & 圖四對應) -->
+        <!-- 團隊矩陣 (支援整隊拖拽與交換 - 圖一/圖二) -->
         <div class="teams-matrix-wrapper">
           <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
             
-            <!-- 團隊標頭列 (顯示團隊名稱 + 團隊備註) -->
+            <!-- 團隊標頭列 -->
             <div class="team-header-row">
               <div class="team-title-edit-group" @click="openEditTeamModal(tIdx)" title="編輯團隊名稱與小隊職能">
                 <span class="team-row-title">{{ team.name }}</span>
@@ -208,14 +205,26 @@
               </button>
             </div>
 
-            <!-- 小隊網格 (小隊備註顯示於名稱下方 - 圖四對應) -->
+            <!-- 小隊網格 (小隊標頭支援整隊拖拽 - 圖一/圖二) -->
             <div class="squads-matrix-grid">
-              <div v-for="(squad, sIdx) in team.squads" :key="squad.id" class="squad-column-box">
-                <div class="squad-column-head">
+              <div 
+                v-for="(squad, sIdx) in team.squads" 
+                :key="squad.id" 
+                class="squad-column-box"
+                @dragover.prevent
+                @drop="onDropOnSquadColumn(team, squad)"
+              >
+                <!-- 小隊標頭：可拖拽小隊 -->
+                <div 
+                  class="squad-column-head draggable-head" 
+                  draggable="true"
+                  @dragstart="onDragStartSquad(team, squad)"
+                  title="按住可拖拽移動/交換整隊位置"
+                >
                   <div class="squad-head-title">
+                    <i class="mdi mdi-drag-vertical drag-handle-icon"></i>
                     {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
                   </div>
-                  <!-- 小隊備註：顯示於小隊名稱下方 (圖四對應) -->
                   <div v-if="squad.desc" class="squad-head-desc">{{ squad.desc }}</div>
                 </div>
 
@@ -231,23 +240,23 @@
                       }
                     ]"
                     :style="getSlotStyle(slot)"
+                    :draggable="!!slot.assignedMember"
+                    @dragstart="onDragStartSlot(team, squad, slot)"
                     @dragover.prevent
-                    @drop="onDropMemberToSlot(team, squad, slot)"
+                    @drop="onDropOnSlot(team, squad, slot)"
                     @click="clickSlot(team, squad, slot, slotIdx)"
                   >
-                    <!-- 1. 格子已放置成員 -->
+                    <!-- 1. 格子已放置成員 (支援拖拽) -->
                     <template v-if="slot.assignedMember">
                       <div class="assigned-slot-content">
                         <div class="member-head-info">
                           <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                          
                           <img 
                             v-if="showSecondarySchool && getSecondarySchool(slot.assignedMember)" 
                             :src="getSchoolImgByName(getSecondarySchool(slot.assignedMember))" 
                             class="slot-school-icon-sub" 
                             title="副職業"
                           />
-
                           <span class="slot-member-name">{{ slot.assignedMember.name }}</span>
                         </div>
                         <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
@@ -279,7 +288,99 @@
 
     <!-- ================= 彈窗組件 ================= -->
 
-    <!-- 1. 編輯團隊 Modal (美化排版，圖三對應) -->
+    <!-- 1. 圖三對應：交換兩隊位置 Modal -->
+    <div v-if="showSwapSquadModal" class="modal-overlay" @click.self="showSwapSquadModal = false">
+      <div class="modal-card confirm-modal-card wide-swap-card">
+        <div class="modal-header">
+          <h3>交換兩隊位置</h3>
+          <span class="close-btn" @click="showSwapSquadModal = false">&times;</span>
+        </div>
+        <div class="modal-body text-left">
+          <p class="sub-hint-text margin-b">將交換兩隊全部成員。還可勾選是否一併交換：</p>
+          <div class="swap-checkbox-list">
+            <label class="checkbox-label"><input type="checkbox" v-model="swapOptions.name" /> <span>交換隊伍名稱</span></label>
+            <label class="checkbox-label"><input type="checkbox" v-model="swapOptions.zhineng" /> <span>交換小隊職能</span></label>
+            <label class="checkbox-label"><input type="checkbox" v-model="swapOptions.desc" /> <span>交換小隊備註</span></label>
+            <label class="checkbox-label"><input type="checkbox" v-model="swapOptions.template" /> <span>交換排表模板</span></label>
+          </div>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showSwapSquadModal = false">取消</button>
+          <button class="btn-primary" @click="executeSwapSquad">確定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 圖五對應：美化批量編輯 Modal (各職業專屬背景底色、勾選一鍵統一變更) -->
+    <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
+      <div class="modal-card wide-card batch-modal-card">
+        <div class="modal-header">
+          <h3>批量編輯成員職能與配裝</h3>
+          <span class="close-btn" @click="showBatchEditModal = false">&times;</span>
+        </div>
+        <div class="modal-body">
+          <!-- 頂部一鍵配置按鈕工具列 (圖五對應) -->
+          <div class="batch-toolbar-top">
+            <span>已選 {{ selectedBatchMembers.length }} 人</span>
+            <button class="btn-secondary-sm margin-l" @click="selectedBatchMembers = []">清空選擇</button>
+
+            <button class="btn-primary-sm margin-l" @click="batchApplyRole">配置職能</button>
+            <button class="btn-primary-sm margin-l" @click="batchApplyJueji">配置絕技</button>
+            <button class="btn-primary-sm margin-l" @click="batchApplyQunxia">配置群俠百家</button>
+            <button class="btn-primary-sm margin-l" @click="batchApplyLiupai">配置流派技能</button>
+          </div>
+
+          <!-- 表格清單 (背景色隨第一主職業改變 - 圖五) -->
+          <div class="batch-table-container margin-t">
+            <div v-for="group in batchMemberGroups" :key="group.title" class="batch-group-block">
+              <div class="batch-group-title">
+                <input type="checkbox" @change="toggleGroupBatchSelect(group, $event)" />
+                <span class="margin-l">{{ group.title }}</span>
+              </div>
+              <table class="batch-table">
+                <thead>
+                  <tr>
+                    <th width="40"></th>
+                    <th width="100">成員</th>
+                    <th width="80">流派</th>
+                    <th>職能</th>
+                    <th>絕技</th>
+                    <th>群俠百家</th>
+                    <th>流派技能</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr 
+                    v-for="m in group.members" 
+                    :key="m.slotId"
+                    :style="getRowSchoolBgStyle(m.school)"
+                  >
+                    <td><input type="checkbox" :value="m.slotId" v-model="selectedBatchMembers" /></td>
+                    <td class="font-bold">{{ m.name }}</td>
+                    <td>{{ m.school }}</td>
+                    <td>
+                      <select v-model="m.roles" class="table-inline-select">
+                        <option value="">請選擇職能</option>
+                        <option v-for="r in personalRoleOptions" :key="r" :value="r">{{ r }}</option>
+                      </select>
+                    </td>
+                    <td><input type="text" v-model="m.jueji" placeholder="輸入或選擇，最長20字" class="table-inline-input" /></td>
+                    <td><input type="text" v-model="m.qunxia" placeholder="輸入或選擇，最長20字" class="table-inline-input" /></td>
+                    <td><input type="text" v-model="m.zhuangbei" placeholder="輸入或選擇，最長20字" class="table-inline-input" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showBatchEditModal = false">取消</button>
+          <button class="btn-primary" @click="saveBatchEdit">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 編輯團隊 Modal -->
     <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -388,7 +489,7 @@
       </div>
     </div>
 
-    <!-- 2. 格子有人時：排表信息 Modal (圖五對應，技能抓取戰備下拉) -->
+    <!-- 4. 格子有人時：排表信息 Modal -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
@@ -420,7 +521,7 @@
             </div>
           </div>
 
-          <!-- 聯賽職能 (17項個人職能) -->
+          <!-- 聯賽職能 -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 聯賽職能</div>
             <div class="role-pills-grid margin-t">
@@ -435,7 +536,7 @@
             </div>
           </div>
 
-          <!-- 配裝信息 (推薦技能 - 帶下拉選單) -->
+          <!-- 配裝信息 (流派技能) -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 配裝信息</div>
             
@@ -470,7 +571,7 @@
             </div>
 
             <div class="skill-input-row margin-t">
-              <label>裝備武蘊：</label>
+              <label>流派技能：</label>
               <div class="custom-dropdown-container">
                 <input type="text" v-model="tempSlotZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
                 <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('liupai_info')">
@@ -493,7 +594,7 @@
       </div>
     </div>
 
-    <!-- 3. 格子沒人時：席位配置 Modal (圖六對應) -->
+    <!-- 5. 格子沒人時：席位配置 Modal -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
       <div class="modal-card slot-modal-card" @click.stop>
         <div class="modal-header">
@@ -506,7 +607,6 @@
             {{ activeSlotTeamName }} - {{ activeSlotSquadName }} - 第 {{ activeSlotIndex + 1 }} 席
           </div>
 
-          <!-- 推薦流派 -->
           <div class="form-block">
             <div class="block-title"><span class="req">*</span>推薦流派</div>
             <div class="school-pills-group">
@@ -523,7 +623,6 @@
             </div>
           </div>
 
-          <!-- 推薦職能 (抓取個人職能) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦職能</div>
             <div class="role-tag-grid">
@@ -538,7 +637,6 @@
             </div>
           </div>
 
-          <!-- 推薦技能 (絕技, 群俠百家, 流派技能) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
             
@@ -588,7 +686,6 @@
             </div>
           </div>
 
-          <!-- 描述 -->
           <div class="form-block margin-t">
             <div class="block-title">描述</div>
             <textarea v-model="tempConfigDesc" maxlength="200" placeholder="選填，例如這部分的戰術職能" class="skill-textarea h-80 margin-t"></textarea>
@@ -602,7 +699,7 @@
       </div>
     </div>
 
-    <!-- 4. 編輯成員數據 Modal (圖四) -->
+    <!-- 6. 編輯成員數據 Modal -->
     <div v-if="showMemberEditModal" class="modal-overlay" @click.self="showMemberEditModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -707,7 +804,7 @@
       </div>
     </div>
 
-    <!-- 5. 點擊待選成員「+」：新增成員 Modal -->
+    <!-- 7. 點擊待選成員「+」：新增成員 Modal -->
     <div v-if="showAddMemberModal" class="modal-overlay" @click.self="showAddMemberModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -812,57 +909,7 @@
       </div>
     </div>
 
-    <!-- 6. 批量編輯 Modal -->
-    <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
-      <div class="modal-card wide-card">
-        <div class="modal-header">
-          <h3>批量編輯成員職能與配裝</h3>
-          <span class="close-btn" @click="showBatchEditModal = false">&times;</span>
-        </div>
-        <div class="modal-body">
-          <div class="batch-toolbar-top">
-            <span>已選 {{ selectedBatchMembers.length }} 人</span>
-            <button class="btn-secondary-sm margin-l" @click="selectedBatchMembers = []">清空選擇</button>
-          </div>
-
-          <div class="batch-table-container margin-t">
-            <div v-for="group in batchMemberGroups" :key="group.title" class="batch-group-block">
-              <div class="batch-group-title">{{ group.title }}</div>
-              <table class="batch-table">
-                <thead>
-                  <tr>
-                    <th width="40"></th>
-                    <th width="100">成員</th>
-                    <th width="80">流派</th>
-                    <th>職能</th>
-                    <th>絕技</th>
-                    <th>群俠百家</th>
-                    <th>裝備武蘊</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="m in group.members" :key="m.slotId">
-                    <td><input type="checkbox" :value="m.slotId" v-model="selectedBatchMembers" /></td>
-                    <td class="font-bold">{{ m.name }}</td>
-                    <td>{{ m.school }}</td>
-                    <td><input type="text" v-model="m.roles" class="table-inline-input" /></td>
-                    <td><input type="text" v-model="m.jueji" class="table-inline-input" /></td>
-                    <td><input type="text" v-model="m.qunxia" class="table-inline-input" /></td>
-                    <td><input type="text" v-model="m.zhuangbei" class="table-inline-input" /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showBatchEditModal = false">取消</button>
-          <button class="btn-primary" @click="saveBatchEdit">保存</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 7. 置中刪除/清空確認 Modal -->
+    <!-- 8. 置中刪除/清空確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -901,7 +948,6 @@ defineEmits(['back'])
 
 const leagueInfo = computed(() => props.leagueItem)
 
-// 10 大流派 (無鴻音)
 const availableSchools = [
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -948,7 +994,6 @@ const squadRoleOptions = [
   '保鏢隊', '雙碎隊', '雙神隊', '塔前隊', '塔後隊', '請假隊', '輪空隊'
 ]
 
-// 下拉技能數據 (對齊技能管理)
 const juejiOptions = ['狂發一怒', '太極圖']
 const qunxiaOptions = ['咚咚跳台', '雲影濁香']
 const liupaiSkillOptions = ['約定', '清泉']
@@ -966,13 +1011,9 @@ const closeAllSkillDropdowns = () => {
   showTemplateDropdown.value = false
 }
 
-// 「顯示副職」獨立開關
 const showSecondarySchool = ref(false)
-
-// 待選模式: 'school' (流派) | 'all' (全員)
 const pendingViewMode = ref('school')
 
-// 真實成員數據
 const allMembers = ref([
   { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '龍吟'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '錵小錵', rolePreference: ['D潮拆塔', '保鏢拆'], rolePrefList: ['D潮拆塔', '保鏢拆'], assigned: false },
   { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '行優', rolePreference: ['灌大團'], rolePrefList: ['灌大團'], assigned: false },
@@ -1129,7 +1170,7 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊矩陣數據
+// 團隊盤面結構
 const matrixTeams = ref([
   {
     id: 1,
@@ -1207,6 +1248,110 @@ const addSquadToTeam = (team) => {
   })
 }
 
+// 拖拽狀態與交換兩隊 Modal (圖一 / 圖二 / 圖三)
+let draggedType = null // 'pendingMember' | 'slotMember' | 'squad'
+let draggedPendingMember = null
+let draggedSlotRef = null
+let draggedSquadRef = null
+let targetSquadRef = null
+
+const showSwapSquadModal = ref(false)
+const swapOptions = ref({
+  name: true,
+  zhineng: true,
+  desc: true,
+  template: true
+})
+
+const onDragStartPendingMember = (member) => {
+  draggedType = 'pendingMember'
+  draggedPendingMember = member
+}
+
+const onDragStartSlot = (team, squad, slot) => {
+  if (!slot.assignedMember) return
+  draggedType = 'slotMember'
+  draggedSlotRef = slot
+}
+
+const onDragStartSquad = (team, squad) => {
+  draggedType = 'squad'
+  draggedSquadRef = squad
+}
+
+const onDropOnSlot = (team, squad, targetSlot) => {
+  if (draggedType === 'pendingMember' && draggedPendingMember) {
+    if (targetSlot.assignedMember) {
+      targetSlot.assignedMember.assigned = false
+    }
+    targetSlot.assignedMember = draggedPendingMember
+    draggedPendingMember.assigned = true
+    if (draggedPendingMember.rolePreference) {
+      targetSlot.roles = [...draggedPendingMember.rolePreference]
+    }
+  } else if (draggedType === 'slotMember' && draggedSlotRef) {
+    if (draggedSlotRef === targetSlot) return
+    const tempMember = targetSlot.assignedMember
+    const tempRoles = [...targetSlot.roles]
+    const tempJueji = targetSlot.jueji
+    const tempQunxia = targetSlot.qunxia
+    const tempZhuangbei = targetSlot.zhuangbei
+
+    targetSlot.assignedMember = draggedSlotRef.assignedMember
+    targetSlot.roles = [...draggedSlotRef.roles]
+    targetSlot.jueji = draggedSlotRef.jueji
+    targetSlot.qunxia = draggedSlotRef.qunxia
+    targetSlot.zhuangbei = draggedSlotRef.zhuangbei
+
+    draggedSlotRef.assignedMember = tempMember
+    draggedSlotRef.roles = tempRoles
+    draggedSlotRef.jueji = tempJueji
+    draggedSlotRef.qunxia = tempQunxia
+    draggedSlotRef.zhuangbei = tempZhuangbei
+  }
+
+  draggedType = null
+  draggedPendingMember = null
+  draggedSlotRef = null
+}
+
+const onDropOnSquadColumn = (team, targetSquad) => {
+  if (draggedType === 'squad' && draggedSquadRef && draggedSquadRef !== targetSquad) {
+    targetSquadRef = targetSquad
+    showSwapSquadModal.value = true
+  }
+}
+
+const executeSwapSquad = () => {
+  if (draggedSquadRef && targetSquadRef) {
+    // 交換 6 個席位內容 (包含已上位的成員與個別配置)
+    const tempSlots = draggedSquadRef.slots
+    draggedSquadRef.slots = targetSquadRef.slots
+    targetSquadRef.slots = tempSlots
+
+    if (swapOptions.value.name) {
+      const tempName = draggedSquadRef.name
+      draggedSquadRef.name = targetSquadRef.name
+      targetSquadRef.name = tempName
+    }
+    if (swapOptions.value.zhineng) {
+      const tempZhineng = draggedSquadRef.zhineng
+      draggedSquadRef.zhineng = targetSquadRef.zhineng
+      targetSquadRef.zhineng = tempZhineng
+    }
+    if (swapOptions.value.desc) {
+      const tempDesc = draggedSquadRef.desc
+      draggedSquadRef.desc = targetSquadRef.desc
+      targetSquadRef.desc = tempDesc
+    }
+  }
+
+  showSwapSquadModal.value = false
+  draggedType = null
+  draggedSquadRef = null
+  targetSquadRef = null
+}
+
 const showEditTeamModal = ref(false)
 const activeEditTeamIndex = ref(0)
 
@@ -1230,25 +1375,6 @@ const deleteSquadFromEditingTeam = (team, index) => {
     })
   }
   team.squads.splice(index, 1)
-}
-
-let draggedMember = null
-
-const onDragStartMember = (member) => {
-  draggedMember = member
-}
-
-const onDropMemberToSlot = (team, squad, slot) => {
-  if (!draggedMember) return
-  if (slot.assignedMember) {
-    slot.assignedMember.assigned = false
-  }
-  slot.assignedMember = draggedMember
-  draggedMember.assigned = true
-  if (draggedMember.rolePreference) {
-    slot.roles = [...draggedMember.rolePreference]
-  }
-  draggedMember = null
 }
 
 const removeMemberFromSlot = (slot) => {
@@ -1314,7 +1440,6 @@ const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotTeamName.value = team.name
   activeSlotSquadName.value = squad.name
   activeSlotIndex.value = slotIdx
-  activeSkillDropdown.value = null
 
   if (slot.assignedMember) {
     tempSlotRoles.value = [...(slot.roles || [])]
@@ -1376,7 +1501,7 @@ const saveSlotConfig = () => {
   showSlotConfigModal.value = false
 }
 
-// 編輯成員 Modal (現有成員資料雙向連動)
+// 編輯成員 Modal
 const showMemberEditModal = ref(false)
 const showRoleDropdownInMemberEdit = ref(false)
 const editingMemberRef = ref(null)
@@ -1455,10 +1580,15 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal
+// 批量編輯 Modal (圖五: 流派專屬背景底色 + 統一批量套用按鈕)
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
+
+const getRowSchoolBgStyle = (schoolName) => {
+  const bg = schoolColorMap[schoolName] || '#ffffff'
+  return { backgroundColor: bg }
+}
 
 const openBatchEditModal = () => {
   const groups = []
@@ -1470,9 +1600,10 @@ const openBatchEditModal = () => {
           title: `${team.name}--${squad.name}`,
           members: assignedSlots.map(s => ({
             slotId: s.id,
+            slotRef: s,
             name: s.assignedMember.name,
             school: s.assignedMember.currentSchool,
-            roles: s.roles.join('、'),
+            roles: s.roles.length > 0 ? s.roles[0] : '',
             jueji: s.jueji || '',
             qunxia: s.qunxia || '',
             zhuangbei: s.zhuangbei || ''
@@ -1482,11 +1613,80 @@ const openBatchEditModal = () => {
     })
   })
   batchMemberGroups.value = groups
+  selectedBatchMembers.value = []
   showBatchEditModal.value = true
   showOtherOpsDropdown.value = false
 }
 
+const toggleGroupBatchSelect = (group, event) => {
+  const isChecked = event.target.checked
+  group.members.forEach(m => {
+    const idx = selectedBatchMembers.value.indexOf(m.slotId)
+    if (isChecked && idx === -1) selectedBatchMembers.value.push(m.slotId)
+    else if (!isChecked && idx > -1) selectedBatchMembers.value.splice(idx, 1)
+  })
+}
+
+// 一鍵批量配置方法
+const batchApplyRole = () => {
+  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  const val = prompt('請輸入要批次套用的【聯賽職能】：', 'D潮拆塔')
+  if (val !== null) {
+    batchMemberGroups.value.forEach(g => {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) m.roles = val.trim()
+      })
+    })
+  }
+}
+
+const batchApplyJueji = () => {
+  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  const val = prompt('請輸入要批次套用的【絕技】：', '狂發一怒')
+  if (val !== null) {
+    batchMemberGroups.value.forEach(g => {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) m.jueji = val.trim()
+      })
+    })
+  }
+}
+
+const batchApplyQunxia = () => {
+  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  const val = prompt('請輸入要批次套用的【群俠百家】：', '咚咚跳台')
+  if (val !== null) {
+    batchMemberGroups.value.forEach(g => {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) m.qunxia = val.trim()
+      })
+    })
+  }
+}
+
+const batchApplyLiupai = () => {
+  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  const val = prompt('請輸入要批次套用的【流派技能】：', '清泉')
+  if (val !== null) {
+    batchMemberGroups.value.forEach(g => {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) m.zhuangbei = val.trim()
+      })
+    })
+  }
+}
+
 const saveBatchEdit = () => {
+  batchMemberGroups.value.forEach(g => {
+    g.members.forEach(m => {
+      if (m.slotRef) {
+        m.slotRef.roles = m.roles ? [m.roles] : []
+        m.slotRef.jueji = m.jueji
+        m.slotRef.qunxia = m.qunxia
+        m.slotRef.zhuangbei = m.zhuangbei
+      }
+    })
+  })
   showBatchEditModal.value = false
 }
 
@@ -1517,7 +1717,6 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// 選擇陣容模板下拉
 const showTemplateDropdown = ref(false)
 const appliedTemplateName = ref('')
 
@@ -1647,15 +1846,18 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .squads-matrix-grid { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; }
 .squad-column-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; }
 
-.squad-column-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; }
-.squad-head-title { font-size: 12px; font-weight: bold; color: #475569; }
+.squad-column-head.draggable-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; cursor: grab; padding: 4px; border-radius: 4px; }
+.squad-column-head.draggable-head:hover { background: #e2e8f0; }
+.drag-handle-icon { font-size: 12px; color: #94a3b8; }
+
+.squad-head-title { font-size: 12px; font-weight: bold; color: #475569; display: flex; align-items: center; gap: 2px; }
 .squad-head-desc { font-size: 11px; color: #94a3b8; font-style: italic; margin-top: 2px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 
 .slots-vertical-list { display: flex; flex-direction: column; gap: 6px; }
 .matrix-slot-card { position: relative; height: 38px; border-radius: 4px; border: 1px dashed #cbd5e1; background: #ffffff; display: flex; align-items: center; padding: 0 8px; cursor: pointer; transition: all 0.15s; }
 .matrix-slot-card:hover { border-color: #3b82f6; }
 
-.matrix-slot-card.has-member { border: 1px solid #cbd5e1; }
+.matrix-slot-card.has-member { border: 1px solid #cbd5e1; cursor: grab; }
 .assigned-slot-content { display: flex; flex-direction: column; width: 100%; }
 .member-head-info { display: flex; align-items: center; gap: 4px; }
 .slot-school-icon { width: 16px; height: 16px; object-fit: contain; }
@@ -1707,6 +1909,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .slot-modal-card { width: 520px; max-height: 85vh; overflow-y: auto; }
 .large-card { width: 680px; max-height: 85vh; overflow-y: auto; }
 .wide-card { width: 780px; max-height: 85vh; overflow-y: auto; }
+.wide-swap-card { width: 440px; }
 
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .modal-header-actions { display: flex; align-items: center; }
@@ -1750,15 +1953,21 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal */
-.batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; }
+/* 批量編輯 Modal (圖五對應) */
+.batch-modal-card { max-height: 85vh; overflow-y: auto; }
+.batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; }
 .batch-group-block { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
-.batch-group-title { background: #f8fafc; padding: 6px 12px; font-size: 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; }
+.batch-group-title { background: #f8fafc; padding: 8px 12px; font-size: 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; }
 .batch-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.batch-table th, .batch-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-.batch-table th { background: #ffffff; color: #64748b; }
-.table-inline-input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; }
+.batch-table th, .batch-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.batch-table th { background: #ffffff; color: #64748b; font-weight: 600; }
+.table-inline-input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; outline: none; background: white; }
+.table-inline-select { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; outline: none; background: white; }
+
+/* 交換團隊 Modal */
+.swap-checkbox-list { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; }
+.checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: #334155; }
 
 /* 置中刪除確認 Modal */
 .confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
@@ -1774,9 +1983,11 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
+.text-left { text-align: left; }
 .font-bold { font-weight: bold; }
 .text-center { text-align: center; }
 .flex-1 { flex: 1; }
 .margin-l { margin-left: 10px; }
+.margin-b { margin-bottom: 10px; }
 .margin-t { margin-top: 12px; }
 </style>
