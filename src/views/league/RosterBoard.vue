@@ -18,10 +18,12 @@
       
       <!-- ================= 左側：待選成員區塊 ================= -->
       <aside class="pending-sidebar">
+        <!-- 幫會資訊串接 -->
         <div class="guild-select-box">
           <span class="guild-name-display">{{ leagueInfo.guild || '百錵谷酒池肉林' }}</span>
         </div>
 
+        <!-- 搜尋與標題列 -->
         <div class="pending-filter-bar">
           <div class="pending-title-group">
             <div class="title-left-box">
@@ -29,6 +31,7 @@
               <button class="btn-icon-add" @click="openAddMemberModal" title="新增成員">+</button>
             </div>
 
+            <!-- 流派 / 全員 切換按鈕 -->
             <div class="pending-mode-toggle">
               <button 
                 :class="['mode-pill-btn', { active: pendingViewMode === 'school' }]" 
@@ -359,7 +362,7 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal (各列配置多選與選單) -->
+    <!-- 2. 批量編輯 Modal -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -367,6 +370,7 @@
           <span class="close-btn" @click="showBatchEditModal = false">&times;</span>
         </div>
         <div class="modal-body">
+          <!-- 頂部一鍵配置按鈕工具列 -->
           <div class="batch-toolbar-top">
             <span>已選 {{ selectedBatchMembers.length }} 人</span>
             <button class="btn-secondary-sm margin-l" @click="selectedBatchMembers = []">清空選擇</button>
@@ -405,7 +409,7 @@
                     <td class="font-bold">{{ m.name }}</td>
                     <td>{{ m.school }}</td>
                     
-                    <!-- 行別【職能】多選下拉 (圖三對應) -->
+                    <!-- 行別【職能】多選下拉 -->
                     <td>
                       <div class="custom-dropdown-container">
                         <div 
@@ -717,7 +721,7 @@
       </div>
     </div>
 
-    <!-- 4. 格子有人時：排表信息 Modal (圖二對應) -->
+    <!-- 4. 格子有人時：排表信息 Modal -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
@@ -763,7 +767,6 @@
             </div>
           </div>
 
-          <!-- 區塊名稱為：推薦技能 (圖二對應) -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 推薦技能</div>
             
@@ -782,7 +785,6 @@
               </div>
             </div>
 
-            <!-- 群俠百家 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -804,7 +806,6 @@
               </div>
             </div>
 
-            <!-- 流派技能 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -835,7 +836,7 @@
       </div>
     </div>
 
-    <!-- 5. 格子沒人時：席位配置 Modal (圖一對應) -->
+    <!-- 5. 格子沒人時：席位配置 Modal -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
       <div class="modal-card slot-modal-card" @click.stop>
         <div class="modal-header">
@@ -878,7 +879,6 @@
             </div>
           </div>
 
-          <!-- 區塊名稱為：推薦技能 (圖一對應) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
             
@@ -897,7 +897,6 @@
               </div>
             </div>
 
-            <!-- 群俠百家 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -919,7 +918,6 @@
               </div>
             </div>
 
-            <!-- 流派技能 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -1753,60 +1751,6 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
-// 【排表信息】多選 Helper
-const isInfoQunxiaSelected = (qName) => {
-  if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
-  return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
-}
-
-const toggleInfoQunxia = (qName) => {
-  let list = (typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value) ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
-  const idx = list.indexOf(qName)
-  if (idx > -1) list.splice(idx, 1)
-  else list.push(qName)
-  tempSlotQunxia.value = list.join(', ')
-}
-
-const isInfoLiupaiSelected = (lName) => {
-  if (typeof tempSlotZhuangbei.value !== 'string' || !tempSlotZhuangbei.value) return false
-  return tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
-}
-
-const toggleInfoLiupai = (lName) => {
-  let list = (typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value) ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
-  const idx = list.indexOf(lName)
-  if (idx > -1) list.splice(idx, 1)
-  else list.push(lName)
-  tempSlotZhuangbei.value = list.join(', ')
-}
-
-// 【席位配置】多選 Helper
-const isConfigQunxiaSelected = (qName) => {
-  if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
-  return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
-}
-
-const toggleConfigQunxia = (qName) => {
-  let list = (typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value) ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
-  const idx = list.indexOf(qName)
-  if (idx > -1) list.splice(idx, 1)
-  else list.push(qName)
-  tempConfigQunxia.value = list.join(', ')
-}
-
-const isConfigLiupaiSelected = (lName) => {
-  if (typeof tempConfigZhuangbei.value !== 'string' || !tempConfigZhuangbei.value) return false
-  return tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
-}
-
-const toggleConfigLiupai = (lName) => {
-  let list = (typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value) ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
-  const idx = list.indexOf(lName)
-  if (idx > -1) list.splice(idx, 1)
-  else list.push(lName)
-  tempConfigZhuangbei.value = list.join(', ')
-}
-
 const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotForModal.value = slot
   activeSlotTeamName.value = team.name
@@ -1952,7 +1896,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal
+// 批量編輯 Modal (空值防護機制)
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
