@@ -1,6 +1,6 @@
 <template>
   <div class="roster-board-layout">
-    <!-- 頂部頁籤與資訊 (圖一) -->
+    <!-- 頂部頁籤與資訊 -->
     <div class="roster-header-bar">
       <div class="header-left-info">
         <button class="btn-back-link" @click="$emit('back')">&lt; 返回聯賽列表</button>
@@ -16,7 +16,7 @@
 
     <div class="roster-main-container">
       
-      <!-- ================= 左側：待選成員區塊 (圖三) ================= -->
+      <!-- ================= 左側：待選成員區塊 ================= -->
       <aside class="pending-sidebar">
         <!-- 幫會資訊串接 -->
         <div class="guild-select-box">
@@ -38,7 +38,7 @@
           />
         </div>
 
-        <!-- 流派 Icon 快篩列 (已完全移除鴻音) -->
+        <!-- 流派 Icon 快篩列 (已排除鴻音) -->
         <div class="school-icon-filter-row">
           <div 
             v-for="s in availableSchools" 
@@ -68,7 +68,7 @@
               <i :class="['mdi', expandedSchools.includes(s.name) ? 'mdi-chevron-down' : 'mdi-chevron-right', 'accordion-arrow']"></i>
             </div>
 
-            <!-- 待選成員卡片 (點擊直接開啟圖四「編輯成員」彈窗；支援拖拽進右側) -->
+            <!-- 待選成員卡片 -->
             <div v-if="expandedSchools.includes(s.name)" class="accordion-body">
               <div 
                 v-for="m in getUnassignedMembersBySchool(s.name)" 
@@ -91,16 +91,17 @@
         </div>
       </aside>
 
-      <!-- ================= 右側：團隊矩陣排表區塊 (圖七 & 圖八) ================= -->
+      <!-- ================= 右側：團隊矩陣排表區塊 ================= -->
       <main class="matrix-content-area">
         <!-- 團隊工具列 -->
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
             <button class="btn-secondary-sm" @click="saveRosterBoard">保存陣容</button>
+            <button class="btn-primary-sm margin-l" @click="addTeam">+ 添加團隊</button>
 
             <!-- 其他操作下拉 -->
-            <div class="custom-dropdown-wrapper" @click.stop>
+            <div class="custom-dropdown-wrapper margin-l" @click.stop>
               <button class="btn-secondary-sm" @click="showOtherOpsDropdown = !showOtherOpsDropdown">
                 其他操作 <i class="mdi mdi-chevron-down"></i>
               </button>
@@ -136,57 +137,68 @@
         <!-- 團隊矩陣 (5大隊 × 5小隊) -->
         <div class="teams-matrix-wrapper">
           <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
-            <div class="team-row-title">{{ team.name }}</div>
+            
+            <!-- 團隊標頭列 (圖一對應：點擊 Pencil 開啟圖二「編輯團隊」面板) -->
+            <div class="team-header-row">
+              <div class="team-title-edit-group" @click="openEditTeamModal(tIdx)" title="編輯團隊小隊與職能">
+                <span class="team-row-title">{{ team.name }}</span>
+                <i class="mdi mdi-pencil-outline team-pencil-icon"></i>
+              </div>
+              <button class="add-squad-btn" @click="addSquadToTeam(team)">+ 添加小隊</button>
+            </div>
 
+            <!-- 小隊網格 (僅顯示 顯示: true 的小隊) -->
             <div class="squads-matrix-grid">
-              <div v-for="(squad, sIdx) in team.squads" :key="squad.id" class="squad-column-box">
-                <div class="squad-column-head">
-                  {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
-                </div>
+              <template v-for="(squad, sIdx) in team.squads" :key="squad.id">
+                <div v-if="squad.visible !== false" class="squad-column-box">
+                  <div class="squad-column-head">
+                    {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
+                  </div>
 
-                <div class="slots-vertical-list">
-                  <div 
-                    v-for="(slot, slotIdx) in squad.slots" 
-                    :key="slot.id"
-                    :class="[
-                      'matrix-slot-card', 
-                      { 
-                        'has-member': slot.assignedMember, 
-                        'template-guideline': !slot.assignedMember && getSlotGuidelineText(slot) 
-                      }
-                    ]"
-                    :style="getSlotStyle(slot)"
-                    @dragover.prevent
-                    @drop="onDropMemberToSlot(team, squad, slot)"
-                    @click="clickSlot(team, squad, slot, slotIdx)"
-                  >
-                    <!-- 1. 格子已放置成員 (圖八) -->
-                    <template v-if="slot.assignedMember">
-                      <div class="assigned-slot-content">
-                        <div class="member-head-info">
-                          <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                          <span class="slot-member-name">{{ slot.assignedMember.name }}</span>
+                  <div class="slots-vertical-list">
+                    <div 
+                      v-for="(slot, slotIdx) in squad.slots" 
+                      :key="slot.id"
+                      :class="[
+                        'matrix-slot-card', 
+                        { 
+                          'has-member': slot.assignedMember, 
+                          'template-guideline': !slot.assignedMember && getSlotGuidelineText(slot) 
+                        }
+                      ]"
+                      :style="getSlotStyle(slot)"
+                      @dragover.prevent
+                      @drop="onDropMemberToSlot(team, squad, slot)"
+                      @click="clickSlot(team, squad, slot, slotIdx)"
+                    >
+                      <!-- 1. 格子已放置成員 -->
+                      <template v-if="slot.assignedMember">
+                        <div class="assigned-slot-content">
+                          <div class="member-head-info">
+                            <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
+                            <span class="slot-member-name">{{ slot.assignedMember.name }}</span>
+                          </div>
+                          <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
                         </div>
-                        <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
-                      </div>
-                    </template>
+                      </template>
 
-                    <!-- 2. 無人時顯示格子席位配置 (圖七) -->
-                    <template v-else-if="getSlotGuidelineText(slot)">
-                      <div class="template-guideline-content">
-                        <span class="guideline-role-text">{{ getSlotGuidelineText(slot) }}</span>
-                      </div>
-                    </template>
+                      <!-- 2. 無人時顯示格子席位配置 -->
+                      <template v-else-if="getSlotGuidelineText(slot)">
+                        <div class="template-guideline-content">
+                          <span class="guideline-role-text">{{ getSlotGuidelineText(slot) }}</span>
+                        </div>
+                      </template>
 
-                    <!-- 3. 完全空白席位 -->
-                    <template v-else>
-                      <div class="empty-slot-placeholder">點擊配置席位</div>
-                    </template>
+                      <!-- 3. 完全空白席位 -->
+                      <template v-else>
+                        <div class="empty-slot-placeholder">點擊配置席位</div>
+                      </template>
 
-                    <span v-if="slot.assignedMember" class="slot-clear-x" @click.stop="removeMemberFromSlot(slot)" title="移除席位">&times;</span>
+                      <span v-if="slot.assignedMember" class="slot-clear-x" @click.stop="removeMemberFromSlot(slot)" title="移除席位">&times;</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
 
           </div>
@@ -196,7 +208,96 @@
 
     <!-- ================= 彈窗組件 ================= -->
 
-    <!-- 1. 格子有人時：排表信息 Modal (圖一) -->
+    <!-- 1. 圖二對應：編輯團隊 Modal (批次維護小隊職能與顯示) -->
+    <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
+      <div class="modal-card wide-card">
+        <div class="modal-header">
+          <div class="modal-title-with-sub">
+            <h3>編輯團隊</h3>
+            <span class="modal-sub-desc">小隊名、備註、職能與顯示</span>
+          </div>
+          <span class="close-btn" @click="showEditTeamModal = false">&times;</span>
+        </div>
+
+        <div class="modal-body">
+          <!-- 團隊 Tab 切換列 (圖二) -->
+          <div class="team-tab-pills-row">
+            <button 
+              v-for="(t, idx) in matrixTeams" 
+              :key="t.id"
+              :class="['team-tab-pill', { active: activeEditTeamIndex === idx }]"
+              @click="activeEditTeamIndex = idx"
+            >
+              {{ t.name }}
+            </button>
+          </div>
+
+          <div v-if="currentEditingTeam" class="edit-team-content-body margin-t">
+            <!-- 團隊備註 -->
+            <div class="form-block">
+              <div class="block-title">團隊備註</div>
+              <div class="input-with-counter">
+                <input 
+                  type="text" 
+                  v-model="currentEditingTeam.desc" 
+                  maxlength="30" 
+                  placeholder="選填，最多 30 字" 
+                  class="counter-input"
+                />
+                <span class="input-char-counter">{{ (currentEditingTeam.desc || '').length }} / 30</span>
+              </div>
+            </div>
+
+            <!-- 小隊表格 (圖二) -->
+            <div class="form-block margin-t">
+              <div class="block-title">小隊</div>
+              <div class="team-squads-table-wrapper">
+                <table class="edit-squads-table">
+                  <thead>
+                    <tr>
+                      <th width="180">小隊名</th>
+                      <th width="70" class="text-center">顯示</th>
+                      <th>職能</th>
+                      <th>備註</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="sq in currentEditingTeam.squads" :key="sq.id">
+                      <td>
+                        <input type="text" v-model="sq.name" maxlength="8" class="table-input" />
+                      </td>
+                      <td class="text-center">
+                        <input type="checkbox" v-model="sq.visible" class="checkbox-box" />
+                      </td>
+                      <td>
+                        <!-- 小隊職能下拉：連動戰備 - 職能管理 - 小隊職能 -->
+                        <select v-model="sq.zhineng" class="table-select flex-1">
+                          <option value="">選擇職能</option>
+                          <option v-for="roleOpt in squadRoleOptions" :key="roleOpt" :value="roleOpt">
+                            {{ roleOpt }}
+                          </option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="text" v-model="sq.desc" placeholder="選填" class="table-input" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showEditTeamModal = false">取消</button>
+          <button class="btn-primary" @click="showEditTeamModal = false">確定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 格子有人時：排表信息 Modal (圖一) -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal">
         <div class="modal-header">
@@ -269,7 +370,7 @@
       </div>
     </div>
 
-    <!-- 2. 格子沒人時：席位配置 Modal (圖二) -->
+    <!-- 3. 格子沒人時：席位配置 Modal -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
       <div class="modal-card slot-modal-card">
         <div class="modal-header">
@@ -282,7 +383,7 @@
             {{ activeSlotTeamName }} - {{ activeSlotSquadName }} - 第 {{ activeSlotIndex + 1 }} 席
           </div>
 
-          <!-- 推薦流派 (圖二膠囊按鈕) -->
+          <!-- 推薦流派 -->
           <div class="form-block">
             <div class="block-title"><span class="req">*</span>推薦流派</div>
             <div class="school-pills-group">
@@ -345,7 +446,7 @@
       </div>
     </div>
 
-    <!-- 3. 圖四：編輯成員數據 Modal (資料與成員管理完全同步) -->
+    <!-- 4. 編輯成員數據 Modal (圖四) -->
     <div v-if="showMemberEditModal" class="modal-overlay" @click.self="showMemberEditModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -451,7 +552,7 @@
       </div>
     </div>
 
-    <!-- 4. 批量編輯 Modal (圖五) -->
+    <!-- 5. 批量編輯 Modal -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -501,7 +602,7 @@
       </div>
     </div>
 
-    <!-- 5. 置中刪除/清空確認 Modal (圖六) -->
+    <!-- 6. 置中刪除/清空確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -540,7 +641,7 @@ defineEmits(['back'])
 
 const leagueInfo = computed(() => props.leagueItem)
 
-// 現有 10 大流派 (無鴻音)
+// 10 大流派 (無鴻音)
 const availableSchools = [
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -584,7 +685,12 @@ const personalRoleOptions = [
   '純保鏢', '統戰', '騰龍保鏢', '騰龍合軸'
 ]
 
-// 真實成員庫 (與 Members.vue 資料結構 100% 一致)
+// 小隊職能選項 (來自戰備 - 職能管理)
+const squadRoleOptions = [
+  '保鏢隊', '雙碎隊', '雙神隊', '塔前隊', '塔後隊', '請假隊', '輪空隊'
+]
+
+// 真實成員庫
 const allMembers = ref([
   { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '錵小錵', rolePreference: ['D潮拆塔', '保鏢拆'], rolePrefList: ['D潮拆塔', '保鏢拆'], assigned: false },
   { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '行優', rolePreference: ['灌大團'], rolePrefList: ['灌大團'], assigned: false },
@@ -613,7 +719,6 @@ const filteredSchoolAccordion = computed(() => {
   return availableSchools
 })
 
-// 根據幫會與流派過濾待選成員
 const getUnassignedMembersBySchool = (schoolName) => {
   const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
   return allMembers.value.filter(m => {
@@ -629,26 +734,30 @@ const getUnassignedCountBySchool = (schoolName) => {
   return getUnassignedMembersBySchool(schoolName).length
 }
 
-// 團隊盤面結構 (格子的 templateConfig 獨立保留)
+// 團隊盤面結構
 const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
+    desc: '',
     squads: [
-      { id: 11, name: '一隊', zhineng: '塔後隊', slots: createDefaultSlots() },
-      { id: 12, name: '二隊', zhineng: '保鏢隊', slots: createDefaultSlots() },
-      { id: 13, name: '三隊', zhineng: '塔前隊', slots: createDefaultSlots() },
-      { id: 14, name: '四隊', zhineng: '', slots: createDefaultSlots() },
-      { id: 15, name: '五隊', zhineng: '', slots: createDefaultSlots() }
+      { id: 11, name: '一隊', zhineng: '塔後隊', visible: true, desc: '', slots: createDefaultSlots() },
+      { id: 12, name: '二隊', zhineng: '保鏢隊', visible: true, desc: '', slots: createDefaultSlots() },
+      { id: 13, name: '三隊', zhineng: '塔前隊', visible: true, desc: '', slots: createDefaultSlots() },
+      { id: 14, name: '四隊', zhineng: '', visible: true, desc: '', slots: createDefaultSlots() },
+      { id: 15, name: '五隊', zhineng: '', visible: true, desc: '', slots: createDefaultSlots() }
     ]
   },
   {
     id: 2,
     name: '進攻二團',
+    desc: '',
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: 20 + i,
       name: `${i + 1}隊`,
       zhineng: '',
+      visible: true,
+      desc: '',
       slots: createDefaultSlots()
     }))
   }
@@ -672,6 +781,49 @@ function createDefaultSlots() {
     }
   }))
 }
+
+// 動態新增大隊伍與小隊伍
+const addTeam = () => {
+  const num = matrixTeams.value.length + 1
+  matrixTeams.value.push({
+    id: Date.now(),
+    name: `團隊 ${num}`,
+    desc: '',
+    squads: Array.from({ length: 5 }, (_, i) => ({
+      id: Date.now() + i,
+      name: `${i + 1}隊`,
+      zhineng: '',
+      visible: true,
+      desc: '',
+      slots: createDefaultSlots()
+    }))
+  })
+}
+
+const addSquadToTeam = (team) => {
+  const squadNum = team.squads.length + 1
+  team.squads.push({
+    id: Date.now(),
+    name: `${squadNum}隊`,
+    zhineng: '',
+    visible: true,
+    desc: '',
+    slots: createDefaultSlots()
+  })
+}
+
+// 圖一 & 圖二對應：「編輯團隊」面板控制
+const showEditTeamModal = ref(false)
+const activeEditTeamIndex = ref(0)
+
+const openEditTeamModal = (idx) => {
+  activeEditTeamIndex.value = idx
+  showEditTeamModal.value = true
+}
+
+const currentEditingTeam = computed(() => {
+  return matrixTeams.value[activeEditTeamIndex.value] || null
+})
 
 // 拖拽與席位處理
 let draggedMember = null
@@ -731,7 +883,7 @@ const getSlotGuidelineText = (slot) => {
   return parts.join(' - ')
 }
 
-// 點擊格子處理：有人顯示「排表信息」；無人顯示「席位配置」
+// 點擊格子處理
 const showSlotInfoModal = ref(false)
 const showSlotConfigModal = ref(false)
 
@@ -759,14 +911,12 @@ const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotIndex.value = slotIdx
 
   if (slot.assignedMember) {
-    // 格子有人 -> 排表信息 (圖一)
     tempSlotRoles.value = [...(slot.roles || [])]
     tempSlotJueji.value = slot.jueji || ''
     tempSlotQunxia.value = slot.qunxia || ''
     tempSlotZhuangbei.value = slot.zhuangbei || ''
     showSlotInfoModal.value = true
   } else {
-    // 格子無人 -> 席位配置 (圖二)
     const cfg = slot.templateConfig || {}
     tempConfigSchools.value = [...(cfg.schools || [])]
     tempConfigRoles.value = [...(cfg.roles || [])]
@@ -820,7 +970,7 @@ const saveSlotConfig = () => {
   showSlotConfigModal.value = false
 }
 
-// 完整「編輯成員」 Modal 控制 (圖四：資訊與 Members.vue 通用)
+// 完整「編輯成員」 Modal 控制 (圖四)
 const showMemberEditModal = ref(false)
 const showRoleDropdownInMemberEdit = ref(false)
 const editingMemberRef = ref(null)
@@ -895,7 +1045,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal (圖五)
+// 批量編輯 Modal
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -930,7 +1080,7 @@ const saveBatchEdit = () => {
   showBatchEditModal.value = false
 }
 
-// 置中清空陣容 Modal (圖六)
+// 置中清空陣容 Modal
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -970,7 +1120,7 @@ const applyRosterTemplate = (tpl) => {
   appliedTemplateName.value = tpl.name
   showTemplateDropdown.value = false
 
-  // 套用模板戰術指導至格子上的 templateConfig (不影響已經放上格子的成員)
+  // 套用模板戰術指導至格子的 templateConfig (不影響已經放上格子的成員)
   matrixTeams.value[0].squads[0].slots.forEach((s, idx) => {
     if (idx === 0) s.templateConfig.roles = ['統戰', '指揮']
     if (idx === 1) s.templateConfig.roles = ['保鏢拆', '純保鏢']
@@ -1044,6 +1194,7 @@ const openAddMemberModal = () => {
 .toolbar-section-title { font-size: 14px; font-weight: bold; color: #1e293b; }
 
 .btn-secondary-sm { background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #334155; }
+.btn-primary-sm { background: #3b82f6; color: white; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .template-select-label { font-size: 12px; color: #64748b; font-weight: bold; }
 
 .custom-dropdown-wrapper { position: relative; }
@@ -1057,10 +1208,17 @@ const openAddMemberModal = () => {
 .dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .dropdown-item:hover { background: #f1f5f9; }
 
-/* 團隊矩陣橫列 (圖七 & 圖八) */
+/* 團隊矩陣橫列 */
 .teams-matrix-wrapper { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
 .team-matrix-row { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; }
-.team-row-title { font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
+
+.team-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.team-title-edit-group { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.team-title-edit-group:hover { background: #f1f5f9; }
+.team-row-title { font-size: 14px; font-weight: bold; color: #1e293b; }
+.team-pencil-icon { font-size: 14px; color: #94a3b8; }
+
+.add-squad-btn { background: none; border: 1px dashed #3b82f6; color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
 
 .squads-matrix-grid { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; }
 .squad-column-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; }
@@ -1077,7 +1235,7 @@ const openAddMemberModal = () => {
 .slot-member-name { font-size: 12px; font-weight: bold; color: #1e293b; }
 .slot-roles-text { font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 淺色預設模板指導 (圖七) */
+/* 淺色預設模板指導 */
 .matrix-slot-card.template-guideline { background: #fafafa; border: 1px solid #f1f5f9; }
 .template-guideline-content { font-size: 10px; color: #94a3b8; }
 .empty-slot-placeholder { font-size: 10px; color: #cbd5e1; width: 100%; text-align: center; }
@@ -1086,7 +1244,23 @@ const openAddMemberModal = () => {
 .matrix-slot-card:hover .slot-clear-x { opacity: 1; }
 .slot-clear-x:hover { color: #ef4444; }
 
-/* Modal 樣式 */
+/* 圖二對應：編輯團隊 Modal 樣式 */
+.modal-title-with-sub { display: flex; align-items: baseline; gap: 8px; }
+.modal-sub-desc { font-size: 12px; color: #94a3b8; font-weight: normal; }
+
+.team-tab-pills-row { display: flex; gap: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+.team-tab-pill { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #475569; }
+.team-tab-pill.active { background: #eff6ff; color: #2563eb; border-color: #3b82f6; font-weight: bold; }
+
+.team-squads-table-wrapper { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+.edit-squads-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.edit-squads-table th, .edit-squads-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.edit-squads-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
+.table-input { width: 100%; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; outline: none; }
+.table-select { padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; outline: none; }
+.checkbox-box { cursor: pointer; }
+
+/* Modal 通用 */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
 .slot-info-modal { width: 500px; max-height: 85vh; overflow-y: auto; }
@@ -1132,6 +1306,10 @@ const openAddMemberModal = () => {
 
 .school-selector { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; align-items: center; }
 
+.input-with-counter { position: relative; flex: 1; display: flex; align-items: center; }
+.counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
+.input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
+
 /* 批量編輯 Modal */
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; }
@@ -1157,6 +1335,7 @@ const openAddMemberModal = () => {
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
 .font-bold { font-weight: bold; }
+.text-center { text-align: center; }
 .flex-1 { flex: 1; }
 .margin-l { margin-left: 10px; }
 .margin-t { margin-top: 12px; }
