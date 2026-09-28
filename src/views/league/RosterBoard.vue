@@ -146,7 +146,7 @@
 
       <!-- ================= 右側：團隊矩陣排表區塊 ================= -->
       <main class="matrix-content-area">
-        <!-- 團隊工具列 -->
+        <!-- 團隊工具列 (右上角新增版型切換按鈕 - 圖一/圖二對應) -->
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
@@ -175,7 +175,6 @@
             <button class="btn-link text-red margin-l font-bold" @click="confirmClearRoster">清空陣容</button>
           </div>
 
-          <!-- 選擇陣容模板下拉 -->
           <div class="toolbar-right">
             <span class="template-select-label">團隊排表</span>
             <div class="custom-select-wrapper" @click.stop>
@@ -193,6 +192,24 @@
                   {{ tpl.name }}
                 </div>
               </div>
+            </div>
+
+            <!-- ★ 版型切換按鈕組 (矩陣 vs 試算表 - 圖一與圖二對應) ★ -->
+            <div class="layout-switch-btn-group margin-l">
+              <button 
+                :class="['layout-icon-btn', { active: layoutMode === 'matrix' }]" 
+                @click="layoutMode = 'matrix'" 
+                title="矩陣卡片視圖"
+              >
+                <i class="mdi mdi-view-grid-outline"></i>
+              </button>
+              <button 
+                :class="['layout-icon-btn', { active: layoutMode === 'table' }]" 
+                @click="layoutMode = 'table'" 
+                title="試算表視圖"
+              >
+                <i class="mdi mdi-table"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -212,13 +229,14 @@
           </div>
         </div>
 
-        <!-- 團隊矩陣 -->
-        <div class="teams-matrix-wrapper">
+        <!-- A. 矩陣卡片版型 (`layoutMode === 'matrix'`) -->
+        <div v-if="layoutMode === 'matrix'" class="teams-matrix-wrapper">
           <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
             
-            <!-- 團隊標頭列 -->
+            <!-- 團隊標頭列 (帶顏色球標) -->
             <div class="team-header-row">
               <div class="team-title-edit-group" @click="openEditTeamModal(tIdx)" title="編輯團隊名稱與小隊職能">
+                <span v-if="team.color" class="team-color-circle" :style="{ backgroundColor: team.color }"></span>
                 <span class="team-row-title">{{ team.name }}</span>
                 <span v-if="team.desc" class="team-row-desc">- {{ team.desc }}</span>
                 <i class="mdi mdi-pencil-outline team-pencil-icon"></i>
@@ -334,6 +352,64 @@
 
           </div>
         </div>
+
+        <!-- B. 試算表/Excel 風格版型 (`layoutMode === 'table'` - 對齊圖三) -->
+        <div v-else-if="layoutMode === 'table'" class="spreadsheet-view-wrapper">
+          <div class="spreadsheet-header-bar">
+            <span>{{ leagueInfo.guild || '百錵谷酒池肉林' }} + {{ leagueInfo.type }} + {{ leagueInfo.startTime }}</span>
+          </div>
+
+          <div class="spreadsheet-teams-row">
+            <div v-for="team in matrixTeams" :key="team.id" class="spreadsheet-team-column">
+              
+              <!-- 團隊標頭 -->
+              <div class="spreadsheet-team-head">
+                <span v-if="team.color" class="team-color-circle" :style="{ backgroundColor: team.color }"></span>
+                <span class="font-bold">{{ team.name }}</span>
+              </div>
+
+              <!-- 小隊清單 -->
+              <div class="spreadsheet-squads-list">
+                <div v-for="squad in team.squads" :key="squad.id" class="spreadsheet-squad-block">
+                  <div class="spreadsheet-squad-head">
+                    <span class="squad-title">{{ squad.name }} <template v-if="squad.zhineng">({{ squad.zhineng }})</template></span>
+                    <span v-if="squad.desc" class="squad-sub-desc">{{ squad.desc }}</span>
+                  </div>
+
+                  <!-- 席位列表 (Excel 試算表風) -->
+                  <div class="spreadsheet-slots-table">
+                    <div 
+                      v-for="(slot, slotIdx) in squad.slots" 
+                      :key="slot.id" 
+                      class="spreadsheet-slot-row"
+                      :style="getSlotStyle(slot)"
+                      @click="clickSlot(team, squad, slot, slotIdx)"
+                    >
+                      <div class="slot-col-member">
+                        <template v-if="slot.assignedMember">
+                          <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
+                          <span class="member-name">{{ slot.assignedMember.name }}</span>
+                        </template>
+                        <template v-else>
+                          <span class="placeholder-text">點擊配置席位</span>
+                        </template>
+                      </div>
+
+                      <div class="slot-col-role">{{ getSlotRoleSummary(slot) }}</div>
+                      <div class="slot-col-skill">{{ slot.jueji || slot.qunxia || slot.zhuangbei || '—' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 團隊備註 -->
+              <div v-if="team.desc" class="spreadsheet-team-footer-desc">
+                備註：{{ team.desc }}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
 
@@ -362,7 +438,7 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal (完全對齊新增 文字文件_4.txt 的正常版本) -->
+    <!-- 2. 批量編輯 Modal -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -601,13 +677,13 @@
       </div>
     </div>
 
-    <!-- 3. 編輯團隊 Modal -->
+    <!-- 3. 編輯團隊 Modal (圖四紅框位子新增「團隊顏色」選擇 - 圖五) -->
     <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
           <div class="modal-title-with-sub">
             <h3>編輯團隊</h3>
-            <span class="modal-sub-desc">團隊名稱、備註與小隊職能維護</span>
+            <span class="modal-sub-desc">團隊名稱、顏色、備註與小隊職能維護</span>
           </div>
           <span class="close-btn" @click="showEditTeamModal = false">&times;</span>
         </div>
@@ -620,6 +696,7 @@
               :class="['team-tab-pill', { active: activeEditTeamIndex === idx }]"
               @click="activeEditTeamIndex = idx"
             >
+              <span v-if="t.color" class="team-color-circle-sm" :style="{ backgroundColor: t.color }"></span>
               {{ t.name }}
             </button>
           </div>
@@ -640,6 +717,31 @@
               >
                 移除團隊
               </button>
+            </div>
+
+            <!-- ★ 新增：團隊顏色選擇列 (對齊圖四 & 圖五) ★ -->
+            <div class="form-row margin-t">
+              <label>團隊顏色：</label>
+              <div class="team-color-picker-flex">
+                <button 
+                  type="button"
+                  :class="['color-clear-btn', { active: !currentEditingTeam.color }]"
+                  @click="currentEditingTeam.color = ''"
+                >
+                  無顏色
+                </button>
+                <button 
+                  v-for="c in teamColorOptions" 
+                  :key="c.color"
+                  type="button"
+                  :class="['color-dot-btn', { active: currentEditingTeam.color === c.color }]"
+                  :style="{ backgroundColor: c.color }"
+                  :title="c.label"
+                  @click="currentEditingTeam.color = c.color"
+                >
+                  <i v-if="currentEditingTeam.color === c.color" class="mdi mdi-check check-white"></i>
+                </button>
+              </div>
             </div>
 
             <div class="form-block margin-t">
@@ -1210,6 +1312,15 @@ const availableSchools = [
   { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
 ]
 
+// 5 種遊戲團隊顏色 (圖四 & 圖五對應)
+const teamColorOptions = [
+  { color: '#84cc16', label: '淺綠色' },
+  { color: '#eab308', label: '金黃色' },
+  { color: '#06b6d4', label: '淺藍色' },
+  { color: '#3b82f6', label: '深藍色' },
+  { color: '#a855f7', label: '淡紫色' }
+]
+
 const getSchoolImg = (fileName) => {
   if (!fileName) return ''
   return new URL(`../../assets/schools/${fileName}.png`, import.meta.url).href
@@ -1263,6 +1374,7 @@ const closeAllSkillDropdowns = () => {
 
 const showSecondarySchool = ref(false)
 const showDetails = ref(false)
+const layoutMode = ref('matrix') // 'matrix' | 'table' (對齊圖一/圖二)
 const pendingViewMode = ref('school')
 
 const allMembers = ref([
@@ -1424,12 +1536,13 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊盤面數據
+// 團隊盤面數據 (新增團隊顏色支援)
 const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
     desc: '我是團隊備註會顯示的地方',
+    color: '#84cc16', // 淺綠色
     squads: [
       { id: 11, name: '一隊', zhineng: '塔後隊', desc: '我是顯示備註的地方', slots: createDefaultSlots() },
       { id: 12, name: '二隊', zhineng: '保鏢隊', desc: '', slots: createDefaultSlots() },
@@ -1442,6 +1555,7 @@ const matrixTeams = ref([
     id: 2,
     name: '進攻二團',
     desc: '',
+    color: '#eab308', // 金黃色
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: 20 + i,
       name: `${i + 1}隊`,
@@ -1506,6 +1620,7 @@ const addTeam = () => {
     id: Date.now(),
     name: `團隊 ${num}`,
     desc: '',
+    color: '',
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: Date.now() + i,
       name: `${i + 1}隊`,
@@ -1746,7 +1861,6 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
-// 【排表信息】多選 Helper (安全防錯)
 const isInfoQunxiaSelected = (qName) => {
   if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
   return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1773,7 +1887,6 @@ const toggleInfoLiupai = (lName) => {
   tempSlotZhuangbei.value = list.join(', ')
 }
 
-// 【席位配置】多選 Helper (安全防錯)
 const isConfigQunxiaSelected = (qName) => {
   if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
   return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1945,7 +2058,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal (完全回歸新增 文字文件_4.txt 穩定機制 + 安全性加固)
+// 批量編輯 Modal (完全保護)
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -1967,11 +2080,6 @@ const activeBatchDropdown = ref(null)
 const toggleBatchRowDropdown = (key) => {
   if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
   else activeBatchDropdown.value = key
-}
-
-const getRowSchoolBgStyle = (schoolName) => {
-  const bg = schoolColorMap[schoolName] || '#ffffff'
-  return { backgroundColor: bg }
 }
 
 const isBatchRowRoleSelected = (m, roleName) => {
@@ -2340,6 +2448,10 @@ const saveRosterBoard = () => {
 input:checked + .slider-sm { background-color: #3b82f6; }
 input:checked + .slider-sm:before { transform: translateX(14px); }
 
+.layout-switch-btn-group { display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: white; }
+.layout-icon-btn { border: none; background: white; padding: 4px 10px; font-size: 15px; color: #64748b; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.layout-icon-btn.active { background: #3b82f6; color: white; }
+
 .btn-secondary-sm { background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #334155; }
 .btn-primary-sm { background: #3b82f6; color: white; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .template-select-label { font-size: 12px; color: #64748b; font-weight: bold; }
@@ -2369,6 +2481,8 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .team-row-title { font-size: 14px; font-weight: bold; color: #1e293b; }
 .team-row-desc { font-size: 13px; color: #94a3b8; font-weight: normal; margin-left: 2px; }
 .team-pencil-icon { font-size: 14px; color: #94a3b8; }
+.team-color-circle { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.team-color-circle-sm { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
 
 .add-squad-btn { background: none; border: 1px dashed #3b82f6; color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
 
@@ -2409,6 +2523,39 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .matrix-slot-card:hover .slot-clear-x { opacity: 1; }
 .slot-clear-x:hover { color: #ef4444; }
 
+/* B. 試算表/Excel 風格版型樣式 (對齊圖三) */
+.spreadsheet-view-wrapper { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 16px; overflow-x: auto; display: flex; flex-direction: column; gap: 12px; }
+.spreadsheet-header-bar { background: #eff6ff; color: #1d4ed8; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; text-align: center; border: 1px solid #bfdbfe; }
+.spreadsheet-teams-row { display: flex; gap: 16px; min-width: max-content; }
+.spreadsheet-team-column { width: 280px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff; display: flex; flex-direction: column; overflow: hidden; }
+.spreadsheet-team-head { background: #f8fafc; padding: 10px; font-size: 13px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
+
+.spreadsheet-squads-list { display: flex; flex-direction: column; gap: 12px; padding: 10px; }
+.spreadsheet-squad-block { border: 1px solid #f1f5f9; border-radius: 6px; overflow: hidden; background: #fafafa; }
+.spreadsheet-squad-head { background: #f1f5f9; padding: 6px 10px; font-size: 12px; display: flex; flex-direction: column; }
+.squad-title { font-weight: bold; color: #334155; }
+.squad-sub-desc { font-size: 10px; color: #94a3b8; font-style: italic; }
+
+.spreadsheet-slots-table { display: flex; flex-direction: column; border-top: 1px solid #e2e8f0; }
+.spreadsheet-slot-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11px; cursor: pointer; transition: background 0.15s; }
+.spreadsheet-slot-row:hover { background: #eff6ff !important; }
+.slot-col-member { display: flex; align-items: center; gap: 4px; font-weight: bold; width: 90px; }
+.member-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-col-role { width: 80px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-col-skill { flex: 1; color: #94a3b8; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placeholder-text { color: #cbd5e1; font-weight: normal; }
+
+.spreadsheet-team-footer-desc { font-size: 11px; color: #64748b; padding: 8px 10px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-style: italic; }
+
+/* 團隊顏色選擇器 (圖四 & 圖五對應) */
+.team-color-picker-flex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.color-clear-btn { border: 1px solid #cbd5e1; background: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #64748b; }
+.color-clear-btn.active { border-color: #3b82f6; color: #2563eb; font-weight: bold; background: #eff6ff; }
+.color-dot-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
+.color-dot-btn:hover { transform: scale(1.15); }
+.color-dot-btn.active { border-color: #1e293b; box-shadow: 0 0 0 2px white inset; }
+.check-white { font-size: 14px; color: white; }
+
 /* 下拉選單組件 */
 .custom-dropdown-container { position: relative; flex: 1; display: flex; align-items: center; }
 .dropdown-toggle-btn { position: absolute; right: 4px; background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px 6px; font-size: 16px; display: flex; align-items: center; justify-content: center; }
@@ -2422,7 +2569,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .modal-sub-desc { font-size: 12px; color: #94a3b8; font-weight: normal; }
 
 .team-tab-pills-row { display: flex; gap: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
-.team-tab-pill { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #475569; }
+.team-tab-pill { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #475569; display: flex; align-items: center; }
 .team-tab-pill.active { background: #eff6ff; color: #2563eb; border-color: #3b82f6; font-weight: bold; }
 
 .squad-title-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
