@@ -10,7 +10,7 @@
 
     <!-- 主要內容區 -->
     <div class="league-main">
-      <!-- 頂部標題與按鈕工具列 (圖一/圖二對應) -->
+      <!-- 頂部標題與按鈕工具列 -->
       <div class="league-header-bar">
         <h2 class="page-title">聯賽列表</h2>
 
@@ -19,30 +19,11 @@
           <button class="icon-btn-setting" title="頁面設置">
             <i class="mdi mdi-cog-outline"></i> 頁面設置
           </button>
-
-          <!-- 視圖切換按鈕 (只保留 卡片 與 表格) -->
-          <div class="view-mode-toggle">
-            <button 
-              :class="['mode-btn', { active: viewMode === 'card' }]" 
-              @click="viewMode = 'card'"
-              title="卡片視圖"
-            >
-              <i class="mdi mdi-view-grid-outline"></i>
-            </button>
-            <button 
-              :class="['mode-btn', { active: viewMode === 'table' }]" 
-              @click="viewMode = 'table'"
-              title="表格視圖"
-            >
-              <i class="mdi mdi-table"></i>
-            </button>
-          </div>
-
           <button class="btn-primary" @click="createLeague">+ 創建聯賽</button>
         </div>
       </div>
 
-      <!-- 篩選列 (精簡欄位後) -->
+      <!-- 篩選卡片 -->
       <div class="filter-card">
         <div class="filter-row">
           <!-- 1. 標題搜尋 -->
@@ -53,7 +34,7 @@
             class="filter-input-text" 
           />
 
-          <!-- 2. 成員分組 (圖三對應) -->
+          <!-- 2. 成員分組 -->
           <div class="custom-select-wrapper" @click.stop>
             <div class="custom-select-input" @click="toggleDropdown('group')">
               <span :class="{ 'placeholder-text': !filterGroup }">
@@ -83,7 +64,7 @@
             </div>
           </div>
 
-          <!-- 3. 聯賽類型 (圖四對應) -->
+          <!-- 3. 聯賽類型 -->
           <div class="custom-select-wrapper" @click.stop>
             <div class="custom-select-input" @click="toggleDropdown('type')">
               <span :class="{ 'placeholder-text': !filterType }">
@@ -103,7 +84,7 @@
             </div>
           </div>
 
-          <!-- 4. 排序 (圖五對應) -->
+          <!-- 4. 排序 -->
           <div class="custom-select-wrapper" @click.stop>
             <div class="custom-select-input" @click="toggleDropdown('sort')">
               <span>{{ filterSortLabel }}</span>
@@ -126,108 +107,171 @@
         </div>
       </div>
 
-      <!-- 內容視圖 1: 卡片視圖 (圖一對應) -->
-      <div v-if="viewMode === 'card'" class="card-grid-container margin-t">
-        <div v-for="item in filteredLeagueList" :key="item.id" class="league-card-item">
-          <div class="card-head">
-            <div class="card-title-group">
-              <span class="card-index">#{{ item.id }}</span>
-              <span class="card-title-text">{{ item.title }} ({{ item.guild }})</span>
-            </div>
-            <div class="card-head-right">
-              <span class="status-pill green">報名中</span>
-              <label class="switch">
-                <input type="checkbox" v-model="item.enabled" />
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="card-body">
-            <div class="time-text">{{ item.startTime }} 開始</div>
-            <div class="stats-row">
-              <span>應到人數: {{ item.shouldAttend }}人</span>
-              <span class="margin-l">請假: {{ item.leaveCount }}人</span>
-              <span class="margin-l">已簽到: {{ item.signedCount }}人</span>
-            </div>
-            <div class="note-text">備註：{{ item.notes || '—' }}</div>
-          </div>
-
-          <div class="card-footer-actions">
-            <span class="tag-badge purple">排表</span>
-            <span class="tag-badge gray margin-l">數據</span>
-            <span class="tag-badge gray margin-l">考勤</span>
-            <span class="tag-badge gray margin-l">報名</span>
-            <button class="btn-more-link margin-l">更多 <i class="mdi mdi-chevron-down"></i></button>
-          </div>
-        </div>
-
-        <div v-if="filteredLeagueList.length === 0" class="empty-card-box">
-          暫無聯賽數據
-        </div>
-      </div>
-
-      <!-- 內容視圖 2: 表格視圖 (圖二對應) -->
-      <div v-else-if="viewMode === 'table'" class="table-container margin-t">
+      <!-- 表格視圖 (精簡 8 欄位) -->
+      <div class="table-container margin-t">
         <table class="data-table">
           <thead>
             <tr>
-              <th width="50">#</th>
               <th>聯賽標題</th>
-              <th>聯賽類型</th>
-              <th>開始時間</th>
-              <th>報名截止</th>
-              <th>場次</th>
+              <th width="110">聯賽類型</th>
+              <th width="160">開始時間</th>
+              <th width="70">場次</th>
+              <th>對陣幫會</th>
               <th>比賽結果</th>
-              <th>關聯幫會</th>
-              <th>可報名範圍</th>
-              <th>約戰形式</th>
-              <th>關聯俱樂部</th>
-              <th>開放報名</th>
-              <th>開放搶表</th>
               <th>備註</th>
-              <th width="80">啟用聯賽</th>
-              <th width="80">公開約戰</th>
-              <th width="150">操作</th>
+              <th width="140">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, idx) in filteredLeagueList" :key="item.id">
-              <td>{{ idx + 1 }}</td>
+            <tr v-for="item in filteredLeagueList" :key="item.id">
               <td class="font-bold">{{ item.title }}</td>
               <td><span class="text-green">{{ item.type }}</span></td>
-              <td>{{ item.startTime }}</td>
-              <td>{{ item.deadline || '—' }}</td>
+              <td class="text-gray">{{ item.startTime }}</td>
               <td>{{ item.matchCount }}</td>
-              <td><span class="result-badge">{{ item.result || '填結果' }}</span></td>
-              <td>{{ item.guild }}</td>
-              <td>{{ item.signupRange || '—' }}</td>
-              <td>{{ item.battleFormat || '—' }}</td>
-              <td>{{ item.club || '—' }}</td>
-              <td>{{ item.openSignup ? '開放' : '未開放' }}</td>
-              <td>{{ item.openClaim ? '開放' : '—' }}</td>
-              <td>{{ item.notes }}</td>
+
+              <!-- 對陣幫會 (點擊編輯對陣幫會) -->
               <td>
-                <label class="switch">
-                  <input type="checkbox" v-model="item.enabled" />
-                  <span class="slider"></span>
-                </label>
+                <div class="clickable-cell" @click="openOpponentModal(item)" title="點擊編輯對陣幫會">
+                  <div v-if="item.matchCount === 1">
+                    <span :class="['opponent-pill', { unset: !item.opponents[0] }]">
+                      {{ item.opponents[0] || '未填選' }}
+                    </span>
+                  </div>
+                  <div v-else class="opponents-flex">
+                    <span :class="['opponent-pill', { unset: !item.opponents[0] }]">
+                      第1場: {{ item.opponents[0] || '未填選' }}
+                    </span>
+                    <span :class="['opponent-pill', { unset: !item.opponents[1] }]">
+                      第2場: {{ item.opponents[1] || '未填選' }}
+                    </span>
+                  </div>
+                </div>
               </td>
-              <td>—</td>
+
+              <!-- 比賽結果 (並排顯示 我方贏 / 對方贏 膠囊標籤) -->
               <td>
-                <button class="btn-pill-blue">排表</button>
+                <div class="clickable-cell" @click="openResultModal(item)" title="點擊編輯比賽結果">
+                  <div class="results-flex">
+                    <template v-for="(res, mIdx) in item.matchCount" :key="mIdx">
+                      <span v-if="item.results[mIdx] === 'win'" class="res-badge win">我方贏</span>
+                      <span v-else-if="item.results[mIdx] === 'lose'" class="res-badge lose">對方贏</span>
+                      <span v-else class="res-badge unset">還沒出</span>
+                    </template>
+                  </div>
+                </div>
+              </td>
+
+              <td class="text-gray">{{ item.notes || '—' }}</td>
+
+              <td>
+                <button class="btn-pill-blue" @click="openRoster(item)">排表</button>
                 <button class="btn-pill-gray margin-l">數據</button>
-                <button class="btn-link margin-l">更多 <i class="mdi mdi-chevron-down"></i></button>
+                <button class="btn-link text-red margin-l" @click="confirmDeleteLeague(item)">刪除</button>
               </td>
             </tr>
             <tr v-if="filteredLeagueList.length === 0">
-              <td colspan="17" class="empty-cell">暫無聯賽資料</td>
+              <td colspan="8" class="empty-cell">暫無聯賽資料</td>
             </tr>
           </tbody>
         </table>
       </div>
 
     </div>
+
+    <!-- 1. 編輯對陣幫會 Modal -->
+    <div v-if="showOpponentModal" class="modal-overlay" @click.self="showOpponentModal = false">
+      <div class="modal-card small-card">
+        <div class="modal-header">
+          <h3>編輯對陣幫會</h3>
+          <span class="close-btn" @click="showOpponentModal = false">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <label>第 1 場：</label>
+            <input type="text" v-model="tempOpponents[0]" placeholder="請輸入對陣幫會名稱" class="flex-1" />
+          </div>
+          <div v-if="activeLeagueItem?.matchCount === 2" class="form-row margin-t">
+            <label>第 2 場：</label>
+            <input type="text" v-model="tempOpponents[1]" placeholder="請輸入對陣幫會名稱" class="flex-1" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showOpponentModal = false">取消</button>
+          <button class="btn-primary" @click="saveOpponents">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 編輯比賽結果 Modal (對應圖三) -->
+    <div v-if="showResultModal" class="modal-overlay" @click.self="showResultModal = false">
+      <div class="modal-card small-card">
+        <div class="modal-header">
+          <h3>比賽結果</h3>
+          <span class="close-btn" @click="showResultModal = false">&times;</span>
+        </div>
+        <div class="modal-body">
+          <!-- 第 1 場 -->
+          <div class="result-match-block">
+            <div class="match-title-label">第 1 場</div>
+            <div class="radio-options-row">
+              <label class="radio-item">
+                <input type="radio" v-model="tempResults[0]" value="unset" />
+                <span>還沒出</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" v-model="tempResults[0]" value="win" />
+                <span>我方贏</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" v-model="tempResults[0]" value="lose" />
+                <span>對方贏</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 第 2 場 (當場次為 2 時顯示) -->
+          <div v-if="activeLeagueItem?.matchCount === 2" class="result-match-block margin-t">
+            <div class="match-title-label">第 2 場</div>
+            <div class="radio-options-row">
+              <label class="radio-item">
+                <input type="radio" v-model="tempResults[1]" value="unset" />
+                <span>還沒出</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" v-model="tempResults[1]" value="win" />
+                <span>我方贏</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" v-model="tempResults[1]" value="lose" />
+                <span>對方贏</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showResultModal = false">取消</button>
+          <button class="btn-primary" @click="saveResults">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 置中刪除確認 Modal -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-card confirm-modal-card">
+        <div class="confirm-modal-body">
+          <div class="warning-icon-wrapper">
+            <i class="mdi mdi-alert-circle warning-icon"></i>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-msg">{{ confirmMessage }}</p>
+        </div>
+        <div class="confirm-modal-footer">
+          <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -240,21 +284,17 @@ const router = useRouter()
 const isDarkMode = ref(false)
 const username = ref('VIP')
 
-// 視圖切換 ('card' | 'table') - 只保留這兩個 (圖一 / 圖二)
-const viewMode = ref('card')
-
-// 篩選狀態 (已精簡)
+// 篩選狀態
 const filterTitle = ref('')
 const filterGroup = ref('')
 const filterType = ref('')
 const filterSort = ref('created_desc')
 
-const activeDropdown = ref(null) // 'group' | 'type' | 'sort' | null
+const activeDropdown = ref(null)
 
-// 選項資料
-const guildOptions = ['百錵谷酒池肉林', '天下雲五']
+// 幫會選項 (預設為 百錵谷酒池肉林)
+const guildOptions = ['百錵谷酒池肉林']
 const otherGroupOptions = ['遊客']
-
 const typeOptions = ['幫會聯賽', '約戰', '俱樂部聯賽']
 
 const sortOptions = [
@@ -269,27 +309,47 @@ const filterSortLabel = computed(() => {
   return found ? found.label : '創建時間倒序'
 })
 
-// 模擬聯賽列表資料
+// 置中刪除確認 Modal
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
+const executeConfirmAction = () => {
+  if (confirmActionCallback) confirmActionCallback()
+  showConfirmModal.value = false
+}
+
+// 模擬聯賽列表資料 (預設帶入 百錵谷酒池肉林)
 const leagueList = ref([
   {
     id: 1,
     title: '幫會聯賽',
-    guild: '天下雲五',
+    guild: '百錵谷酒池肉林',
     type: '幫會聯賽',
     startTime: '2026-10-10 20:00',
-    deadline: '',
+    matchCount: 2, // 1 或 2 場
+    opponents: ['未填選', '未填選'],
+    results: ['win', 'lose'], // 'unset' | 'win' | 'lose'
+    notes: '1'
+  },
+  {
+    id: 2,
+    title: '第一場週六聯賽',
+    guild: '百錵谷酒池肉林',
+    type: '約戰',
+    startTime: '2026-10-17 20:00',
     matchCount: 1,
-    result: '填結果',
-    signupRange: '',
-    battleFormat: '',
-    club: '',
-    openSignup: false,
-    openClaim: false,
-    shouldAttend: 0,
-    leaveCount: 0,
-    signedCount: 2,
-    notes: '1',
-    enabled: true
+    opponents: ['未填選'],
+    results: ['win'],
+    notes: ''
   }
 ])
 
@@ -312,9 +372,7 @@ const closeAllDropdowns = () => {
   activeDropdown.value = null
 }
 
-const handleSearch = () => {
-  // 觸發重新篩選
-}
+const handleSearch = () => {}
 
 const filteredLeagueList = computed(() => {
   return leagueList.value.filter(item => {
@@ -325,8 +383,76 @@ const filteredLeagueList = computed(() => {
   })
 })
 
+// 對陣幫會 Modal
+const showOpponentModal = ref(false)
+const activeLeagueItem = ref(null)
+const tempOpponents = ref(['', ''])
+
+const openOpponentModal = (item) => {
+  activeLeagueItem.value = item
+  tempOpponents.value = [item.opponents[0] || '', item.opponents[1] || '']
+  showOpponentModal.value = true
+}
+
+const saveOpponents = () => {
+  if (activeLeagueItem.value) {
+    activeLeagueItem.value.opponents[0] = tempOpponents.value[0].trim() || '未填選'
+    if (activeLeagueItem.value.matchCount === 2) {
+      activeLeagueItem.value.opponents[1] = tempOpponents.value[1].trim() || '未填選'
+    }
+  }
+  showOpponentModal.value = false
+}
+
+// 比賽結果 Modal
+const showResultModal = ref(false)
+const tempResults = ref(['unset', 'unset'])
+
+const openResultModal = (item) => {
+  activeLeagueItem.value = item
+  tempResults.value = [item.results[0] || 'unset', item.results[1] || 'unset']
+  showResultModal.value = true
+}
+
+const saveResults = () => {
+  if (activeLeagueItem.value) {
+    activeLeagueItem.value.results[0] = tempResults.value[0]
+    if (activeLeagueItem.value.matchCount === 2) {
+      activeLeagueItem.value.results[1] = tempResults.value[1]
+    }
+  }
+  showResultModal.value = false
+}
+
 const createLeague = () => {
-  alert('創建聯賽功能開發中...')
+  const title = prompt('請輸入聯賽標題：', '幫會聯賽')
+  if (title && title.trim()) {
+    leagueList.value.unshift({
+      id: Date.now(),
+      title: title.trim(),
+      guild: '百錵谷酒池肉林',
+      type: '幫會聯賽',
+      startTime: '2026-10-24 20:00',
+      matchCount: 2,
+      opponents: ['未填選', '未填選'],
+      results: ['unset', 'unset'],
+      notes: ''
+    })
+  }
+}
+
+const openRoster = (item) => {
+  alert(`開啟聯賽【${item.title}】的排表頁面`)
+}
+
+const confirmDeleteLeague = (item) => {
+  triggerConfirmModal(
+    '刪除聯賽',
+    `確定要刪除聯賽「${item.title}」嗎？`,
+    () => {
+      leagueList.value = leagueList.value.filter(l => l.id !== item.id)
+    }
+  )
 }
 
 onMounted(() => {
@@ -354,20 +480,15 @@ onMounted(() => {
 .guide-text { font-size: 12px; color: #64748b; cursor: pointer; }
 .icon-btn-setting { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: #475569; display: flex; align-items: center; gap: 4px; }
 
-/* 視圖切換按鈕 */
-.view-mode-toggle { display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #ffffff; }
-.mode-btn { border: none; background: none; padding: 6px 12px; font-size: 16px; color: #64748b; cursor: pointer; transition: all 0.15s; }
-.mode-btn.active { background: #3b82f6; color: white; }
-
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.btn-primary.btn-red { background: #ef4444; }
 
 /* 篩選卡片 */
 .filter-card { background: #ffffff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-
 .filter-input-text { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; width: 120px; }
 
-/* 下拉選單組件 (對應圖三/圖四/圖五) */
+/* 下拉選單 */
 .custom-select-wrapper { position: relative; width: 140px; }
 .custom-select-input { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; min-height: 20px; }
 .placeholder-text { color: #94a3b8; }
@@ -382,49 +503,64 @@ onMounted(() => {
 
 .btn-query { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #334155; }
 
-/* 卡片視圖 (圖一) */
-.card-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.league-card-item { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; gap: 10px; }
-.card-head { display: flex; justify-content: space-between; align-items: center; }
-.card-title-text { font-weight: bold; font-size: 14px; color: #1e293b; margin-left: 4px; }
-.card-index { font-size: 12px; color: #94a3b8; }
-.card-head-right { display: flex; align-items: center; gap: 8px; }
-
-.status-pill.green { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-
-.card-body { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #64748b; }
-.stats-row { font-size: 11px; color: #475569; }
-.note-text { color: #94a3b8; font-size: 11px; }
-
-.card-footer-actions { display: flex; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 8px; }
-.tag-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-.tag-badge.purple { background: #f3e8ff; color: #8b5cf6; border: 1px solid #e9d5ff; }
-.tag-badge.gray { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-.btn-more-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 11px; }
-
-/* 表格視圖 (圖二) */
+/* 表格與點擊欄位 */
 .table-container { background: #ffffff; border-radius: 8px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.data-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
-.data-table th, .data-table td { padding: 10px 10px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.data-table th, .data-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
 .data-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
 
+.clickable-cell { cursor: pointer; display: inline-block; padding: 2px 4px; border-radius: 4px; transition: background 0.15s; }
+.clickable-cell:hover { background: #f1f5f9; }
+
+/* 對陣幫會樣式 */
+.opponents-flex { display: flex; align-items: center; gap: 8px; }
+.opponent-pill { font-size: 12px; color: #334155; font-weight: 500; }
+.opponent-pill.unset { color: #94a3b8; border: 1px dashed #cbd5e1; padding: 2px 6px; border-radius: 4px; }
+
+/* 比賽結果並排膠囊標籤 */
+.results-flex { display: flex; align-items: center; gap: 6px; }
+.res-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; display: inline-block; }
+.res-badge.win { background: #3b82f6; }
+.res-badge.lose { background: #ef4444; }
+.res-badge.unset { background: #f1f5f9; color: #94a3b8; border: 1px dashed #cbd5e1; font-weight: normal; }
+
 .text-green { color: #16a34a; font-weight: 500; }
-.result-badge { border: 1px dashed #cbd5e1; padding: 2px 6px; border-radius: 4px; color: #94a3b8; font-size: 11px; }
-
-.btn-pill-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-.btn-pill-gray { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 11px; }
-
-/* Switch 開關 */
-.switch { position: relative; display: inline-block; width: 32px; height: 18px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 18px; }
-.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
-input:checked + .slider { background-color: #3b82f6; }
-input:checked + .slider:before { transform: translateX(14px); }
-
-.margin-l { margin-left: 10px; }
-.margin-t { margin-top: 15px; }
+.text-gray { color: #64748b; }
 .font-bold { font-weight: bold; }
-.empty-card-box, .empty-cell { text-align: center; color: #94a3b8; padding: 40px; width: 100%; }
+
+.btn-pill-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.btn-pill-gray { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
+.text-red { color: #ef4444; }
+
+/* Modal 彈窗 */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
+.modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
+.small-card { width: 400px; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.close-btn { cursor: pointer; font-size: 20px; color: #94a3b8; }
+
+.form-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 13px; }
+.form-row label { width: 80px; font-weight: bold; }
+.form-row input[type="text"] { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
+.flex-1 { flex: 1; }
+
+.result-match-block { display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
+.match-title-label { font-weight: bold; font-size: 13px; color: #1e293b; }
+.radio-options-row { display: flex; align-items: center; gap: 20px; }
+.radio-item { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+
+/* 置中刪除確認 Modal */
+.confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
+.confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
+.warning-icon { font-size: 28px; color: #d97706; }
+.confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
+.confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.margin-l { margin-left: 10px; }
+.margin-t { margin-top: 10px; }
+.empty-cell { text-align: center; color: #94a3b8; padding: 40px; }
 </style>
