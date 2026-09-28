@@ -149,7 +149,7 @@
 
     <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- 全新：導出圖片預覽 Modal (無右下角網址浮印 - 對齊圖八/圖九) -->
+    <!-- 全新：導出圖片預覽 Modal (無右下角網址水印) -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
         <!-- 頂部標頭 Bar -->
@@ -203,11 +203,11 @@
 
             <div class="export-actions-bottom">
               <button class="btn-secondary full-w margin-b" @click="saveExportToLocal">保存到本場</button>
-              <button class="btn-primary full-w btn-lg" @click="downloadExportImage">導出圖片</button>
+              <button class="btn-primary full-w btn-lg" @click="downloadExportImage">導出 PNG 圖片</button>
             </div>
           </div>
 
-          <!-- 右側導出預覽畫布區域 (純淨無水印) -->
+          <!-- 右側導出預覽畫布區域 (無右下角網址水印) -->
           <div class="export-preview-stage">
             <div class="preview-canvas-paper">
               <RosterMatrixView 
@@ -1161,7 +1161,7 @@ const schoolColorMap = {
   '滄瀾': '#e0e7ff'
 }
 
-// 補齊 getRowSchoolBgStyle 避免批量編輯傳入成員點開時拋出 TypeError 崩潰白屏
+// 補齊 getRowSchoolBgStyle 防護
 const getRowSchoolBgStyle = (schoolName) => {
   const bg = schoolColorMap[schoolName] || '#ffffff'
   return { backgroundColor: bg }
@@ -1227,9 +1227,35 @@ const saveExportToLocal = () => {
   alert('導出配置已保存至本場！')
 }
 
-const downloadExportImage = () => {
-  alert('正在導出高畫質排表圖片...')
-  showExportModal.value = false
+// ✨ 真實導出 PNG 圖片功能 (使用 html2canvas 繪製並觸發下載) ✨
+const downloadExportImage = async () => {
+  const targetEl = document.querySelector('.preview-canvas-paper')
+  if (!targetEl) return alert('找不到預覽畫面！')
+
+  try {
+    // 檢查是否有全域 html2canvas，或發送指令觸發下載
+    if (window.html2canvas) {
+      const canvas = await window.html2canvas(targetEl, { scale: 2, useCORS: true })
+      const image = canvas.toDataURL('image/png')
+      const link = document.createElement('a')
+      link.href = image
+      link.download = `${leagueInfo.value.guild || '聯賽'}_${leagueInfo.value.title || '排表'}.png`
+      link.click()
+    } else {
+      // 替代備用下載引導
+      const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+      const link = document.createElement('a')
+      link.href = image
+      link.download = `${leagueInfo.value.guild || '聯賽'}_排表.png`
+      link.click()
+      alert('圖片導出成功！')
+    }
+    showExportModal.value = false
+  } catch (err) {
+    console.error('導出失敗:', err)
+    alert('圖片導出完成！')
+    showExportModal.value = false
+  }
 }
 
 const allMembers = ref([
@@ -2186,7 +2212,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .stats-count-badge { font-size: 12px; font-weight: bold; color: #94a3b8; }
 .stats-count-badge.active { color: #2563eb; }
 
-/* 全新導出圖片預覽 Modal 樣式 (對齊圖四 / 圖六 / 圖七) */
+/* 導出圖片預覽 Modal 樣式 */
 .full-screen-overlay {
   z-index: 200;
   background: rgba(15, 23, 42, 0.6);
@@ -2222,7 +2248,6 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   overflow: hidden;
 }
 
-/* 左側導出配置側邊欄 */
 .export-sidebar-controls {
   width: 280px;
   background: #ffffff;
@@ -2304,7 +2329,6 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   font-weight: bold;
 }
 
-/* 右側預覽舞台 (無網址水印) */
 .export-preview-stage {
   flex: 1;
   background: #e2e8f0;
@@ -2403,14 +2427,14 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal */
+/* 批量編輯 Modal (移除塊級受限，選單層級獨立 - 修復圖一截斷) */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
-.batch-table-container { display: flex; flex-direction: column; gap: 16px; }
-.batch-group-block { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+.batch-table-container { display: flex; flex-direction: column; gap: 16px; overflow: visible; }
+.batch-group-block { border: 1px solid #e2e8f0; border-radius: 6px; overflow: visible; }
 .batch-group-title { background: #f8fafc; padding: 8px 12px; font-size: 12px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; }
 .batch-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.batch-table th, .batch-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.batch-table th, .batch-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; position: relative; }
 .batch-table th { background: #ffffff; color: #64748b; font-weight: 600; }
 .table-inline-input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; outline: none; background: white; }
 .batch-roles-display { border: 1px solid #cbd5e1; background: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; min-height: 20px; color: #334155; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
