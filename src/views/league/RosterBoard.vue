@@ -1306,9 +1306,10 @@ const filteredSchoolAccordion = computed(() => {
 const getUnassignedMembersBySchool = (schoolName) => {
   const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
   return allMembers.value.filter(m => {
+    if (!m) return false
     const matchGuild = m.guild === targetGuild
     const notAssigned = !m.assigned
-    const matchSearch = !searchMemberQuery.value || m.name.includes(searchMemberQuery.value.trim())
+    const matchSearch = !searchMemberQuery.value || (m.name && m.name.includes(searchMemberQuery.value.trim()))
 
     let matchSchool = false
     if (showSecondarySchool.value) {
@@ -1327,10 +1328,12 @@ const getUnassignedCountBySchool = (schoolName) => {
 
 const allUnassignedMembersList = computed(() => {
   const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
+  if (!Array.isArray(allMembers.value)) return []
   return allMembers.value.filter(m => {
+    if (!m) return false
     const matchGuild = m.guild === targetGuild
     const notAssigned = !m.assigned
-    const matchSearch = !searchMemberQuery.value || m.name.includes(searchMemberQuery.value.trim())
+    const matchSearch = !searchMemberQuery.value || (m.name && m.name.includes(searchMemberQuery.value.trim()))
 
     let matchSchool = true
     if (activeSchoolFilter.value) {
@@ -1473,22 +1476,27 @@ function createDefaultSlots() {
   }))
 }
 
-// 計算當前已放上盤面的各職業上陣人數
 const schoolAssignedCounts = computed(() => {
   const counts = {}
   availableSchools.forEach(s => counts[s.name] = 0)
 
-  matrixTeams.value.forEach(team => {
-    team.squads.forEach(squad => {
-      squad.slots.forEach(slot => {
-        if (slot.assignedMember && slot.assignedMember.currentSchool) {
-          const sch = slot.assignedMember.currentSchool
-          if (counts[sch] !== undefined) counts[sch]++
-          else counts[sch] = 1
-        }
-      })
+  if (Array.isArray(matrixTeams.value)) {
+    matrixTeams.value.forEach(team => {
+      if (team && Array.isArray(team.squads)) {
+        team.squads.forEach(squad => {
+          if (squad && Array.isArray(squad.slots)) {
+            squad.slots.forEach(slot => {
+              if (slot && slot.assignedMember && slot.assignedMember.currentSchool) {
+                const sch = slot.assignedMember.currentSchool
+                if (counts[sch] !== undefined) counts[sch]++
+                else counts[sch] = 1
+              }
+            })
+          }
+        })
+      }
     })
-  })
+  }
 
   return counts
 })
@@ -1572,13 +1580,13 @@ const onDropOnSlot = (team, squad, targetSlot) => {
   } else if (draggedType === 'slotMember' && draggedSlotRef) {
     if (draggedSlotRef === targetSlot) return
     const tempMember = targetSlot.assignedMember
-    const tempRoles = [...targetSlot.roles]
+    const tempRoles = Array.isArray(targetSlot.roles) ? [...targetSlot.roles] : []
     const tempJueji = targetSlot.jueji
     const tempQunxia = targetSlot.qunxia
     const tempZhuangbei = targetSlot.zhuangbei
 
     targetSlot.assignedMember = draggedSlotRef.assignedMember
-    targetSlot.roles = [...draggedSlotRef.roles]
+    targetSlot.roles = Array.isArray(draggedSlotRef.roles) ? [...draggedSlotRef.roles] : []
     targetSlot.jueji = draggedSlotRef.jueji
     targetSlot.qunxia = draggedSlotRef.qunxia
     targetSlot.zhuangbei = draggedSlotRef.zhuangbei
@@ -1640,6 +1648,7 @@ const openEditTeamModal = (idx) => {
 }
 
 const currentEditingTeam = computed(() => {
+  if (!Array.isArray(matrixTeams.value)) return null
   return matrixTeams.value[activeEditTeamIndex.value] || null
 })
 
@@ -1649,14 +1658,18 @@ const deleteCurrentEditingTeam = () => {
     '移除團隊',
     `確定要移除團隊「${currentEditingTeam.value.name}」嗎？團隊內部所有成員將退回待選清單。`,
     () => {
-      currentEditingTeam.value.squads.forEach(s => {
-        s.slots.forEach(slot => {
-          if (slot.assignedMember) {
-            slot.assignedMember.assigned = false
-            slot.assignedMember = null
+      if (currentEditingTeam.value && Array.isArray(currentEditingTeam.value.squads)) {
+        currentEditingTeam.value.squads.forEach(s => {
+          if (s && Array.isArray(s.slots)) {
+            s.slots.forEach(slot => {
+              if (slot && slot.assignedMember) {
+                slot.assignedMember.assigned = false
+                slot.assignedMember = null
+              }
+            })
           }
         })
-      })
+      }
       matrixTeams.value.splice(activeEditTeamIndex.value, 1)
       if (matrixTeams.value.length === 0) {
         showEditTeamModal.value = false
@@ -1738,7 +1751,7 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
-// 【排表信息】多選 Helper (安全防錯)
+// 【排表信息】多選 Helper
 const isInfoQunxiaSelected = (qName) => {
   if (!tempSlotQunxia.value) return false
   return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1765,7 +1778,7 @@ const toggleInfoLiupai = (lName) => {
   tempSlotZhuangbei.value = list.join(', ')
 }
 
-// 【席位配置】多選 Helper (安全防錯)
+// 【席位配置】多選 Helper
 const isConfigQunxiaSelected = (qName) => {
   if (!tempConfigQunxia.value) return false
   return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1937,7 +1950,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal (包含所有安全防錯保護)
+// 批量編輯 Modal
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -1962,10 +1975,12 @@ const toggleBatchRowDropdown = (key) => {
 }
 
 const isBatchRowRoleSelected = (m, roleName) => {
-  return Array.isArray(m?.rolesList) && m.rolesList.includes(roleName)
+  if (!m || !Array.isArray(m.rolesList)) return false
+  return m.rolesList.includes(roleName)
 }
 
 const toggleBatchRowRole = (m, roleName) => {
+  if (!m) return
   if (!Array.isArray(m.rolesList)) m.rolesList = []
   const idx = m.rolesList.indexOf(roleName)
   if (idx > -1) m.rolesList.splice(idx, 1)
@@ -1973,12 +1988,13 @@ const toggleBatchRowRole = (m, roleName) => {
 }
 
 const isBatchRowQunxiaSelected = (m, qName) => {
-  if (!m || !m.qunxia) return false
+  if (!m || typeof m.qunxia !== 'string') return false
   return m.qunxia.split(',').map(s => s.trim()).includes(qName)
 }
 
 const toggleBatchRowQunxia = (m, qName) => {
-  let list = m.qunxia ? m.qunxia.split(',').map(s => s.trim()).filter(Boolean) : []
+  if (!m) return
+  let list = (m.qunxia && typeof m.qunxia === 'string') ? m.qunxia.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(qName)
@@ -1986,12 +2002,13 @@ const toggleBatchRowQunxia = (m, qName) => {
 }
 
 const isBatchRowLiupaiSelected = (m, lName) => {
-  if (!m || !m.zhuangbei) return false
+  if (!m || typeof m.zhuangbei !== 'string') return false
   return m.zhuangbei.split(',').map(s => s.trim()).includes(lName)
 }
 
 const toggleBatchRowLiupai = (m, lName) => {
-  let list = m.zhuangbei ? m.zhuangbei.split(',').map(s => s.trim()).filter(Boolean) : []
+  if (!m) return
+  let list = (m.zhuangbei && typeof m.zhuangbei === 'string') ? m.zhuangbei.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(lName)
@@ -2000,21 +2017,24 @@ const toggleBatchRowLiupai = (m, lName) => {
 
 const openBatchEditModal = () => {
   const groups = []
+  if (!matrixTeams.value || !Array.isArray(matrixTeams.value)) return
   matrixTeams.value.forEach(team => {
+    if (!team || !Array.isArray(team.squads)) return
     team.squads.forEach(squad => {
+      if (!squad || !Array.isArray(squad.slots)) return
       const assignedSlots = squad.slots.filter(s => s && s.assignedMember)
       if (assignedSlots.length > 0) {
         groups.push({
-          title: `${team.name}--${squad.name}`,
+          title: `${team.name || ''}--${squad.name || ''}`,
           members: assignedSlots.map(s => ({
             slotId: s.id,
             slotRef: s,
-            name: s.assignedMember.name,
-            school: s.assignedMember.currentSchool,
+            name: s.assignedMember?.name || '未知',
+            school: s.assignedMember?.currentSchool || '',
             rolesList: Array.isArray(s.roles) ? [...s.roles] : [],
-            jueji: s.jueji || '',
-            qunxia: s.qunxia || '',
-            zhuangbei: s.zhuangbei || ''
+            jueji: typeof s.jueji === 'string' ? s.jueji : '',
+            qunxia: typeof s.qunxia === 'string' ? s.qunxia : '',
+            zhuangbei: typeof s.zhuangbei === 'string' ? s.zhuangbei : ''
           }))
         })
       }
@@ -2027,6 +2047,7 @@ const openBatchEditModal = () => {
 }
 
 const toggleGroupBatchSelect = (group, event) => {
+  if (!group || !Array.isArray(group.members)) return
   const isChecked = event.target.checked
   group.members.forEach(m => {
     const idx = selectedBatchMembers.value.indexOf(m.slotId)
@@ -2050,11 +2071,13 @@ const toggleTempBatchRolePill = (r) => {
 
 const applyBatchRoleSelection = () => {
   batchMemberGroups.value.forEach(g => {
-    g.members.forEach(m => {
-      if (selectedBatchMembers.value.includes(m.slotId)) {
-        m.rolesList = [...tempBatchRolePills.value]
-      }
-    })
+    if (g && Array.isArray(g.members)) {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) {
+          m.rolesList = [...tempBatchRolePills.value]
+        }
+      })
+    }
   })
   showBatchRoleDialog.value = false
 }
@@ -2068,11 +2091,13 @@ const openBatchJuejiSelectModal = () => {
 
 const applyBatchJuejiSelection = () => {
   batchMemberGroups.value.forEach(g => {
-    g.members.forEach(m => {
-      if (selectedBatchMembers.value.includes(m.slotId)) {
-        m.jueji = tempBatchJuejiVal.value
-      }
-    })
+    if (g && Array.isArray(g.members)) {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) {
+          m.jueji = tempBatchJuejiVal.value
+        }
+      })
+    }
   })
   showBatchJuejiDialog.value = false
 }
@@ -2099,11 +2124,13 @@ const toggleBatchQunxiaPill = (q) => {
 
 const applyBatchQunxiaSelection = () => {
   batchMemberGroups.value.forEach(g => {
-    g.members.forEach(m => {
-      if (selectedBatchMembers.value.includes(m.slotId)) {
-        m.qunxia = tempBatchQunxiaVal.value.trim()
-      }
-    })
+    if (g && Array.isArray(g.members)) {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) {
+          m.qunxia = tempBatchQunxiaVal.value.trim()
+        }
+      })
+    }
   })
   showBatchQunxiaDialog.value = false
 }
@@ -2130,26 +2157,32 @@ const toggleBatchLiupaiPill = (l) => {
 
 const applyBatchLiupaiSelection = () => {
   batchMemberGroups.value.forEach(g => {
-    g.members.forEach(m => {
-      if (selectedBatchMembers.value.includes(m.slotId)) {
-        m.zhuangbei = tempBatchLiupaiVal.value.trim()
-      }
-    })
+    if (g && Array.isArray(g.members)) {
+      g.members.forEach(m => {
+        if (selectedBatchMembers.value.includes(m.slotId)) {
+          m.zhuangbei = tempBatchLiupaiVal.value.trim()
+        }
+      })
+    }
   })
   showBatchLiupaiDialog.value = false
 }
 
 const saveBatchEdit = () => {
-  batchMemberGroups.value.forEach(g => {
-    g.members.forEach(m => {
-      if (m.slotRef) {
-        m.slotRef.roles = [...m.rolesList]
-        m.slotRef.jueji = m.jueji
-        m.slotRef.qunxia = m.qunxia
-        m.slotRef.zhuangbei = m.zhuangbei
+  if (Array.isArray(batchMemberGroups.value)) {
+    batchMemberGroups.value.forEach(g => {
+      if (g && Array.isArray(g.members)) {
+        g.members.forEach(m => {
+          if (m && m.slotRef) {
+            m.slotRef.roles = Array.isArray(m.rolesList) ? [...m.rolesList] : []
+            m.slotRef.jueji = m.jueji || ''
+            m.slotRef.qunxia = m.qunxia || ''
+            m.slotRef.zhuangbei = m.zhuangbei || ''
+          }
+        })
       }
     })
-  })
+  }
   showBatchEditModal.value = false
 }
 
