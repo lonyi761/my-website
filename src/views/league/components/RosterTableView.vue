@@ -1,14 +1,14 @@
 <template>
   <div class="spreadsheet-view-wrapper">
     
-    <!-- 圖二：頂部 Banner 資訊列 (加大字體，格式：幫會名稱 幫會聯賽 MM/DD HH:mm) -->
+    <!-- 圖六：頂部 Banner 資訊列 (拿掉+號，字體放大) -->
     <div class="spreadsheet-header-banner">
       <span class="banner-title">
-        {{ leagueInfo.guild || '百錵谷酒池肉林' }} + {{ leagueInfo.type || '幫會聯賽' }} + {{ formatShortDate(leagueInfo.startTime) }}
+        {{ leagueInfo.guild || '百錵谷酒池肉林' }} &nbsp;&nbsp; {{ leagueInfo.type || '幫會聯賽' }} &nbsp;&nbsp; {{ formatShortDate(leagueInfo.startTime) }}
       </span>
     </div>
 
-    <!-- 圖三：獨立可編輯備註橫幅欄位 -->
+    <!-- 圖三：獨立可編輯備註橫幅欄位 (字體放大) -->
     <div class="top-editable-banner-box">
       <div v-if="!isEditingTopBanner" class="banner-display-text" @click="isEditingTopBanner = true" title="點擊編輯橫幅備註">
         {{ topBannerText || '可編輯備註區' }}
@@ -26,33 +26,34 @@
       />
     </div>
 
-    <!-- 圖四/圖五：團隊表格 (最多 3 隊並排，寬度適度拓寬) -->
+    <!-- 團隊表格 -->
     <div class="spreadsheet-teams-grid">
       <div 
-        v-for="team in matrixTeams.slice(0, 3)" 
+        v-for="(team, tIdx) in matrixTeams" 
         :key="team.id" 
         class="spreadsheet-team-card"
       >
-        <!-- 圖五：團隊名稱頂部欄位 (帶顏色球標) -->
-        <div class="spreadsheet-team-header-bar" :style="getTeamHeaderStyle(team)">
+        <!-- 團隊名稱頂部欄位 (點擊開啟編輯團隊 Modal) -->
+        <div class="spreadsheet-team-header-bar" :style="getTeamHeaderStyle(team)" @click="$emit('open-edit-team', tIdx)">
           <span class="team-header-title">
             <span v-if="team.color" class="team-color-dot" :style="{ backgroundColor: team.color }"></span>
             {{ team.name }}
             <span v-if="team.color" class="color-tag-name">【顯示{{ getColorLabel(team.color) }}🟢】</span>
           </span>
+          <i class="mdi mdi-pencil-outline header-edit-pencil"></i>
         </div>
 
-        <!-- 圖五：表格內容區塊 -->
+        <!-- 表格內容區塊 -->
         <div class="table-scroll-container">
           <table class="spreadsheet-squad-table">
             <thead>
               <tr>
-                <th width="110" class="th-squad">小隊</th>
-                <th width="110" class="th-member">暱稱</th>
-                <th width="110" class="th-role">職能</th>
-                <th width="90" class="th-skill">技能分配</th>
-                <th width="90" class="th-skill">技能分配</th>
-                <th width="80" class="th-jueji">絕技</th>
+                <th width="85" class="th-squad">小隊</th>
+                <th width="140" class="th-member">暱稱</th>
+                <th width="150" class="th-role">職能</th>
+                <th width="140" class="th-skill">技能分配</th>
+                <th width="140" class="th-skill">技能分配</th>
+                <th width="120" class="th-jueji">絕技</th>
               </tr>
             </thead>
             <tbody>
@@ -66,11 +67,13 @@
                   @drop="$emit('drop-slot', { team, squad, slot })"
                   @click="$emit('click-slot', { team, squad, slot, slotIdx })"
                 >
-                  <!-- 圖五：小隊資訊欄位 (小隊名、職能、備註合併於左側第 1 欄) -->
+                  <!-- 圖一 & 圖二：小隊欄 (變窄，點擊開啟編輯團隊 Modal) -->
                   <td 
                     v-if="slotIdx === 0" 
                     :rowspan="squad.slots.length" 
                     class="squad-info-cell"
+                    @click.stop="$emit('open-edit-team', tIdx)"
+                    title="點擊編輯團隊與小隊名稱/職能"
                   >
                     <div class="squad-info-box">
                       <div class="squad-title-text">{{ squad.name }}</div>
@@ -79,8 +82,12 @@
                     </div>
                   </td>
 
-                  <!-- 圖一：成員/席位 (支援拖拽) -->
-                  <td class="member-cell" :draggable="!!slot.assignedMember" @dragstart="$emit('drag-start-slot', { team, squad, slot })">
+                  <!-- 圖一：暱稱欄 (字體/寬度加大、上下空間增加、支援拖拽) -->
+                  <td 
+                    class="member-cell" 
+                    :draggable="!!slot.assignedMember" 
+                    @dragstart.stop="$emit('drag-start-slot', { team, squad, slot })"
+                  >
                     <template v-if="slot.assignedMember">
                       <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
                       <span class="member-name-text">{{ slot.assignedMember.name }}</span>
@@ -90,22 +97,22 @@
                     </template>
                   </td>
 
-                  <!-- 職能 -->
+                  <!-- 圖一：職能 (防文字吃色) -->
                   <td class="role-cell">
                     {{ getSlotRoleSummary(slot) }}
                   </td>
 
-                  <!-- 技能分配 (群俠百家) -->
+                  <!-- 圖一：技能分配 (群俠百家) -->
                   <td class="skill-cell">
                     {{ slot.qunxia || slot.templateConfig?.qunxia || '—' }}
                   </td>
 
-                  <!-- 技能分配 (流派技能) -->
+                  <!-- 圖一：技能分配 (流派技能) -->
                   <td class="skill-cell">
                     {{ slot.zhuangbei || slot.templateConfig?.zhuangbei || '—' }}
                   </td>
 
-                  <!-- 絕技 -->
+                  <!-- 圖一：絕技 -->
                   <td class="jueji-cell">
                     {{ slot.jueji || slot.templateConfig?.jueji || '—' }}
                   </td>
@@ -115,14 +122,13 @@
           </table>
         </div>
 
-        <!-- 圖六 & 圖七：團隊備註與下方自訂備註欄位 -->
+        <!-- 圖三：團隊備註區 (移除前面固定引導文字) -->
         <div class="spreadsheet-team-footer">
-          <!-- 圖六：團隊備註 (字體放大，標準正體) -->
           <div v-if="team.desc" class="team-main-desc">
-            我是團隊備註會顯示的地方：{{ team.desc }}
+            {{ team.desc }}
           </div>
 
-          <!-- 圖七：團隊備註下方預留自訂備註區 -->
+          <!-- 可編輯備註區 (圖四對應) -->
           <div class="team-bottom-extra-note" @click="editTeamBottomNote(team)">
             <template v-if="team.bottomNote">
               {{ team.bottomNote }}
@@ -149,21 +155,18 @@ const props = defineProps({
   schoolColorMap: { type: Object, default: () => ({}) }
 })
 
-defineEmits(['click-slot', 'drag-start-slot', 'drop-slot'])
+defineEmits(['click-slot', 'drag-start-slot', 'drop-slot', 'open-edit-team'])
 
-// 自訂指令：自動聚焦
 const vFocus = {
   mounted: (el) => el.focus()
 }
 
-// 圖三：頂部橫幅可編輯備註
 const isEditingTopBanner = ref(false)
 const topBannerText = ref('我是團隊備註會顯示的地方')
 
-// 圖二：時間格式化 Helper (僅呈現 MM/DD HH:mm)
+// 圖六：日期格式化 (MM/DD HH:mm)
 const formatShortDate = (timeStr) => {
   if (!timeStr) return '10/10 20:00'
-  // 匹配 2026-10-10 20:00 -> 10/10 20:00
   return timeStr.replace(/^\d{4}-/, '').replace('-', '/')
 }
 
@@ -214,7 +217,6 @@ const getSlotRoleSummary = (slot) => {
   return '點擊配置職能'
 }
 
-// 圖七：編輯團隊下方自訂備註
 const editTeamBottomNote = (team) => {
   const val = prompt('請輸入團隊下方自訂備註內容：', team.bottomNote || '')
   if (val !== null) {
@@ -234,16 +236,16 @@ const editTeamBottomNote = (team) => {
   gap: 14px;
 }
 
-/* 圖二：頂部 Banner */
+/* 圖六：頂部 Banner */
 .spreadsheet-header-banner {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
-  padding: 12px 20px;
+  padding: 14px 20px;
   text-align: center;
 }
 .banner-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
   color: #1d4ed8;
   letter-spacing: 0.5px;
@@ -254,9 +256,10 @@ const editTeamBottomNote = (team) => {
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  color: #334155;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1e293b;
 }
 .banner-display-text {
   cursor: pointer;
@@ -268,24 +271,25 @@ const editTeamBottomNote = (team) => {
   color: #2563eb;
 }
 .edit-icon {
-  font-size: 14px;
+  font-size: 15px;
   color: #94a3b8;
 }
 .banner-input-field {
   width: 100%;
   border: none;
   outline: none;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 500;
   color: #1e293b;
   background: transparent;
 }
 
-/* 圖四/圖五：團隊表格 Layout (最多 3 隊，寬度拓寬) */
+/* 團隊表格 Layout */
 .spreadsheet-teams-grid {
-  display: grid;
-  grid-template-columns: repeat(min(3, max(1, matrixTeams?.length || 1)), minmax(380px, 1fr));
-  gap: 16px;
-  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
 }
 
 .spreadsheet-team-card {
@@ -295,64 +299,80 @@ const editTeamBottomNote = (team) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .spreadsheet-team-header-bar {
-  padding: 10px 14px;
-  font-size: 15px;
+  padding: 12px 16px;
+  font-size: 16px;
   font-weight: bold;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
 }
 .team-header-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .team-color-dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   display: inline-block;
+  border: 1px solid rgba(255,255,255,0.6);
 }
 .color-tag-name {
   font-size: 13px;
   font-weight: normal;
   opacity: 0.9;
 }
+.header-edit-pencil {
+  font-size: 16px;
+  opacity: 0.8;
+  margin-left: 8px;
+}
 
-/* 表格樣式 (圖五對應) */
+/* 表格樣式 (圖一：字體/寬度放大、小隊欄變窄、上下空間增多) */
 .table-scroll-container {
   overflow-x: auto;
+  width: 100%;
 }
 .spreadsheet-squad-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
 }
 .spreadsheet-squad-table th {
   background: #f8fafc;
-  color: #475569;
-  padding: 8px 6px;
-  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 10px 8px;
+  border: 1px solid #cbd5e1;
   font-weight: bold;
+  font-size: 13px;
 }
 .spreadsheet-squad-table td {
-  padding: 6px 8px;
+  padding: 10px 12px;
   border: 1px solid #e2e8f0;
 }
 
-/* 圖五：小隊資訊置於最左側欄位 */
+/* 圖一：小隊資訊置於最左側欄位 (縮窄) */
 .squad-info-cell {
   background: #f8fafc;
   vertical-align: middle;
-  padding: 10px 6px !important;
+  padding: 10px 4px !important;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.squad-info-cell:hover {
+  background: #f1f5f9;
 }
 .squad-info-box {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   align-items: center;
   justify-content: center;
 }
@@ -375,60 +395,74 @@ const editTeamBottomNote = (team) => {
   transition: background 0.15s;
 }
 .slot-data-row:hover {
-  filter: brightness(0.97);
+  filter: brightness(0.96);
 }
 
+/* 圖五：成員與文字高對比，避免職業底色洗掉字體 */
 .member-cell {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   justify-content: center;
   font-weight: bold;
+  font-size: 13px;
+  color: #1e293b !important;
 }
 .slot-school-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
 }
+.member-name-text {
+  color: #1e293b !important;
+}
 .slot-placeholder-text {
-  color: #cbd5e1;
+  color: #94a3b8;
   font-weight: normal;
 }
 
 .role-cell, .skill-cell, .jueji-cell {
-  color: #334155;
+  color: #1e293b !important;
+  font-weight: 500;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 圖六 & 圖七：團隊底部備註 */
+/* 圖三：團隊底部備註 (移除固定開頭文字，放大字體) */
 .spreadsheet-team-footer {
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .team-main-desc {
-  font-size: 13px;
-  font-weight: bold; /* 圖六：取消斜體，字體加大 */
-  color: #334155;
+  font-size: 14px;
+  font-weight: bold;
+  color: #1e293b;
   font-style: normal;
+  line-height: 1.5;
 }
+
+/* 可編輯備註區 (圖四對應) */
 .team-bottom-extra-note {
-  font-size: 12px;
-  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 8px 12px;
   background: #ffffff;
   border: 1px dashed #cbd5e1;
-  border-radius: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 .team-bottom-extra-note:hover {
   border-color: #3b82f6;
   color: #2563eb;
+  background: #f0f9ff;
 }
 .placeholder-note-text {
   color: #94a3b8;
