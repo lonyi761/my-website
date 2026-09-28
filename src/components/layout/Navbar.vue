@@ -7,7 +7,7 @@
     <nav class="nav-center">
       <router-link to="/home" :class="{ active: activeNav === 'home' }">首頁</router-link>
       <router-link to="/members" :class="{ active: activeNav === 'members' }">成員</router-link>
-      <a href="#">聯賽</a>
+      <router-link to="/league" :class="{ active: activeNav === 'league' }">聯賽</router-link>
       <router-link to="/preparation" :class="{ active: activeNav === 'preparation' }">戰備</router-link>
     </nav>
     
