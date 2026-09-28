@@ -146,7 +146,7 @@
 
       <!-- ================= 右側：團隊矩陣排表區塊 ================= -->
       <main class="matrix-content-area">
-        <!-- 團隊工具列 (新增：「顯示詳情」開關 - 圖四) -->
+        <!-- 團隊工具列 -->
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
@@ -163,7 +163,7 @@
               </label>
             </div>
 
-            <!-- 顯示詳情開關 (圖四對應) -->
+            <!-- 顯示詳情開關 -->
             <div class="inline-switch-group margin-l">
               <span class="switch-label-text">顯示詳情</span>
               <label class="switch-sm">
@@ -197,7 +197,22 @@
           </div>
         </div>
 
-        <!-- 團隊矩陣 (支援精簡 vs 詳情視圖 - 圖四) -->
+        <!-- ★ 新增：上陣職業數量統計欄 (插入於工具列與團隊矩陣之間 - 圖四) ★ -->
+        <div class="onboard-stats-bar">
+          <span class="stats-bar-title">上陣職業統計：</span>
+          <div class="stats-icons-list">
+            <div v-for="s in availableSchools" :key="s.name" class="stats-icon-item">
+              <img :src="getSchoolImg(s.file)" class="stats-school-img" :title="s.name" />
+              <span 
+                :class="['stats-count-badge', { active: schoolAssignedCounts[s.name] > 0 }]"
+              >
+                {{ schoolAssignedCounts[s.name] || 0 }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 團隊矩陣 -->
         <div class="teams-matrix-wrapper">
           <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
             
@@ -287,7 +302,7 @@
                       </template>
                     </template>
 
-                    <!-- 詳情模式 (對齊圖四) -->
+                    <!-- 詳情模式 -->
                     <template v-else>
                       <div class="slot-detail-body">
                         <div class="detail-head">
@@ -340,14 +355,14 @@
             <label class="checkbox-label"><input type="checkbox" v-model="swapOptions.template" /> <span>交換排表模板</span></label>
           </div>
         </div>
-        <div class="confirm-modal-footer">
+        <div class="confirm-modal-footer space-between">
+          <button class="btn-primary" @click="executeSwapSquad">確定套用</button>
           <button class="btn-secondary" @click="showSwapSquadModal = false">取消</button>
-          <button class="btn-primary" @click="executeSwapSquad">確定</button>
         </div>
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal (圖一 & 圖二對應：職業專屬底色、一鍵配置Modal) -->
+    <!-- 2. 批量編輯 Modal (各職業專屬底色) -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -366,7 +381,7 @@
             <button class="btn-primary-sm margin-l" @click="openBatchLiupaiSelectModal">配置流派技能</button>
           </div>
 
-          <!-- 表格清單 (各職業專屬底色) -->
+          <!-- 表格清單 -->
           <div class="batch-table-container margin-t">
             <div v-for="group in batchMemberGroups" :key="group.title" class="batch-group-block">
               <div class="batch-group-title">
@@ -395,9 +410,8 @@
                     <td class="font-bold">{{ m.name }}</td>
                     <td>{{ m.school }}</td>
                     <td>
-                      <!-- 職能多選標籤顯示 -->
                       <div class="batch-roles-display">
-                        {{ m.rolesList.length > 0 ? m.rolesList.join('、') : '請選擇職能' }}
+                        {{ m.rolesList.length > 0 ? m.rolesList.join('、') : '未配置職能' }}
                       </div>
                     </td>
                     <td><input type="text" v-model="m.jueji" placeholder="輸入或選擇絕技" class="table-inline-input" /></td>
@@ -409,16 +423,16 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showBatchEditModal = false">取消</button>
+        <div class="modal-footer space-between">
           <button class="btn-primary" @click="saveBatchEdit">保存</button>
+          <button class="btn-secondary" @click="showBatchEditModal = false">取消</button>
         </div>
       </div>
     </div>
 
-    <!-- 2-A. 批量【職能】多選 Modal -->
+    <!-- 2-A. 批量【職能】多選 Modal (按鈕：確定在左，取消在右 - 圖五/圖六) -->
     <div v-if="showBatchRoleDialog" class="modal-overlay" @click.self="showBatchRoleDialog = false">
-      <div class="modal-card small-card">
+      <div class="modal-card small-card wide-dialog">
         <div class="modal-header">
           <h3>批量配置職能</h3>
           <span class="close-btn" @click="showBatchRoleDialog = false">&times;</span>
@@ -436,9 +450,9 @@
             </button>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showBatchRoleDialog = false">取消</button>
+        <div class="modal-footer space-between gap-large margin-t">
           <button class="btn-primary" @click="applyBatchRoleSelection">確定套用</button>
+          <button class="btn-secondary" @click="showBatchRoleDialog = false">取消</button>
         </div>
       </div>
     </div>
@@ -457,14 +471,14 @@
             <option v-for="j in juejiOptions" :key="j" :value="j">{{ j }}</option>
           </select>
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showBatchJuejiDialog = false">取消</button>
+        <div class="modal-footer space-between gap-large margin-t">
           <button class="btn-primary" @click="applyBatchJuejiSelection">確定套用</button>
+          <button class="btn-secondary" @click="showBatchJuejiDialog = false">取消</button>
         </div>
       </div>
     </div>
 
-    <!-- 2-C. 批量【群俠百家】Modal -->
+    <!-- 2-C. 批量【群俠百家】Modal (多選 + 自訂) -->
     <div v-if="showBatchQunxiaDialog" class="modal-overlay" @click.self="showBatchQunxiaDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -472,27 +486,27 @@
           <span class="close-btn" @click="showBatchQunxiaDialog = false">&times;</span>
         </div>
         <div class="modal-body">
-          <p class="sub-hint-text margin-b">選擇或手動輸入群俠百家：</p>
+          <p class="sub-hint-text margin-b">選擇或手動輸入群俠百家 (可複選)：</p>
           <div class="role-pills-grid margin-b">
             <button 
               v-for="q in qunxiaOptions" 
               :key="q"
-              :class="['role-pill-btn', { active: tempBatchQunxiaVal.includes(q) }]"
-              @click="tempBatchQunxiaVal = q"
+              :class="['role-pill-btn', { active: isBatchQunxiaPillSelected(q) }]"
+              @click="toggleBatchQunxiaPill(q)"
             >
               {{ q }}
             </button>
           </div>
-          <input type="text" v-model="tempBatchQunxiaVal" placeholder="或手動輸入內容" class="input-field full-w" />
+          <input type="text" v-model="tempBatchQunxiaVal" placeholder="輸入或選擇，最長20字" class="input-field full-w" />
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showBatchQunxiaDialog = false">取消</button>
+        <div class="modal-footer space-between gap-large margin-t">
           <button class="btn-primary" @click="applyBatchQunxiaSelection">確定套用</button>
+          <button class="btn-secondary" @click="showBatchQunxiaDialog = false">取消</button>
         </div>
       </div>
     </div>
 
-    <!-- 2-D. 批量【流派技能】Modal -->
+    <!-- 2-D. 批量【流派技能】Modal (多選 + 自訂) -->
     <div v-if="showBatchLiupaiDialog" class="modal-overlay" @click.self="showBatchLiupaiDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -500,27 +514,27 @@
           <span class="close-btn" @click="showBatchLiupaiDialog = false">&times;</span>
         </div>
         <div class="modal-body">
-          <p class="sub-hint-text margin-b">選擇或手動輸入流派技能：</p>
+          <p class="sub-hint-text margin-b">選擇或手動輸入流派技能 (可複選)：</p>
           <div class="role-pills-grid margin-b">
             <button 
               v-for="l in liupaiSkillOptions" 
               :key="l"
-              :class="['role-pill-btn', { active: tempBatchLiupaiVal.includes(l) }]"
-              @click="tempBatchLiupaiVal = l"
+              :class="['role-pill-btn', { active: isBatchLiupaiPillSelected(l) }]"
+              @click="toggleBatchLiupaiPill(l)"
             >
               {{ l }}
             </button>
           </div>
-          <input type="text" v-model="tempBatchLiupaiVal" placeholder="或手動輸入內容" class="input-field full-w" />
+          <input type="text" v-model="tempBatchLiupaiVal" placeholder="輸入或選擇，最長20字" class="input-field full-w" />
         </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showBatchLiupaiDialog = false">取消</button>
+        <div class="modal-footer space-between gap-large margin-t">
           <button class="btn-primary" @click="applyBatchLiupaiSelection">確定套用</button>
+          <button class="btn-secondary" @click="showBatchLiupaiDialog = false">取消</button>
         </div>
       </div>
     </div>
 
-    <!-- 3. 編輯團隊 Modal (圖三：包含「移除團隊」按鈕) -->
+    <!-- 3. 編輯團隊 Modal (含「移除團隊」按鈕) -->
     <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -544,7 +558,7 @@
           </div>
 
           <div v-if="currentEditingTeam" class="edit-team-content-body margin-t">
-            <!-- 團隊名稱與移除團隊按鈕 (圖三對應) -->
+            <!-- 團隊名稱 + 移除團隊按鈕 -->
             <div class="form-row">
               <label><span class="req">*</span>團隊名稱：</label>
               <input 
@@ -629,9 +643,9 @@
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showEditTeamModal = false">取消</button>
+        <div class="modal-footer space-between">
           <button class="btn-primary" @click="showEditTeamModal = false">確定</button>
+          <button class="btn-secondary" @click="showEditTeamModal = false">取消</button>
         </div>
       </div>
     </div>
@@ -732,9 +746,9 @@
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showSlotInfoModal = false">取消</button>
+        <div class="modal-footer space-between">
           <button class="btn-primary" @click="saveSlotInfo">保存</button>
+          <button class="btn-secondary" @click="showSlotInfoModal = false">取消</button>
         </div>
       </div>
     </div>
@@ -837,9 +851,9 @@
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showSlotConfigModal = false">取消</button>
+        <div class="modal-footer space-between">
           <button class="btn-primary" @click="saveSlotConfig">確定</button>
+          <button class="btn-secondary" @click="showSlotConfigModal = false">取消</button>
         </div>
       </div>
     </div>
@@ -942,9 +956,9 @@
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showMemberEditModal = false">取消</button>
+        <div class="modal-footer space-between">
           <button class="btn-primary" @click="saveFullMemberEdit">提交</button>
+          <button class="btn-secondary" @click="showMemberEditModal = false">取消</button>
         </div>
       </div>
     </div>
@@ -1047,9 +1061,9 @@
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showAddMemberModal = false">取消</button>
+        <div class="modal-footer space-between">
           <button class="btn-primary" @click="saveNewMember">提交</button>
+          <button class="btn-secondary" @click="showAddMemberModal = false">取消</button>
         </div>
       </div>
     </div>
@@ -1064,9 +1078,9 @@
           <h3 class="confirm-title">{{ confirmTitle }}</h3>
           <p class="confirm-msg">{{ confirmMessage }}</p>
         </div>
-        <div class="confirm-modal-footer">
+        <div class="confirm-modal-footer space-between">
+          <button class="btn-primary btn-red" @click="executeConfirmAction">確定</button>
           <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
-          <button class="btn-primary btn-red" @click="executeConfirmAction">確定清空</button>
         </div>
       </div>
     </div>
@@ -1157,7 +1171,7 @@ const closeAllSkillDropdowns = () => {
 }
 
 const showSecondarySchool = ref(false)
-const showDetails = ref(false) // 顯示詳情開關 (圖四)
+const showDetails = ref(false)
 const pendingViewMode = ref('school')
 
 const allMembers = ref([
@@ -1316,7 +1330,7 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊盤面結構 (最多 5 個團隊)
+// 團隊盤面數據
 const matrixTeams = ref([
   {
     id: 1,
@@ -1363,7 +1377,29 @@ function createDefaultSlots() {
   }))
 }
 
-// 大團隊最多上限 5 個 (圖三對應)
+// 計算當前已放上盤面的各職業上陣人數 (圖四對應)
+const schoolAssignedCounts = computed(() => {
+  const counts = {}
+  availableSchools.forEach(s => counts[s.name] = 0)
+
+  matrixTeams.value.forEach(team => {
+    team.squads.forEach(squad => {
+      squad.slots.forEach(slot => {
+        if (slot.assignedMember && slot.assignedMember.currentSchool) {
+          const sch = slot.assignedMember.currentSchool
+          if (counts[sch] !== undefined) {
+            counts[sch]++
+          } else {
+            counts[sch] = 1
+          }
+        }
+      })
+    })
+  })
+
+  return counts
+})
+
 const addTeam = () => {
   if (matrixTeams.value.length >= 5) {
     alert('最多只能創建 5 個團隊！')
@@ -1514,7 +1550,6 @@ const currentEditingTeam = computed(() => {
   return matrixTeams.value[activeEditTeamIndex.value] || null
 })
 
-// 圖三對應：移除大團隊按鈕
 const deleteCurrentEditingTeam = () => {
   if (!currentEditingTeam.value) return
   triggerConfirmModal(
@@ -1755,7 +1790,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal (圖一 & 圖二)
+// 批量編輯 Modal
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -1856,11 +1891,23 @@ const applyBatchJuejiSelection = () => {
   showBatchJuejiDialog.value = false
 }
 
-// 批量【群俠百家】Modal 控制
+// 批量【群俠百家】Modal 控制 (多選 + 自訂)
 const openBatchQunxiaSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
   tempBatchQunxiaVal.value = '咚咚跳台'
   showBatchQunxiaDialog.value = true
+}
+
+const isBatchQunxiaPillSelected = (q) => {
+  return tempBatchQunxiaVal.value.split(',').map(s => s.trim()).includes(q)
+}
+
+const toggleBatchQunxiaPill = (q) => {
+  let list = tempBatchQunxiaVal.value ? tempBatchQunxiaVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(q)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(q)
+  tempBatchQunxiaVal.value = list.join(', ')
 }
 
 const applyBatchQunxiaSelection = () => {
@@ -1874,11 +1921,23 @@ const applyBatchQunxiaSelection = () => {
   showBatchQunxiaDialog.value = false
 }
 
-// 批量【流派技能】Modal 控制
+// 批量【流派技能】Modal 控制 (多選 + 自訂)
 const openBatchLiupaiSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
   tempBatchLiupaiVal.value = '清泉'
   showBatchLiupaiDialog.value = true
+}
+
+const isBatchLiupaiPillSelected = (l) => {
+  return tempBatchLiupaiVal.value.split(',').map(s => s.trim()).includes(l)
+}
+
+const toggleBatchLiupaiPill = (l) => {
+  let list = tempBatchLiupaiVal.value ? tempBatchLiupaiVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(l)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(l)
+  tempBatchLiupaiVal.value = list.join(', ')
 }
 
 const applyBatchLiupaiSelection = () => {
@@ -1919,6 +1978,15 @@ const confirmClearRoster = () => {
   showConfirmModal.value = true
 }
 
+let confirmActionCallback = null
+
+const triggerConfirmModal = (title, message, onConfirm) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmActionCallback = onConfirm
+  showConfirmModal.value = true
+}
+
 const executeConfirmAction = () => {
   if (confirmActionCallback) {
     confirmActionCallback()
@@ -1936,15 +2004,6 @@ const executeConfirmAction = () => {
     })
   }
   showConfirmModal.value = false
-}
-
-let confirmActionCallback = null
-
-const triggerConfirmModal = (title, message, onConfirm) => {
-  confirmTitle.value = title
-  confirmMessage.value = message
-  confirmActionCallback = onConfirm
-  showConfirmModal.value = true
 }
 
 // 選擇陣容模板下拉
@@ -2061,6 +2120,15 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .dropdown-item:hover { background: #f1f5f9; }
 
+/* ★ 上陣職業數量統計欄 (圖四對應) ★ */
+.onboard-stats-bar { display: flex; align-items: center; gap: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
+.stats-bar-title { font-size: 12px; font-weight: bold; color: #475569; }
+.stats-icons-list { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.stats-icon-item { display: flex; align-items: center; gap: 4px; }
+.stats-school-img { width: 18px; height: 18px; object-fit: contain; }
+.stats-count-badge { font-size: 12px; font-weight: bold; color: #94a3b8; }
+.stats-count-badge.active { color: #2563eb; }
+
 /* 團隊矩陣橫列 */
 .teams-matrix-wrapper { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
 .team-matrix-row { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; }
@@ -2088,7 +2156,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .matrix-slot-card { position: relative; min-height: 38px; border-radius: 4px; border: 1px dashed #cbd5e1; background: #ffffff; display: flex; align-items: center; padding: 6px 8px; cursor: pointer; transition: all 0.15s; }
 .matrix-slot-card:hover { border-color: #3b82f6; }
 
-/* 詳情模式樣式 (圖四) */
+/* 詳情模式樣式 */
 .matrix-slot-card.detail-mode { flex-direction: column; align-items: flex-start; justify-content: center; }
 .slot-detail-body { display: flex; flex-direction: column; gap: 2px; width: 100%; font-size: 10px; color: #475569; }
 .detail-head { display: flex; align-items: center; gap: 4px; font-weight: bold; color: #1e293b; margin-bottom: 2px; }
@@ -2215,11 +2283,15 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .warning-icon { font-size: 28px; color: #d97706; }
 .confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
 .confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
-.confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+.confirm-modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 
-.btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+/* 按鈕按順序 (確定在左，取消在右 - 圖五/圖六) */
+.modal-footer.space-between { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.gap-large { gap: 16px; }
+
+.btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .btn-primary.btn-red { background: #ef4444; }
-.btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
 .text-left { text-align: left; }
