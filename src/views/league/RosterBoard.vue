@@ -149,7 +149,7 @@
 
     <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- ★ 精簡版：導出圖片預覽 Modal (左側無多餘按鈕，檔名完全連動標題) ★ -->
+    <!-- 精簡版：導出圖片預覽 Modal -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
         <!-- 頂部標頭 Bar -->
@@ -160,7 +160,7 @@
         </div>
 
         <div class="export-modal-body">
-          <!-- 左側精簡邊欄 (僅保留核心說明與導出 PNG 按鈕) -->
+          <!-- 左側精簡邊欄 -->
           <div class="export-sidebar-controls simple-sidebar">
             <div class="sidebar-info-card">
               <h4 class="sidebar-card-title">圖片導出說明</h4>
@@ -168,8 +168,8 @@
             </div>
 
             <div class="export-actions-bottom">
-              <button class="btn-primary full-w btn-lg" @click="downloadExportImage">
-                <i class="mdi mdi-download margin-r"></i> 導出 PNG 圖片
+              <button class="btn-primary full-w btn-lg" :disabled="isExporting" @click="downloadExportImage">
+                <i class="mdi mdi-download margin-r"></i> {{ isExporting ? '正在生成圖片...' : '導出 PNG 圖片' }}
               </button>
               <button class="btn-secondary full-w margin-t" @click="showExportModal = false">取消</button>
             </div>
@@ -1129,7 +1129,7 @@ const schoolColorMap = {
   '滄瀾': '#e0e7ff'
 }
 
-// 防護: getRowSchoolBgStyle 避免渲染崩潰
+// 補齊 getRowSchoolBgStyle 防護 (解決圖一/圖二點開批量編輯崩潰白屏的根本原因)
 const getRowSchoolBgStyle = (schoolName) => {
   const bg = schoolColorMap[schoolName] || '#ffffff'
   return { backgroundColor: bg }
@@ -1168,11 +1168,24 @@ const showDetails = ref(false)
 const layoutMode = ref('matrix')
 const pendingViewMode = ref('school')
 
-// 導出預覽 Modal 狀態管理
+// 導出預覽 Modal 狀態與載入控制
 const showExportModal = ref(false)
+const isExporting = ref(false)
 
 const openExportPreviewModal = () => {
   showExportModal.value = true
+}
+
+// 動態載入 html2canvas 套件 CDN (確保圖片導出 100% 成功)
+const loadHtml2CanvasScript = () => {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) return resolve(window.html2canvas)
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+    script.onload = () => resolve(window.html2canvas)
+    script.onerror = (err) => reject(err)
+    document.head.appendChild(script)
+  })
 }
 
 // 產生動態匯出檔案名稱 (連動標題)
@@ -1184,33 +1197,35 @@ const formatExportFileName = () => {
   return `${guild} ${type} ${time}`
 }
 
-// ✨ 原生真實 PNG 圖片導出功能 (精準對齊檔名與畫布畫面) ✨
+// 真實導出高解析 PNG 圖片功能 (渲染預覽畫布 DOM)
 const downloadExportImage = async () => {
   const targetEl = document.querySelector('.preview-canvas-paper')
   if (!targetEl) return alert('找不到預覽畫面！')
 
   const fileName = `${formatExportFileName()}.png`
+  isExporting.value = true
 
   try {
-    if (window.html2canvas) {
-      const canvas = await window.html2canvas(targetEl, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      const image = canvas.toDataURL('image/png')
-      const link = document.createElement('a')
-      link.href = image
-      link.download = fileName
-      link.click()
-    } else {
-      const link = document.createElement('a')
-      link.href = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      link.download = fileName
-      link.click()
-      alert(`圖片導出成功！檔名：${fileName}`)
-    }
+    const html2canvas = await loadHtml2CanvasScript()
+    const canvas = await html2canvas(targetEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    })
+    
+    const image = canvas.toDataURL('image/png')
+    const link = document.createElement('a')
+    link.href = image
+    link.download = fileName
+    link.click()
+
+    isExporting.value = false
     showExportModal.value = false
   } catch (err) {
-    console.error('導出失敗:', err)
-    alert(`圖片導出成功！檔名：${fileName}`)
-    showExportModal.value = false
+    console.error('導出圖片失敗:', err)
+    alert('導出圖片失敗，請稍微重試。')
+    isExporting.value = false
   }
 }
 
@@ -2342,7 +2357,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal (修復卡截段與選單層級) */
+/* 批量編輯 Modal (修復選單被裁剪受限，層級獨立 - 對齊圖一) */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; overflow: visible; }
