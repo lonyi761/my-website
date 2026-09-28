@@ -1,6 +1,6 @@
 <template>
   <div class="roster-board-layout" @click="closeAllSkillDropdowns">
-    <!-- 頂部頁籤與資訊 -->
+    <!-- 頂部 Header -->
     <div class="roster-header-bar">
       <div class="header-left-info">
         <button class="btn-back-link" @click="$emit('back')">&lt; 返回聯賽列表</button>
@@ -16,137 +16,20 @@
 
     <div class="roster-main-container">
       
-      <!-- ================= 左側：待選成員區塊 ================= -->
-      <aside class="pending-sidebar">
-        <!-- 幫會資訊串接 -->
-        <div class="guild-select-box">
-          <span class="guild-name-display">{{ leagueInfo.guild || '百錵谷酒池肉林' }}</span>
-        </div>
+      <!-- 1. 左側待選成員組件 (模組化) -->
+      <RosterSidebar 
+        :guildName="leagueInfo.guild"
+        :allMembers="allMembers"
+        :availableSchools="availableSchools"
+        :showSecondarySchool="showSecondarySchool"
+        @open-add-member="openAddMemberModal"
+        @open-edit-member="openFullMemberEditModal"
+        @drag-start-member="onDragStartPendingMember"
+      />
 
-        <!-- 搜尋與標題列 -->
-        <div class="pending-filter-bar">
-          <div class="pending-title-group">
-            <div class="title-left-box">
-              <span class="pending-title">待選成員</span>
-              <button class="btn-icon-add" @click="openAddMemberModal" title="新增成員">+</button>
-            </div>
-
-            <!-- 流派 / 全員 切換按鈕 -->
-            <div class="pending-mode-toggle">
-              <button 
-                :class="['mode-pill-btn', { active: pendingViewMode === 'school' }]" 
-                @click="pendingViewMode = 'school'"
-              >
-                流派
-              </button>
-              <button 
-                :class="['mode-pill-btn', { active: pendingViewMode === 'all' }]" 
-                @click="pendingViewMode = 'all'"
-              >
-                全員
-              </button>
-            </div>
-          </div>
-
-          <input 
-            type="text" 
-            v-model="searchMemberQuery" 
-            placeholder="輸入名字查詢成員" 
-            class="pending-search-input" 
-          />
-        </div>
-
-        <!-- 流派 Icon 快篩列 -->
-        <div class="school-icon-filter-row">
-          <div 
-            v-for="s in availableSchools" 
-            :key="s.name"
-            :class="['icon-filter-item', { active: activeSchoolFilter === s.name }]"
-            @click="toggleSchoolFilter(s.name)"
-            :title="s.name"
-          >
-            <img :src="getSchoolImg(s.file)" class="school-filter-img" />
-          </div>
-        </div>
-
-        <!-- 1. 按流派分類的手風琴列表 -->
-        <div v-if="pendingViewMode === 'school'" class="school-accordion-list">
-          <div 
-            v-for="s in filteredSchoolAccordion" 
-            :key="s.name" 
-            class="accordion-item"
-          >
-            <div class="accordion-head" @click="toggleAccordion(s.name)">
-              <div class="accordion-head-left">
-                <img :src="getSchoolImg(s.file)" class="accordion-school-img" />
-                <span class="accordion-school-name">{{ s.name }}</span>
-                <span class="accordion-count">({{ getUnassignedCountBySchool(s.name) }})</span>
-              </div>
-              <i :class="['mdi', expandedSchools.includes(s.name) ? 'mdi-chevron-down' : 'mdi-chevron-right', 'accordion-arrow']"></i>
-            </div>
-
-            <div v-if="expandedSchools.includes(s.name)" class="accordion-body">
-              <div 
-                v-for="m in getUnassignedMembersBySchool(s.name)" 
-                :key="m.id + '_' + s.name"
-                class="member-drag-card"
-                draggable="true"
-                @dragstart="onDragStartPendingMember(m)"
-                @click="openFullMemberEditModal(m)"
-                title="按住拖拽至排表，或點擊編輯成員資料"
-              >
-                <div class="drag-card-icons-group">
-                  <img :src="getSchoolImgByName(m.currentSchool)" class="drag-card-icon" />
-                  <img 
-                    v-if="getSecondarySchool(m)" 
-                    :src="getSchoolImgByName(getSecondarySchool(m))" 
-                    class="drag-card-icon-sub" 
-                    title="副職業"
-                  />
-                </div>
-                <span class="drag-card-name">{{ m.name }}</span>
-              </div>
-
-              <div v-if="getUnassignedMembersBySchool(s.name).length === 0" class="empty-sub-text">
-                無待選成員
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. 一整排向下的全員清單 -->
-        <div v-else-if="pendingViewMode === 'all'" class="all-members-flow-list">
-          <div 
-            v-for="m in allUnassignedMembersList" 
-            :key="m.id"
-            class="member-drag-card"
-            draggable="true"
-            @dragstart="onDragStartPendingMember(m)"
-            @click="openFullMemberEditModal(m)"
-            title="按住拖拽至排表，或點擊編輯成員資料"
-          >
-            <div class="drag-card-icons-group">
-              <img :src="getSchoolImgByName(m.currentSchool)" class="drag-card-icon" />
-              <img 
-                v-if="getSecondarySchool(m)" 
-                :src="getSchoolImgByName(getSecondarySchool(m))" 
-                class="drag-card-icon-sub" 
-                title="副職業"
-              />
-            </div>
-            <span class="drag-card-name">{{ m.name }}</span>
-          </div>
-
-          <div v-if="allUnassignedMembersList.length === 0" class="empty-sub-text">
-            無符合條件之待選成員
-          </div>
-        </div>
-
-      </aside>
-
-      <!-- ================= 右側：團隊矩陣排表區塊 ================= -->
+      <!-- 右側內容區 -->
       <main class="matrix-content-area">
-        <!-- 團隊工具列 (右上角新增版型切換按鈕 - 圖一/圖二對應) -->
+        <!-- 團隊工具列 -->
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
@@ -194,7 +77,7 @@
               </div>
             </div>
 
-            <!-- ★ 版型切換按鈕組 (矩陣 vs 試算表 - 圖一與圖二對應) ★ -->
+            <!-- 版型切換按鈕組 -->
             <div class="layout-switch-btn-group margin-l">
               <button 
                 :class="['layout-icon-btn', { active: layoutMode === 'matrix' }]" 
@@ -229,193 +112,40 @@
           </div>
         </div>
 
-        <!-- A. 矩陣卡片版型 (`layoutMode === 'matrix'`) -->
-        <div v-if="layoutMode === 'matrix'" class="teams-matrix-wrapper">
-          <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
-            
-            <!-- 團隊標頭列 (帶顏色球標) -->
-            <div class="team-header-row">
-              <div class="team-title-edit-group" @click="openEditTeamModal(tIdx)" title="編輯團隊名稱與小隊職能">
-                <span v-if="team.color" class="team-color-circle" :style="{ backgroundColor: team.color }"></span>
-                <span class="team-row-title">{{ team.name }}</span>
-                <span v-if="team.desc" class="team-row-desc">- {{ team.desc }}</span>
-                <i class="mdi mdi-pencil-outline team-pencil-icon"></i>
-              </div>
-              <button 
-                v-if="team.squads.length < 5" 
-                class="add-squad-btn" 
-                @click="addSquadToTeam(team)"
-              >
-                + 添加小隊
-              </button>
-            </div>
+        <!-- 2. 右側矩陣視圖 (模組化 - `layoutMode === 'matrix'`) -->
+        <RosterMatrixView 
+          v-if="layoutMode === 'matrix'"
+          :matrixTeams="matrixTeams"
+          :availableSchools="availableSchools"
+          :schoolColorMap="schoolColorMap"
+          :showSecondarySchool="showSecondarySchool"
+          :showDetails="showDetails"
+          @open-edit-team="openEditTeamModal"
+          @add-squad="addSquadToTeam"
+          @drag-start-squad="onDragStartSquad"
+          @drop-squad-column="onDropOnSquadColumn"
+          @drag-start-slot="onDragStartSlot"
+          @drop-slot="onDropOnSlot"
+          @click-slot="handleSlotClick"
+          @remove-member-slot="removeMemberFromSlot"
+        />
 
-            <!-- 小隊網格 -->
-            <div class="squads-matrix-grid">
-              <div 
-                v-for="(squad, sIdx) in team.squads" 
-                :key="squad.id" 
-                class="squad-column-box"
-                @dragover.prevent
-                @drop="onDropOnSquadColumn(team, squad)"
-              >
-                <div 
-                  class="squad-column-head draggable-head" 
-                  draggable="true"
-                  @dragstart="onDragStartSquad(team, squad)"
-                  title="按住可拖拽移動/交換整隊位置"
-                >
-                  <div class="squad-head-title">
-                    <i class="mdi mdi-drag-vertical drag-handle-icon"></i>
-                    {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
-                  </div>
-                  <div v-if="squad.desc" class="squad-head-desc">{{ squad.desc }}</div>
-                </div>
-
-                <div class="slots-vertical-list">
-                  <div 
-                    v-for="(slot, slotIdx) in squad.slots" 
-                    :key="slot.id"
-                    :class="[
-                      'matrix-slot-card', 
-                      { 
-                        'has-member': slot.assignedMember, 
-                        'template-guideline': !slot.assignedMember && getSlotGuidelineText(slot),
-                        'detail-mode': showDetails
-                      }
-                    ]"
-                    :style="getSlotStyle(slot)"
-                    :draggable="!!slot.assignedMember"
-                    @dragstart="onDragStartSlot(team, squad, slot)"
-                    @dragover.prevent
-                    @drop="onDropOnSlot(team, squad, slot)"
-                    @click="clickSlot(team, squad, slot, slotIdx)"
-                  >
-                    <!-- 精簡模式 -->
-                    <template v-if="!showDetails">
-                      <template v-if="slot.assignedMember">
-                        <div class="assigned-slot-content">
-                          <div class="member-head-info">
-                            <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                            <img 
-                              v-if="showSecondarySchool && getSecondarySchool(slot.assignedMember)" 
-                              :src="getSchoolImgByName(getSecondarySchool(slot.assignedMember))" 
-                              class="slot-school-icon-sub" 
-                              title="副職業"
-                            />
-                            <span class="slot-member-name">{{ slot.assignedMember.name }}</span>
-                          </div>
-                          <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
-                        </div>
-                      </template>
-
-                      <template v-else-if="getSlotGuidelineText(slot)">
-                        <div class="template-guideline-content">
-                          <span class="guideline-role-text">{{ getSlotGuidelineText(slot) }}</span>
-                        </div>
-                      </template>
-
-                      <template v-else>
-                        <div class="empty-slot-placeholder">點擊配置席位</div>
-                      </template>
-                    </template>
-
-                    <!-- 詳情模式 -->
-                    <template v-else>
-                      <div class="slot-detail-body">
-                        <div class="detail-head">
-                          <template v-if="slot.assignedMember">
-                            <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                            <img 
-                              v-if="showSecondarySchool && getSecondarySchool(slot.assignedMember)" 
-                              :src="getSchoolImgByName(getSecondarySchool(slot.assignedMember))" 
-                              class="slot-school-icon-sub" 
-                            />
-                            <span class="detail-member-title">{{ slot.assignedMember.name }}</span>
-                          </template>
-                          <template v-else>
-                            <span class="detail-role-title">{{ getSlotRoleSummary(slot) || '未配置' }}</span>
-                          </template>
-                        </div>
-                        <div class="detail-line">職能：{{ getSlotRoleSummary(slot) }}</div>
-                        <div class="detail-line">絕技：{{ slot.jueji || slot.templateConfig?.jueji || '—' }}</div>
-                        <div class="detail-line">群俠：{{ slot.qunxia || slot.templateConfig?.qunxia || '—' }}</div>
-                        <div class="detail-line">技能：{{ slot.zhuangbei || slot.templateConfig?.zhuangbei || '—' }}</div>
-                      </div>
-                    </template>
-
-                    <span v-if="slot.assignedMember" class="slot-clear-x" @click.stop="removeMemberFromSlot(slot)" title="移除席位">&times;</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- B. 試算表/Excel 風格版型 (`layoutMode === 'table'` - 對齊圖三) -->
-        <div v-else-if="layoutMode === 'table'" class="spreadsheet-view-wrapper">
-          <div class="spreadsheet-header-bar">
-            <span>{{ leagueInfo.guild || '百錵谷酒池肉林' }} + {{ leagueInfo.type }} + {{ leagueInfo.startTime }}</span>
-          </div>
-
-          <div class="spreadsheet-teams-row">
-            <div v-for="team in matrixTeams" :key="team.id" class="spreadsheet-team-column">
-              
-              <!-- 團隊標頭 -->
-              <div class="spreadsheet-team-head">
-                <span v-if="team.color" class="team-color-circle" :style="{ backgroundColor: team.color }"></span>
-                <span class="font-bold">{{ team.name }}</span>
-              </div>
-
-              <!-- 小隊清單 -->
-              <div class="spreadsheet-squads-list">
-                <div v-for="squad in team.squads" :key="squad.id" class="spreadsheet-squad-block">
-                  <div class="spreadsheet-squad-head">
-                    <span class="squad-title">{{ squad.name }} <template v-if="squad.zhineng">({{ squad.zhineng }})</template></span>
-                    <span v-if="squad.desc" class="squad-sub-desc">{{ squad.desc }}</span>
-                  </div>
-
-                  <!-- 席位列表 (Excel 試算表風) -->
-                  <div class="spreadsheet-slots-table">
-                    <div 
-                      v-for="(slot, slotIdx) in squad.slots" 
-                      :key="slot.id" 
-                      class="spreadsheet-slot-row"
-                      :style="getSlotStyle(slot)"
-                      @click="clickSlot(team, squad, slot, slotIdx)"
-                    >
-                      <div class="slot-col-member">
-                        <template v-if="slot.assignedMember">
-                          <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                          <span class="member-name">{{ slot.assignedMember.name }}</span>
-                        </template>
-                        <template v-else>
-                          <span class="placeholder-text">點擊配置席位</span>
-                        </template>
-                      </div>
-
-                      <div class="slot-col-role">{{ getSlotRoleSummary(slot) }}</div>
-                      <div class="slot-col-skill">{{ slot.jueji || slot.qunxia || slot.zhuangbei || '—' }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 團隊備註 -->
-              <div v-if="team.desc" class="spreadsheet-team-footer-desc">
-                備註：{{ team.desc }}
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- 3. 右側試算表視圖 (模組化 - `layoutMode === 'table'`) -->
+        <RosterTableView 
+          v-else-if="layoutMode === 'table'"
+          :leagueInfo="leagueInfo"
+          :matrixTeams="matrixTeams"
+          :availableSchools="availableSchools"
+          :schoolColorMap="schoolColorMap"
+          @click-slot="handleSlotClick"
+        />
 
       </main>
     </div>
 
-    <!-- ================= 彈窗組件 ================= -->
+    <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- 1. 交換兩隊位置 Modal -->
+    <!-- 交換兩隊位置 Modal -->
     <div v-if="showSwapSquadModal" class="modal-overlay" @click.self="showSwapSquadModal = false">
       <div class="modal-card confirm-modal-card wide-swap-card">
         <div class="modal-header">
@@ -438,7 +168,7 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal -->
+    <!-- 批量編輯 Modal -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -573,7 +303,7 @@
       </div>
     </div>
 
-    <!-- 2-A. 批量【職能】多選 Modal -->
+    <!-- 批量【職能】Modal -->
     <div v-if="showBatchRoleDialog" class="modal-overlay" @click.self="showBatchRoleDialog = false">
       <div class="modal-card small-card wide-dialog">
         <div class="modal-header">
@@ -600,7 +330,7 @@
       </div>
     </div>
 
-    <!-- 2-B. 批量【絕技】單選 Modal -->
+    <!-- 批量【絕技】Modal -->
     <div v-if="showBatchJuejiDialog" class="modal-overlay" @click.self="showBatchJuejiDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -621,7 +351,7 @@
       </div>
     </div>
 
-    <!-- 2-C. 批量【群俠百家】Modal -->
+    <!-- 批量【群俠百家】Modal -->
     <div v-if="showBatchQunxiaDialog" class="modal-overlay" @click.self="showBatchQunxiaDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -649,7 +379,7 @@
       </div>
     </div>
 
-    <!-- 2-D. 批量【流派技能】Modal -->
+    <!-- 批量【流派技能】Modal -->
     <div v-if="showBatchLiupaiDialog" class="modal-overlay" @click.self="showBatchLiupaiDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -677,7 +407,7 @@
       </div>
     </div>
 
-    <!-- 3. 編輯團隊 Modal (圖四紅框位子新增「團隊顏色」選擇 - 圖五) -->
+    <!-- 編輯團隊 Modal -->
     <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -719,7 +449,6 @@
               </button>
             </div>
 
-            <!-- ★ 新增：團隊顏色選擇列 (對齊圖四 & 圖五) ★ -->
             <div class="form-row margin-t">
               <label>團隊顏色：</label>
               <div class="team-color-picker-flex">
@@ -818,7 +547,7 @@
       </div>
     </div>
 
-    <!-- 4. 格子有人時：排表信息 Modal -->
+    <!-- 4. 排表信息 Modal -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
@@ -933,7 +662,7 @@
       </div>
     </div>
 
-    <!-- 5. 格子沒人時：席位配置 Modal -->
+    <!-- 5. 席位配置 Modal -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
       <div class="modal-card slot-modal-card" @click.stop>
         <div class="modal-header">
@@ -1155,7 +884,7 @@
       </div>
     </div>
 
-    <!-- 7. 點擊待選成員「+」：新增成員 Modal -->
+    <!-- 7. 新增成員 Modal -->
     <div v-if="showAddMemberModal" class="modal-overlay" @click.self="showAddMemberModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -1260,7 +989,7 @@
       </div>
     </div>
 
-    <!-- 8. 置中刪除/清空確認 Modal -->
+    <!-- 8. 置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -1282,6 +1011,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import RosterSidebar from './components/RosterSidebar.vue'
+import RosterMatrixView from './components/RosterMatrixView.vue'
+import RosterTableView from './components/RosterTableView.vue'
 
 const props = defineProps({
   leagueItem: {
@@ -1312,7 +1044,6 @@ const availableSchools = [
   { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
 ]
 
-// 5 種遊戲團隊顏色 (圖四 & 圖五對應)
 const teamColorOptions = [
   { color: '#84cc16', label: '淺綠色' },
   { color: '#eab308', label: '金黃色' },
@@ -1374,7 +1105,7 @@ const closeAllSkillDropdowns = () => {
 
 const showSecondarySchool = ref(false)
 const showDetails = ref(false)
-const layoutMode = ref('matrix') // 'matrix' | 'table' (對齊圖一/圖二)
+const layoutMode = ref('matrix')
 const pendingViewMode = ref('school')
 
 const allMembers = ref([
@@ -1536,13 +1267,13 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊盤面數據 (新增團隊顏色支援)
+// 團隊盤面數據
 const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
     desc: '我是團隊備註會顯示的地方',
-    color: '#84cc16', // 淺綠色
+    color: '#84cc16',
     squads: [
       { id: 11, name: '一隊', zhineng: '塔後隊', desc: '我是顯示備註的地方', slots: createDefaultSlots() },
       { id: 12, name: '二隊', zhineng: '保鏢隊', desc: '', slots: createDefaultSlots() },
@@ -1555,7 +1286,7 @@ const matrixTeams = ref([
     id: 2,
     name: '進攻二團',
     desc: '',
-    color: '#eab308', // 金黃色
+    color: '#eab308',
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: 20 + i,
       name: `${i + 1}隊`,
@@ -1666,18 +1397,18 @@ const onDragStartPendingMember = (member) => {
   draggedPendingMember = member
 }
 
-const onDragStartSlot = (team, squad, slot) => {
+const onDragStartSlot = ({ team, squad, slot }) => {
   if (!slot.assignedMember) return
   draggedType = 'slotMember'
   draggedSlotRef = slot
 }
 
-const onDragStartSquad = (team, squad) => {
+const onDragStartSquad = ({ team, squad }) => {
   draggedType = 'squad'
   draggedSquadRef = squad
 }
 
-const onDropOnSlot = (team, squad, targetSlot) => {
+const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
   if (draggedType === 'pendingMember' && draggedPendingMember) {
     if (targetSlot.assignedMember) {
       targetSlot.assignedMember.assigned = false
@@ -1713,7 +1444,7 @@ const onDropOnSlot = (team, squad, targetSlot) => {
   draggedSlotRef = null
 }
 
-const onDropOnSquadColumn = (team, targetSquad) => {
+const onDropOnSquadColumn = ({ team, squad: targetSquad }) => {
   if (draggedType === 'squad' && draggedSquadRef && draggedSquadRef !== targetSquad) {
     targetSquadRef = targetSquad
     showSwapSquadModal.value = true
@@ -1811,36 +1542,6 @@ const removeMemberFromSlot = (slot) => {
   showSlotInfoModal.value = false
 }
 
-const getSlotStyle = (slot) => {
-  if (slot.assignedMember) {
-    const bg = schoolColorMap[slot.assignedMember.currentSchool] || '#eff6ff'
-    return { backgroundColor: bg }
-  }
-  if (slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
-    const firstSchool = slot.templateConfig.schools[0]
-    const bg = schoolColorMap[firstSchool] || '#fafafa'
-    return { backgroundColor: bg }
-  }
-  return {}
-}
-
-const getSlotRoleSummary = (slot) => {
-  if (slot.roles && slot.roles.length > 0) return slot.roles.join('、')
-  return '點擊配置職能'
-}
-
-const getSlotGuidelineText = (slot) => {
-  if (!slot.templateConfig) return ''
-  const parts = []
-  if (slot.templateConfig.roles && slot.templateConfig.roles.length > 0) {
-    parts.push(slot.templateConfig.roles.join(' / '))
-  }
-  if (slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
-    parts.push(slot.templateConfig.schools.join(' / '))
-  }
-  return parts.join(' - ')
-}
-
 const showSlotInfoModal = ref(false)
 const showSlotConfigModal = ref(false)
 
@@ -1861,6 +1562,7 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
+// 【排表信息】多選 Helper
 const isInfoQunxiaSelected = (qName) => {
   if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
   return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1887,6 +1589,7 @@ const toggleInfoLiupai = (lName) => {
   tempSlotZhuangbei.value = list.join(', ')
 }
 
+// 【席位配置】多選 Helper
 const isConfigQunxiaSelected = (qName) => {
   if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
   return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
@@ -1913,7 +1616,7 @@ const toggleConfigLiupai = (lName) => {
   tempConfigZhuangbei.value = list.join(', ')
 }
 
-const clickSlot = (team, squad, slot, slotIdx) => {
+const handleSlotClick = ({ team, squad, slot, slotIdx }) => {
   activeSlotForModal.value = slot
   activeSlotTeamName.value = team.name
   activeSlotSquadName.value = squad.name
@@ -2058,7 +1761,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal (完全保護)
+// 批量編輯 Modal
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -2080,6 +1783,11 @@ const activeBatchDropdown = ref(null)
 const toggleBatchRowDropdown = (key) => {
   if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
   else activeBatchDropdown.value = key
+}
+
+const getRowSchoolBgStyle = (schoolName) => {
+  const bg = schoolColorMap[schoolName] || '#ffffff'
+  return { backgroundColor: bg }
 }
 
 const isBatchRowRoleSelected = (m, roleName) => {
@@ -2388,51 +2096,7 @@ const saveRosterBoard = () => {
 /* 主要內容容器 */
 .roster-main-container { flex: 1; display: flex; gap: 16px; padding: 16px 20px; overflow: hidden; }
 
-/* 左側待選成員側邊欄 */
-.pending-sidebar { width: 230px; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-.guild-select-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; color: #1e293b; margin-bottom: 12px; }
-
-.pending-filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.pending-title-group { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.title-left-box { display: flex; align-items: center; gap: 4px; }
-.pending-title { font-weight: bold; font-size: 13px; color: #334155; }
-.btn-icon-add { background: none; border: none; color: #3b82f6; font-size: 18px; font-weight: bold; cursor: pointer; }
-
-/* 待選模式切換按鈕 */
-.pending-mode-toggle { display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #ffffff; }
-.mode-pill-btn { padding: 2px 8px; border: none; background: white; font-size: 11px; cursor: pointer; color: #64748b; }
-.mode-pill-btn.active { background: #5b7db1; color: white; font-weight: bold; }
-
-.pending-search-input { width: 100%; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; outline: none; box-sizing: border-box; }
-
-/* 流派 Icon 快篩列 */
-.school-icon-filter-row { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9; margin-bottom: 8px; }
-.icon-filter-item { width: 26px; height: 26px; border-radius: 4px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.icon-filter-item.active, .icon-filter-item:hover { background: #eff6ff; border-color: #3b82f6; }
-.school-filter-img { width: 18px; height: 18px; object-fit: contain; }
-
-/* 流派手風琴模式 */
-.school-accordion-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-.accordion-item { border-bottom: 1px solid #f8fafc; }
-.accordion-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; cursor: pointer; font-size: 12px; }
-.accordion-head-left { display: flex; align-items: center; gap: 6px; font-weight: 500; }
-.accordion-school-img { width: 16px; height: 16px; object-fit: contain; }
-.accordion-count { color: #94a3b8; }
-.accordion-arrow { font-size: 16px; color: #94a3b8; }
-
-.accordion-body { padding: 4px 0 8px 10px; display: flex; flex-direction: column; gap: 4px; }
-
-/* 全員向下流動模式 */
-.all-members-flow-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
-
-.member-drag-card { display: flex; align-items: center; gap: 6px; background: #f0f9ff; border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: grab; color: #0369a1; transition: transform 0.15s; }
-.member-drag-card:hover { transform: translateX(2px); }
-.drag-card-icons-group { display: flex; align-items: center; gap: 2px; }
-.drag-card-icon { width: 16px; height: 16px; object-fit: contain; }
-.drag-card-icon-sub { width: 13px; height: 13px; object-fit: contain; opacity: 0.85; }
-.empty-sub-text { font-size: 11px; color: #cbd5e1; padding: 4px 0; }
-
-/* 右側矩陣內容區 */
+/* 右側內容區 */
 .matrix-content-area { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-x: auto; }
 .matrix-toolbar { display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 10px; }
@@ -2470,91 +2134,6 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .stats-school-img { width: 18px; height: 18px; object-fit: contain; }
 .stats-count-badge { font-size: 12px; font-weight: bold; color: #94a3b8; }
 .stats-count-badge.active { color: #2563eb; }
-
-/* 團隊矩陣橫列 */
-.teams-matrix-wrapper { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
-.team-matrix-row { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; }
-
-.team-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.team-title-edit-group { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
-.team-title-edit-group:hover { background: #f1f5f9; }
-.team-row-title { font-size: 14px; font-weight: bold; color: #1e293b; }
-.team-row-desc { font-size: 13px; color: #94a3b8; font-weight: normal; margin-left: 2px; }
-.team-pencil-icon { font-size: 14px; color: #94a3b8; }
-.team-color-circle { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.team-color-circle-sm { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-
-.add-squad-btn { background: none; border: 1px dashed #3b82f6; color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-
-.squads-matrix-grid { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; }
-.squad-column-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; }
-
-.squad-column-head.draggable-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; cursor: grab; padding: 4px; border-radius: 4px; }
-.squad-column-head.draggable-head:hover { background: #e2e8f0; }
-.drag-handle-icon { font-size: 12px; color: #94a3b8; }
-
-.squad-head-title { font-size: 12px; font-weight: bold; color: #475569; display: flex; align-items: center; gap: 2px; }
-.squad-head-desc { font-size: 11px; color: #94a3b8; font-style: italic; margin-top: 2px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-
-.slots-vertical-list { display: flex; flex-direction: column; gap: 6px; }
-.matrix-slot-card { position: relative; min-height: 38px; border-radius: 4px; border: 1px dashed #cbd5e1; background: #ffffff; display: flex; align-items: center; padding: 6px 8px; cursor: pointer; transition: all 0.15s; }
-.matrix-slot-card:hover { border-color: #3b82f6; }
-
-/* 詳情模式樣式 */
-.matrix-slot-card.detail-mode { flex-direction: column; align-items: flex-start; justify-content: center; }
-.slot-detail-body { display: flex; flex-direction: column; gap: 2px; width: 100%; font-size: 10px; color: #475569; }
-.detail-head { display: flex; align-items: center; gap: 4px; font-weight: bold; color: #1e293b; margin-bottom: 2px; }
-.detail-member-title { font-size: 11px; }
-.detail-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.matrix-slot-card.has-member { border: 1px solid #cbd5e1; cursor: grab; }
-.assigned-slot-content { display: flex; flex-direction: column; width: 100%; }
-.member-head-info { display: flex; align-items: center; gap: 4px; }
-.slot-school-icon { width: 16px; height: 16px; object-fit: contain; }
-.slot-school-icon-sub { width: 12px; height: 12px; object-fit: contain; opacity: 0.85; margin-left: -2px; }
-.slot-member-name { font-size: 12px; font-weight: bold; color: #1e293b; }
-.slot-roles-text { font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.matrix-slot-card.template-guideline { background: #fafafa; border: 1px solid #f1f5f9; }
-.template-guideline-content { font-size: 10px; color: #94a3b8; }
-.empty-slot-placeholder { font-size: 10px; color: #cbd5e1; width: 100%; text-align: center; }
-
-.slot-clear-x { position: absolute; right: 4px; top: 2px; font-size: 12px; color: #94a3b8; cursor: pointer; opacity: 0; }
-.matrix-slot-card:hover .slot-clear-x { opacity: 1; }
-.slot-clear-x:hover { color: #ef4444; }
-
-/* B. 試算表/Excel 風格版型樣式 (對齊圖三) */
-.spreadsheet-view-wrapper { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 16px; overflow-x: auto; display: flex; flex-direction: column; gap: 12px; }
-.spreadsheet-header-bar { background: #eff6ff; color: #1d4ed8; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; text-align: center; border: 1px solid #bfdbfe; }
-.spreadsheet-teams-row { display: flex; gap: 16px; min-width: max-content; }
-.spreadsheet-team-column { width: 280px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff; display: flex; flex-direction: column; overflow: hidden; }
-.spreadsheet-team-head { background: #f8fafc; padding: 10px; font-size: 13px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
-
-.spreadsheet-squads-list { display: flex; flex-direction: column; gap: 12px; padding: 10px; }
-.spreadsheet-squad-block { border: 1px solid #f1f5f9; border-radius: 6px; overflow: hidden; background: #fafafa; }
-.spreadsheet-squad-head { background: #f1f5f9; padding: 6px 10px; font-size: 12px; display: flex; flex-direction: column; }
-.squad-title { font-weight: bold; color: #334155; }
-.squad-sub-desc { font-size: 10px; color: #94a3b8; font-style: italic; }
-
-.spreadsheet-slots-table { display: flex; flex-direction: column; border-top: 1px solid #e2e8f0; }
-.spreadsheet-slot-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11px; cursor: pointer; transition: background 0.15s; }
-.spreadsheet-slot-row:hover { background: #eff6ff !important; }
-.slot-col-member { display: flex; align-items: center; gap: 4px; font-weight: bold; width: 90px; }
-.member-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.slot-col-role { width: 80px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.slot-col-skill { flex: 1; color: #94a3b8; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.placeholder-text { color: #cbd5e1; font-weight: normal; }
-
-.spreadsheet-team-footer-desc { font-size: 11px; color: #64748b; padding: 8px 10px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-style: italic; }
-
-/* 團隊顏色選擇器 (圖四 & 圖五對應) */
-.team-color-picker-flex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.color-clear-btn { border: 1px solid #cbd5e1; background: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #64748b; }
-.color-clear-btn.active { border-color: #3b82f6; color: #2563eb; font-weight: bold; background: #eff6ff; }
-.color-dot-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
-.color-dot-btn:hover { transform: scale(1.15); }
-.color-dot-btn.active { border-color: #1e293b; box-shadow: 0 0 0 2px white inset; }
-.check-white { font-size: 14px; color: white; }
 
 /* 下拉選單組件 */
 .custom-dropdown-container { position: relative; flex: 1; display: flex; align-items: center; }
@@ -2635,7 +2214,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal (新增 文字文件_4.txt 預設樣式) */
+/* 批量編輯 Modal */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; }
@@ -2646,6 +2225,14 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .batch-table th { background: #ffffff; color: #64748b; font-weight: 600; }
 .table-inline-input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; outline: none; background: white; }
 .batch-roles-display { border: 1px solid #cbd5e1; background: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; min-height: 20px; color: #334155; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+
+.team-color-picker-flex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.color-clear-btn { border: 1px solid #cbd5e1; background: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #64748b; }
+.color-clear-btn.active { border-color: #3b82f6; color: #2563eb; font-weight: bold; background: #eff6ff; }
+.color-dot-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.15s; }
+.color-dot-btn:hover { transform: scale(1.15); }
+.color-dot-btn.active { border-color: #1e293b; box-shadow: 0 0 0 2px white inset; }
+.check-white { font-size: 14px; color: white; }
 
 .full-w { width: 100%; }
 .text-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
