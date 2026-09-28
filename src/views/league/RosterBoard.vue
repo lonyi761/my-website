@@ -10,7 +10,8 @@
       </div>
 
       <div class="header-right-actions">
-        <button class="btn-export">導出圖片 <i class="mdi mdi-chevron-down"></i></button>
+        <!-- 點擊觸發導出預覽 Modal (對齊圖四/圖六) -->
+        <button class="btn-export" @click="openExportPreviewModal">導出圖片 <i class="mdi mdi-chevron-down"></i></button>
       </div>
     </div>
 
@@ -147,6 +148,90 @@
     </div>
 
     <!-- ================= Modals 集中管理 ================= -->
+
+    <!-- ★ 全新：導出圖片預覽 Modal (對齊圖四 / 圖六 / 圖七) ★ -->
+    <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
+      <div class="export-modal-container">
+        <!-- 頂部標頭 Bar -->
+        <div class="export-modal-topbar">
+          <button class="btn-back-link" @click="showExportModal = false">&lt; 返回排表</button>
+          <span class="export-modal-title">導出預覽</span>
+          <span class="close-btn" @click="showExportModal = false">&times;</span>
+        </div>
+
+        <div class="export-modal-body">
+          <!-- 左側導出配置邊欄 (對齊圖五/圖六) -->
+          <div class="export-sidebar-controls">
+            <div class="export-tab-group margin-b">
+              <button :class="['tab-btn', { active: exportTab === 'original' }]" @click="exportTab = 'original'">原版</button>
+              <button :class="['tab-btn', { active: exportTab === 'custom' }]" @click="exportTab = 'custom'">自定義</button>
+            </div>
+
+            <button class="btn-secondary full-w margin-b" @click="resetExportConfig">恢復自動生成</button>
+
+            <div class="accordion-config-list">
+              <div class="config-section">
+                <div class="config-head">頁頭元素 <i class="mdi mdi-chevron-down"></i></div>
+              </div>
+              <div class="config-section">
+                <div class="config-head">團隊卡片 <i class="mdi mdi-chevron-down"></i></div>
+              </div>
+              <div class="config-section active">
+                <div class="config-head">小隊卡片 <i class="mdi mdi-chevron-down"></i></div>
+                <div class="config-body">
+                  <div class="control-row">
+                    <label>小隊卡片圓角</label>
+                    <input type="range" min="0" max="20" v-model="exportConfig.squadRadius" />
+                    <span>{{ exportConfig.squadRadius }}</span>
+                  </div>
+                  <div class="control-row">
+                    <label>邊框粗細</label>
+                    <input type="range" min="0" max="5" v-model="exportConfig.borderWidth" />
+                    <span>{{ exportConfig.borderWidth }}</span>
+                  </div>
+                  <div class="control-row">
+                    <label>成員卡片外觀 - 內邊距</label>
+                    <input type="range" min="2" max="16" v-model="exportConfig.memberPadding" />
+                    <span>{{ exportConfig.memberPadding }}</span>
+                  </div>
+                  <div class="control-row">
+                    <label><input type="checkbox" v-model="exportConfig.showBorder" /> 邊框</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="export-actions-bottom">
+              <button class="btn-secondary full-w margin-b" @click="saveExportToLocal">保存到本場</button>
+              <button class="btn-primary full-w btn-lg" @click="downloadExportImage">導出圖片</button>
+            </div>
+          </div>
+
+          <!-- 右側導出預覽畫布區域 (無右下角網址水印 - 圖四/圖八/圖九) -->
+          <div class="export-preview-stage">
+            <div class="preview-canvas-paper">
+              <!-- 當前矩陣預覽 (圖八) -->
+              <RosterMatrixView 
+                v-if="layoutMode === 'matrix'"
+                :matrixTeams="matrixTeams"
+                :availableSchools="availableSchools"
+                :schoolColorMap="schoolColorMap"
+                :showSecondarySchool="showSecondarySchool"
+                :showDetails="showDetails"
+              />
+              <!-- 當前試算表預覽 (圖九) -->
+              <RosterTableView 
+                v-else-if="layoutMode === 'table'"
+                :leagueInfo="leagueInfo"
+                :matrixTeams="matrixTeams"
+                :availableSchools="availableSchools"
+                :schoolColorMap="schoolColorMap"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- 交換兩隊位置 Modal -->
     <div v-if="showSwapSquadModal" class="modal-overlay" @click.self="showSwapSquadModal = false">
@@ -1047,9 +1132,6 @@ const availableSchools = [
   { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
 ]
 
-// 5 種固定遊戲團隊預設顏色
-const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
-
 const teamColorOptions = [
   { color: '#84cc16', label: '淺綠色' },
   { color: '#eab308', label: '金黃色' },
@@ -1113,6 +1195,38 @@ const showSecondarySchool = ref(false)
 const showDetails = ref(false)
 const layoutMode = ref('matrix')
 const pendingViewMode = ref('school')
+
+// ★ 導出預覽 Modal 狀態管理 (對齊圖四/圖六/圖七) ★
+const showExportModal = ref(false)
+const exportTab = ref('custom')
+const exportConfig = ref({
+  squadRadius: 8,
+  borderWidth: 1,
+  memberPadding: 8,
+  showBorder: true
+})
+
+const openExportPreviewModal = () => {
+  showExportModal.value = true
+}
+
+const resetExportConfig = () => {
+  exportConfig.value = {
+    squadRadius: 8,
+    borderWidth: 1,
+    memberPadding: 8,
+    showBorder: true
+  }
+}
+
+const saveExportToLocal = () => {
+  alert('導出配置已保存至本場！')
+}
+
+const downloadExportImage = () => {
+  alert('正在導出高畫質排表圖片...')
+  showExportModal.value = false
+}
 
 const allMembers = ref([
   { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '龍吟'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '錵小錵', rolePreference: ['D潮拆塔', '保鏢拆'], rolePrefList: ['D潮拆塔', '保鏢拆'], assigned: false },
@@ -1205,7 +1319,7 @@ const saveNewMember = () => {
   showAddMemberModal.value = false
 }
 
-// 團隊盤面數據 (固定5種顏色)
+// 團隊盤面數據
 const matrixTeams = ref([
   {
     id: 1,
@@ -1285,6 +1399,7 @@ const addTeam = () => {
     return
   }
   const num = matrixTeams.value.length + 1
+  const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
   const defaultColor = defaultTeamColors[(num - 1) % defaultTeamColors.length]
   matrixTeams.value.push({
     id: Date.now(),
@@ -1722,6 +1837,11 @@ const toggleBatchRowDropdown = (key) => {
   else activeBatchDropdown.value = key
 }
 
+const getRowSchoolBgStyle = (schoolName) => {
+  const bg = schoolColorMap[schoolName] || '#ffffff'
+  return { backgroundColor: bg }
+}
+
 const isBatchRowRoleSelected = (m, roleName) => {
   if (!m || !Array.isArray(m.rolesList)) return false
   return m.rolesList.includes(roleName)
@@ -2066,6 +2186,144 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .stats-school-img { width: 18px; height: 18px; object-fit: contain; }
 .stats-count-badge { font-size: 12px; font-weight: bold; color: #94a3b8; }
 .stats-count-badge.active { color: #2563eb; }
+
+/* 全新導出圖片預覽 Modal 樣式 (對齊圖四 / 圖六 / 圖七) */
+.full-screen-overlay {
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+}
+.export-modal-container {
+  width: 95vw;
+  height: 92vh;
+  background: #f8fafc;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+}
+.export-modal-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+.export-modal-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #1e293b;
+}
+
+.export-modal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 左側導出配置側邊欄 */
+.export-sidebar-controls {
+  width: 280px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.export-tab-group {
+  display: flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.tab-btn {
+  flex: 1;
+  padding: 6px;
+  border: none;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+  color: #64748b;
+}
+.tab-btn.active {
+  background: #1e293b;
+  color: white;
+  font-weight: bold;
+}
+
+.accordion-config-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.config-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.config-head {
+  background: #f8fafc;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #334155;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.config-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: white;
+}
+.control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+.control-row input[type="range"] {
+  width: 100%;
+}
+
+.export-actions-bottom {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+.btn-lg {
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 右側預覽舞台 (無網址水印) */
+.export-preview-stage {
+  flex: 1;
+  background: #e2e8f0;
+  padding: 24px;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.preview-canvas-paper {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  min-width: 800px;
+  max-width: 1200px;
+  width: 100%;
+}
 
 /* 下拉選單組件 */
 .custom-dropdown-container { position: relative; flex: 1; display: flex; align-items: center; }

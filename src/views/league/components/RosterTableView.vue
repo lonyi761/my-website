@@ -8,22 +8,20 @@
       </span>
     </div>
 
-    <!-- 中間可編輯備註橫幅 (點擊編輯模式，預設隱藏調整按鈕) -->
-    <div class="top-editable-banner-box">
-      <!-- 1. 預設展示模式 (極簡無按鈕，適合導出圖片) -->
+    <!-- 中間可編輯備註橫幅 (整條方框皆可點擊進入編輯) -->
+    <div class="top-editable-banner-box" @click="startEditTopBanner">
+      <!-- 1. 預設展示模式 (點擊整個方框框即可進入編輯，適合導出) -->
       <div 
         v-if="!isEditingTopBanner" 
         class="banner-display-text" 
         :style="{ fontSize: topBannerFontSize + 'px' }"
-        @click="isEditingTopBanner = true" 
-        title="點擊進入編輯備註"
       >
         <span class="banner-text-content">
-          {{ topBannerText || '可編輯備註區' }}
+          {{ topBannerText || '可編輯備註區 (點擊任意處編輯)' }}
         </span>
       </div>
 
-      <!-- 2. 點擊後的編輯模式 (含字體微調與完成按鈕) -->
+      <!-- 2. 編輯模式 (含字體大小調整與完成按鈕) -->
       <div v-else class="banner-edit-container" @click.stop>
         <input 
           type="text" 
@@ -50,15 +48,14 @@
         :key="team.id" 
         class="spreadsheet-team-card"
       >
-        <!-- 團隊名稱頂部欄位 (對齊圖三：僅保留前方顏色圓點，移除後方多餘文字) -->
+        <!-- 團隊名稱頂部欄位 (底色不吃色，僅在前方顯示團隊顏色圓點 - 對齊圖三) -->
         <div 
           class="spreadsheet-team-header-bar" 
-          :style="getTeamHeaderStyle(team, tIdx)" 
           @click="$emit('open-edit-team', tIdx)"
         >
           <span class="team-header-title">
-            <span class="team-color-dot-white"></span>
-            {{ team.name }}
+            <span class="team-color-dot" :style="{ backgroundColor: getTeamColor(team, tIdx) }"></span>
+            <span class="team-name-text">{{ team.name }}</span>
           </span>
           <i class="mdi mdi-pencil-outline header-edit-pencil"></i>
         </div>
@@ -153,16 +150,15 @@
           </table>
         </div>
 
-        <!-- 團隊底部備註 (對齊圖四 & 圖五：點擊才開啟編輯，預設乾淨無按鈕) -->
+        <!-- 團隊底部備註與下方自訂備註 (整條框區域點擊皆可進入編輯 - 對齊圖三/圖四) -->
         <div class="spreadsheet-team-footer">
-          <!-- 1. 團隊備註 -->
-          <div class="team-note-wrapper">
+          <!-- 1. 團隊備註區塊 -->
+          <div class="team-note-wrapper" @click="editingTeamDescId = team.id">
             <div 
               v-if="editingTeamDescId !== team.id" 
               class="note-display-box" 
               :style="{ fontSize: (team.descFontSize || 14) + 'px' }"
-              @click="editingTeamDescId = team.id"
-              title="點擊編輯團隊備註"
+              title="點擊任意處編輯團隊備註"
             >
               <span v-if="team.desc" class="note-text-bold">{{ team.desc }}</span>
               <span v-else class="placeholder-note-text">點擊新增團隊備註</span>
@@ -188,13 +184,12 @@
           </div>
 
           <!-- 2. 下方可編輯備註區 -->
-          <div class="team-note-wrapper">
+          <div class="team-note-wrapper" @click="editingTeamBottomNoteId = team.id">
             <div 
               v-if="editingTeamBottomNoteId !== team.id" 
               class="note-display-box extra-note-box" 
               :style="{ fontSize: (team.bottomNoteFontSize || 14) + 'px' }"
-              @click="editingTeamBottomNoteId = team.id"
-              title="點擊編輯自訂備註"
+              title="點擊任意處編輯自訂備註"
             >
               <span v-if="team.bottomNote" class="note-text-bold">{{ team.bottomNote }}</span>
               <span v-else class="placeholder-note-text">可編輯備註區</span>
@@ -242,16 +237,20 @@ const vFocus = {
   mounted: (el) => el.focus()
 }
 
-// 頂部中間備註
+// 頂部橫幅備註狀態
 const isEditingTopBanner = ref(false)
 const topBannerText = ref('我是團隊備註會顯示的地方')
 const topBannerFontSize = ref(15)
 
-// 團隊備註編輯狀態控制
+const startEditTopBanner = () => {
+  isEditingTopBanner.value = true
+}
+
+// 團隊備註與自訂備註編輯控制
 const editingTeamDescId = ref(null)
 const editingTeamBottomNoteId = ref(null)
 
-// 5 種團隊預設固定顏色
+// 5 種團隊固定預設色彩 (淺綠、金黃、淺藍、深藍、淡紫)
 const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
 
 const changeTopFontSize = (delta) => {
@@ -289,10 +288,10 @@ const getTeamColor = (team, tIdx) => {
 }
 
 const getTeamHeaderStyle = (team, tIdx) => {
-  const color = getTeamColor(team, tIdx)
   return {
-    backgroundColor: color,
-    color: '#ffffff'
+    backgroundColor: '#f8fafc',
+    color: '#1e293b',
+    borderBottom: '2px solid #e2e8f0'
   }
 }
 
@@ -338,7 +337,7 @@ const getSlotRoleSummary = (slot) => {
   letter-spacing: 0.5px;
 }
 
-/* 中間可編輯備註 (居中對齊，極簡無按鈕) */
+/* 中間可編輯備註區 (全框 100% 寬度可點擊) */
 .top-editable-banner-box {
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -347,18 +346,23 @@ const getSlotRoleSummary = (slot) => {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-.banner-display-text {
+  width: 100%;
   cursor: pointer;
+  box-sizing: border-box;
+}
+.top-editable-banner-box:hover {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.banner-display-text {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   font-weight: bold;
   color: #1e293b;
-}
-.banner-display-text:hover {
-  color: #2563eb;
+  min-height: 24px;
 }
 .banner-edit-container {
   display: flex;
@@ -370,11 +374,11 @@ const getSlotRoleSummary = (slot) => {
   flex: 1;
   border: 1px solid #3b82f6;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   outline: none;
   font-weight: bold;
   color: #1e293b;
-  background: #f0f9ff;
+  background: #ffffff;
 }
 .text-center {
   text-align: center;
@@ -386,7 +390,7 @@ const getSlotRoleSummary = (slot) => {
   align-items: center;
   gap: 4px;
   background: #f1f5f9;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
   border: 1px solid #cbd5e1;
 }
@@ -401,7 +405,9 @@ const getSlotRoleSummary = (slot) => {
   font-weight: bold;
 }
 .btn-font-size:hover {
-  background: #e2e8f0;
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
 }
 .size-label {
   font-size: 11px;
@@ -445,22 +451,30 @@ const getSlotRoleSummary = (slot) => {
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
+  transition: background 0.15s;
 }
+.spreadsheet-team-header-bar:hover {
+  background: #f1f5f9 !important;
+}
+
 .team-header-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.team-color-dot-white {
-  width: 10px;
-  height: 10px;
+.team-color-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background-color: #ffffff;
   display: inline-block;
+}
+.team-name-text {
+  color: #1e293b;
+  font-weight: bold;
 }
 .header-edit-pencil {
   font-size: 16px;
-  opacity: 0.8;
+  color: #94a3b8;
   margin-left: 8px;
 }
 
@@ -526,6 +540,7 @@ const getSlotRoleSummary = (slot) => {
   filter: brightness(0.96);
 }
 
+/* 高對比文字，防職業底色洗掉字體 */
 .member-cell {
   display: flex;
   align-items: center;
@@ -562,7 +577,7 @@ const getSlotRoleSummary = (slot) => {
   text-overflow: ellipsis;
 }
 
-/* 團隊備註與可編輯備註區 */
+/* 團隊備註與可編輯備註區 (全區域皆可點擊進入編輯狀態) */
 .spreadsheet-team-footer {
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
@@ -581,6 +596,11 @@ const getSlotRoleSummary = (slot) => {
   border-radius: 6px;
   cursor: pointer;
   color: #1e293b;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
   transition: all 0.15s;
 }
 .note-display-box:hover {
@@ -602,6 +622,8 @@ const getSlotRoleSummary = (slot) => {
   padding: 6px 10px;
   border: 1px solid #3b82f6;
   border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .note-inline-input {
   flex: 1;
