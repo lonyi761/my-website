@@ -362,7 +362,7 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal -->
+    <!-- 2. 批量編輯 Modal (完全對齊新增 文字文件_4.txt 的正常版本) -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -370,7 +370,6 @@
           <span class="close-btn" @click="showBatchEditModal = false">&times;</span>
         </div>
         <div class="modal-body">
-          <!-- 頂部一鍵配置按鈕工具列 -->
           <div class="batch-toolbar-top">
             <span>已選 {{ selectedBatchMembers.length }} 人</span>
             <button class="btn-secondary-sm margin-l" @click="selectedBatchMembers = []">清空選擇</button>
@@ -409,7 +408,6 @@
                     <td class="font-bold">{{ m.name }}</td>
                     <td>{{ m.school }}</td>
                     
-                    <!-- 行別【職能】多選下拉 -->
                     <td>
                       <div class="custom-dropdown-container">
                         <div 
@@ -433,7 +431,6 @@
                       </div>
                     </td>
 
-                    <!-- 行別【絕技】單選下拉 -->
                     <td>
                       <div class="custom-dropdown-container">
                         <input type="text" v-model="m.jueji" placeholder="輸入或選擇絕技" class="table-inline-input" @click.stop />
@@ -448,7 +445,6 @@
                       </div>
                     </td>
 
-                    <!-- 行別【群俠百家】複選下拉 -->
                     <td>
                       <div class="custom-dropdown-container">
                         <input type="text" v-model="m.qunxia" placeholder="輸入或選擇群俠百家" class="table-inline-input" @click.stop />
@@ -469,7 +465,6 @@
                       </div>
                     </td>
 
-                    <!-- 行別【流派技能】複選下拉 -->
                     <td>
                       <div class="custom-dropdown-container">
                         <input type="text" v-model="m.zhuangbei" placeholder="輸入或選擇流派技能" class="table-inline-input" @click.stop />
@@ -1751,6 +1746,60 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
+// 【排表信息】多選 Helper (安全防錯)
+const isInfoQunxiaSelected = (qName) => {
+  if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
+  return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
+}
+
+const toggleInfoQunxia = (qName) => {
+  let list = (typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value) ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(qName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(qName)
+  tempSlotQunxia.value = list.join(', ')
+}
+
+const isInfoLiupaiSelected = (lName) => {
+  if (typeof tempSlotZhuangbei.value !== 'string' || !tempSlotZhuangbei.value) return false
+  return tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
+}
+
+const toggleInfoLiupai = (lName) => {
+  let list = (typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value) ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(lName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(lName)
+  tempSlotZhuangbei.value = list.join(', ')
+}
+
+// 【席位配置】多選 Helper (安全防錯)
+const isConfigQunxiaSelected = (qName) => {
+  if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
+  return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
+}
+
+const toggleConfigQunxia = (qName) => {
+  let list = (typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value) ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(qName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(qName)
+  tempConfigQunxia.value = list.join(', ')
+}
+
+const isConfigLiupaiSelected = (lName) => {
+  if (typeof tempConfigZhuangbei.value !== 'string' || !tempConfigZhuangbei.value) return false
+  return tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
+}
+
+const toggleConfigLiupai = (lName) => {
+  let list = (typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value) ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(lName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(lName)
+  tempConfigZhuangbei.value = list.join(', ')
+}
+
 const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotForModal.value = slot
   activeSlotTeamName.value = team.name
@@ -1896,7 +1945,7 @@ const saveFullMemberEdit = () => {
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal (空值防護機制)
+// 批量編輯 Modal (完全回歸新增 文字文件_4.txt 穩定機制 + 安全性加固)
 const showBatchEditModal = ref(false)
 const selectedBatchMembers = ref([])
 const batchMemberGroups = ref([])
@@ -1918,6 +1967,11 @@ const activeBatchDropdown = ref(null)
 const toggleBatchRowDropdown = (key) => {
   if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
   else activeBatchDropdown.value = key
+}
+
+const getRowSchoolBgStyle = (schoolName) => {
+  const bg = schoolColorMap[schoolName] || '#ffffff'
+  return { backgroundColor: bg }
 }
 
 const isBatchRowRoleSelected = (m, roleName) => {
@@ -2434,7 +2488,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal */
+/* 批量編輯 Modal (新增 文字文件_4.txt 預設樣式) */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; }
