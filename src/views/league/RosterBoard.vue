@@ -18,12 +18,10 @@
       
       <!-- ================= 左側：待選成員區塊 ================= -->
       <aside class="pending-sidebar">
-        <!-- 幫會資訊串接 -->
         <div class="guild-select-box">
           <span class="guild-name-display">{{ leagueInfo.guild || '百錵谷酒池肉林' }}</span>
         </div>
 
-        <!-- 搜尋與標題列 -->
         <div class="pending-filter-bar">
           <div class="pending-title-group">
             <div class="title-left-box">
@@ -31,7 +29,6 @@
               <button class="btn-icon-add" @click="openAddMemberModal" title="新增成員">+</button>
             </div>
 
-            <!-- 流派 / 全員 切換按鈕 -->
             <div class="pending-mode-toggle">
               <button 
                 :class="['mode-pill-btn', { active: pendingViewMode === 'school' }]" 
@@ -362,7 +359,7 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal -->
+    <!-- 2. 批量編輯 Modal (各列配置多選與選單) -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -370,7 +367,6 @@
           <span class="close-btn" @click="showBatchEditModal = false">&times;</span>
         </div>
         <div class="modal-body">
-          <!-- 頂部一鍵配置按鈕工具列 -->
           <div class="batch-toolbar-top">
             <span>已選 {{ selectedBatchMembers.length }} 人</span>
             <button class="btn-secondary-sm margin-l" @click="selectedBatchMembers = []">清空選擇</button>
@@ -409,7 +405,7 @@
                     <td class="font-bold">{{ m.name }}</td>
                     <td>{{ m.school }}</td>
                     
-                    <!-- 行別【職能】多選下拉 -->
+                    <!-- 行別【職能】多選下拉 (圖三對應) -->
                     <td>
                       <div class="custom-dropdown-container">
                         <div 
@@ -721,7 +717,7 @@
       </div>
     </div>
 
-    <!-- 4. 格子有人時：排表信息 Modal -->
+    <!-- 4. 格子有人時：排表信息 Modal (圖二對應) -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
@@ -767,6 +763,7 @@
             </div>
           </div>
 
+          <!-- 區塊名稱為：推薦技能 (圖二對應) -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 推薦技能</div>
             
@@ -785,6 +782,7 @@
               </div>
             </div>
 
+            <!-- 群俠百家 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -806,6 +804,7 @@
               </div>
             </div>
 
+            <!-- 流派技能 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -836,7 +835,7 @@
       </div>
     </div>
 
-    <!-- 5. 格子沒人時：席位配置 Modal -->
+    <!-- 5. 格子沒人時：席位配置 Modal (圖一對應) -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
       <div class="modal-card slot-modal-card" @click.stop>
         <div class="modal-header">
@@ -879,6 +878,7 @@
             </div>
           </div>
 
+          <!-- 區塊名稱為：推薦技能 (圖一對應) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
             
@@ -897,6 +897,7 @@
               </div>
             </div>
 
+            <!-- 群俠百家 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -918,6 +919,7 @@
               </div>
             </div>
 
+            <!-- 流派技能 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -1753,12 +1755,12 @@ const tempConfigDesc = ref('')
 
 // 【排表信息】多選 Helper
 const isInfoQunxiaSelected = (qName) => {
-  if (!tempSlotQunxia.value) return false
+  if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
   return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
 }
 
 const toggleInfoQunxia = (qName) => {
-  let list = tempSlotQunxia.value ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value) ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(qName)
@@ -1766,12 +1768,12 @@ const toggleInfoQunxia = (qName) => {
 }
 
 const isInfoLiupaiSelected = (lName) => {
-  if (!tempSlotZhuangbei.value) return false
+  if (typeof tempSlotZhuangbei.value !== 'string' || !tempSlotZhuangbei.value) return false
   return tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
 }
 
 const toggleInfoLiupai = (lName) => {
-  let list = tempSlotZhuangbei.value ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value) ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(lName)
@@ -1780,12 +1782,12 @@ const toggleInfoLiupai = (lName) => {
 
 // 【席位配置】多選 Helper
 const isConfigQunxiaSelected = (qName) => {
-  if (!tempConfigQunxia.value) return false
+  if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
   return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
 }
 
 const toggleConfigQunxia = (qName) => {
-  let list = tempConfigQunxia.value ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value) ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(qName)
@@ -1793,12 +1795,12 @@ const toggleConfigQunxia = (qName) => {
 }
 
 const isConfigLiupaiSelected = (lName) => {
-  if (!tempConfigZhuangbei.value) return false
+  if (typeof tempConfigZhuangbei.value !== 'string' || !tempConfigZhuangbei.value) return false
   return tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
 }
 
 const toggleConfigLiupai = (lName) => {
-  let list = tempConfigZhuangbei.value ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value) ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(lName)
@@ -1988,13 +1990,13 @@ const toggleBatchRowRole = (m, roleName) => {
 }
 
 const isBatchRowQunxiaSelected = (m, qName) => {
-  if (!m || typeof m.qunxia !== 'string') return false
+  if (!m || typeof m.qunxia !== 'string' || !m.qunxia) return false
   return m.qunxia.split(',').map(s => s.trim()).includes(qName)
 }
 
 const toggleBatchRowQunxia = (m, qName) => {
   if (!m) return
-  let list = (m.qunxia && typeof m.qunxia === 'string') ? m.qunxia.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof m.qunxia === 'string' && m.qunxia) ? m.qunxia.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(qName)
@@ -2002,13 +2004,13 @@ const toggleBatchRowQunxia = (m, qName) => {
 }
 
 const isBatchRowLiupaiSelected = (m, lName) => {
-  if (!m || typeof m.zhuangbei !== 'string') return false
+  if (!m || typeof m.zhuangbei !== 'string' || !m.zhuangbei) return false
   return m.zhuangbei.split(',').map(s => s.trim()).includes(lName)
 }
 
 const toggleBatchRowLiupai = (m, lName) => {
   if (!m) return
-  let list = (m.zhuangbei && typeof m.zhuangbei === 'string') ? m.zhuangbei.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof m.zhuangbei === 'string' && m.zhuangbei) ? m.zhuangbei.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
   if (idx > -1) list.splice(idx, 1)
   else list.push(lName)
@@ -2016,34 +2018,43 @@ const toggleBatchRowLiupai = (m, lName) => {
 }
 
 const openBatchEditModal = () => {
-  const groups = []
-  if (!matrixTeams.value || !Array.isArray(matrixTeams.value)) return
-  matrixTeams.value.forEach(team => {
-    if (!team || !Array.isArray(team.squads)) return
-    team.squads.forEach(squad => {
-      if (!squad || !Array.isArray(squad.slots)) return
-      const assignedSlots = squad.slots.filter(s => s && s.assignedMember)
-      if (assignedSlots.length > 0) {
-        groups.push({
-          title: `${team.name || ''}--${squad.name || ''}`,
-          members: assignedSlots.map(s => ({
-            slotId: s.id,
-            slotRef: s,
-            name: s.assignedMember?.name || '未知',
-            school: s.assignedMember?.currentSchool || '',
-            rolesList: Array.isArray(s.roles) ? [...s.roles] : [],
-            jueji: typeof s.jueji === 'string' ? s.jueji : '',
-            qunxia: typeof s.qunxia === 'string' ? s.qunxia : '',
-            zhuangbei: typeof s.zhuangbei === 'string' ? s.zhuangbei : ''
-          }))
-        })
-      }
-    })
-  })
-  batchMemberGroups.value = groups
-  selectedBatchMembers.value = []
-  showBatchEditModal.value = true
-  showOtherOpsDropdown.value = false
+  try {
+    const groups = []
+    if (Array.isArray(matrixTeams.value)) {
+      matrixTeams.value.forEach(team => {
+        if (team && Array.isArray(team.squads)) {
+          team.squads.forEach(squad => {
+            if (squad && Array.isArray(squad.slots)) {
+              const assignedSlots = squad.slots.filter(s => s && s.assignedMember)
+              if (assignedSlots.length > 0) {
+                groups.push({
+                  title: `${team.name || ''}--${squad.name || ''}`,
+                  members: assignedSlots.map(s => ({
+                    slotId: s.id || Math.random(),
+                    slotRef: s,
+                    name: s.assignedMember?.name || '未知',
+                    school: s.assignedMember?.currentSchool || '鐵衣',
+                    rolesList: Array.isArray(s.roles) ? [...s.roles] : [],
+                    jueji: typeof s.jueji === 'string' ? s.jueji : '',
+                    qunxia: typeof s.qunxia === 'string' ? s.qunxia : '',
+                    zhuangbei: typeof s.zhuangbei === 'string' ? s.zhuangbei : ''
+                  }))
+                })
+              }
+            }
+          })
+        }
+      })
+    }
+    batchMemberGroups.value = groups
+    selectedBatchMembers.value = []
+    activeBatchDropdown.value = null
+    showBatchEditModal.value = true
+    showOtherOpsDropdown.value = false
+  } catch (err) {
+    console.error("批量編輯開啟失敗:", err)
+    alert("批量編輯資料載入失敗，請稍後重試。")
+  }
 }
 
 const toggleGroupBatchSelect = (group, event) => {
@@ -2110,12 +2121,12 @@ const openBatchQunxiaSelectModal = () => {
 }
 
 const isBatchQunxiaPillSelected = (q) => {
-  if (!tempBatchQunxiaVal.value) return false
+  if (typeof tempBatchQunxiaVal.value !== 'string' || !tempBatchQunxiaVal.value) return false
   return tempBatchQunxiaVal.value.split(',').map(s => s.trim()).includes(q)
 }
 
 const toggleBatchQunxiaPill = (q) => {
-  let list = tempBatchQunxiaVal.value ? tempBatchQunxiaVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof tempBatchQunxiaVal.value === 'string' && tempBatchQunxiaVal.value) ? tempBatchQunxiaVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(q)
   if (idx > -1) list.splice(idx, 1)
   else list.push(q)
@@ -2143,12 +2154,12 @@ const openBatchLiupaiSelectModal = () => {
 }
 
 const isBatchLiupaiPillSelected = (l) => {
-  if (!tempBatchLiupaiVal.value) return false
+  if (typeof tempBatchLiupaiVal.value !== 'string' || !tempBatchLiupaiVal.value) return false
   return tempBatchLiupaiVal.value.split(',').map(s => s.trim()).includes(l)
 }
 
 const toggleBatchLiupaiPill = (l) => {
-  let list = tempBatchLiupaiVal.value ? tempBatchLiupaiVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  let list = (typeof tempBatchLiupaiVal.value === 'string' && tempBatchLiupaiVal.value) ? tempBatchLiupaiVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(l)
   if (idx > -1) list.splice(idx, 1)
   else list.push(l)
@@ -2506,7 +2517,6 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
 .confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
 
-/* 按鈕按順序：確定在左/前面，取消在右/後面 */
 .modal-footer.space-between, .confirm-modal-footer.space-between { display: flex; justify-content: flex-end; gap: 16px; margin-top: 20px; }
 
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 18px; border-radius: 6px; font-size: 12px; cursor: pointer; }
