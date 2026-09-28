@@ -197,7 +197,7 @@
           </div>
         </div>
 
-        <!-- ★ 新增：上陣職業數量統計欄 (插入於工具列與團隊矩陣之間 - 圖四) ★ -->
+        <!-- 上陣職業數量統計欄 -->
         <div class="onboard-stats-bar">
           <span class="stats-bar-title">上陣職業統計：</span>
           <div class="stats-icons-list">
@@ -362,7 +362,7 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯 Modal (各職業專屬底色) -->
+    <!-- 2. 批量編輯 Modal (圖三對應：各行皆配置獨立複選下拉選單) -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card batch-modal-card">
         <div class="modal-header">
@@ -370,7 +370,6 @@
           <span class="close-btn" @click="showBatchEditModal = false">&times;</span>
         </div>
         <div class="modal-body">
-          <!-- 頂部一鍵配置按鈕工具列 -->
           <div class="batch-toolbar-top">
             <span>已選 {{ selectedBatchMembers.length }} 人</span>
             <button class="btn-secondary-sm margin-l" @click="selectedBatchMembers = []">清空選擇</button>
@@ -381,7 +380,6 @@
             <button class="btn-primary-sm margin-l" @click="openBatchLiupaiSelectModal">配置流派技能</button>
           </div>
 
-          <!-- 表格清單 -->
           <div class="batch-table-container margin-t">
             <div v-for="group in batchMemberGroups" :key="group.title" class="batch-group-block">
               <div class="batch-group-title">
@@ -392,10 +390,10 @@
                 <thead>
                   <tr>
                     <th width="40"></th>
-                    <th width="100">成員</th>
-                    <th width="80">流派</th>
-                    <th>職能</th>
-                    <th>絕技</th>
+                    <th width="90">成員</th>
+                    <th width="70">流派</th>
+                    <th width="180">職能</th>
+                    <th width="130">絕技</th>
                     <th>群俠百家</th>
                     <th>流派技能</th>
                   </tr>
@@ -409,14 +407,87 @@
                     <td><input type="checkbox" :value="m.slotId" v-model="selectedBatchMembers" /></td>
                     <td class="font-bold">{{ m.name }}</td>
                     <td>{{ m.school }}</td>
+                    
+                    <!-- 行別【職能】多選下拉 (圖三對應) -->
                     <td>
-                      <div class="batch-roles-display">
-                        {{ m.rolesList.length > 0 ? m.rolesList.join('、') : '未配置職能' }}
+                      <div class="custom-dropdown-container">
+                        <div 
+                          class="batch-roles-display clickable-select"
+                          @click.stop="toggleBatchRowDropdown('role_' + m.slotId)"
+                        >
+                          <span class="text-truncate">{{ m.rolesList.length > 0 ? m.rolesList.join('、') : '選擇職能' }}</span>
+                          <i class="mdi mdi-chevron-down select-arrow"></i>
+                        </div>
+                        <div v-if="activeBatchDropdown === ('role_' + m.slotId)" class="skill-dropdown-panel" @click.stop>
+                          <div 
+                            v-for="r in personalRoleOptions" 
+                            :key="r" 
+                            :class="['dropdown-item', { selected: isBatchRowRoleSelected(m, r) }]"
+                            @click.stop="toggleBatchRowRole(m, r)"
+                          >
+                            <span>{{ r }}</span>
+                            <i v-if="isBatchRowRoleSelected(m, r)" class="mdi mdi-check check-icon"></i>
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td><input type="text" v-model="m.jueji" placeholder="輸入或選擇絕技" class="table-inline-input" /></td>
-                    <td><input type="text" v-model="m.qunxia" placeholder="輸入或選擇群俠百家" class="table-inline-input" /></td>
-                    <td><input type="text" v-model="m.zhuangbei" placeholder="輸入或選擇流派技能" class="table-inline-input" /></td>
+
+                    <!-- 行別【絕技】單選下拉 -->
+                    <td>
+                      <div class="custom-dropdown-container">
+                        <input type="text" v-model="m.jueji" placeholder="輸入或選擇絕技" class="table-inline-input" @click.stop />
+                        <button type="button" class="dropdown-toggle-btn" @click.stop="toggleBatchRowDropdown('jueji_' + m.slotId)">
+                          <i :class="['mdi', 'mdi-chevron-down', { rotate: activeBatchDropdown === ('jueji_' + m.slotId) }]"></i>
+                        </button>
+                        <div v-if="activeBatchDropdown === ('jueji_' + m.slotId)" class="skill-dropdown-panel" @click.stop>
+                          <div v-for="j in juejiOptions" :key="j" class="dropdown-item" @click.stop="m.jueji = j; activeBatchDropdown = null">
+                            {{ j }}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <!-- 行別【群俠百家】複選下拉 -->
+                    <td>
+                      <div class="custom-dropdown-container">
+                        <input type="text" v-model="m.qunxia" placeholder="輸入或選擇群俠百家" class="table-inline-input" @click.stop />
+                        <button type="button" class="dropdown-toggle-btn" @click.stop="toggleBatchRowDropdown('qunxia_' + m.slotId)">
+                          <i :class="['mdi', 'mdi-chevron-down', { rotate: activeBatchDropdown === ('qunxia_' + m.slotId) }]"></i>
+                        </button>
+                        <div v-if="activeBatchDropdown === ('qunxia_' + m.slotId)" class="skill-dropdown-panel" @click.stop>
+                          <div 
+                            v-for="q in qunxiaOptions" 
+                            :key="q" 
+                            :class="['dropdown-item', { selected: isBatchRowQunxiaSelected(m, q) }]"
+                            @click.stop="toggleBatchRowQunxia(m, q)"
+                          >
+                            <span>{{ q }}</span>
+                            <i v-if="isBatchRowQunxiaSelected(m, q)" class="mdi mdi-check check-icon"></i>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <!-- 行別【流派技能】複選下拉 -->
+                    <td>
+                      <div class="custom-dropdown-container">
+                        <input type="text" v-model="m.zhuangbei" placeholder="輸入或選擇流派技能" class="table-inline-input" @click.stop />
+                        <button type="button" class="dropdown-toggle-btn" @click.stop="toggleBatchRowDropdown('liupai_' + m.slotId)">
+                          <i :class="['mdi', 'mdi-chevron-down', { rotate: activeBatchDropdown === ('liupai_' + m.slotId) }]"></i>
+                        </button>
+                        <div v-if="activeBatchDropdown === ('liupai_' + m.slotId)" class="skill-dropdown-panel" @click.stop>
+                          <div 
+                            v-for="l in liupaiSkillOptions" 
+                            :key="l" 
+                            :class="['dropdown-item', { selected: isBatchRowLiupaiSelected(m, l) }]"
+                            @click.stop="toggleBatchRowLiupai(m, l)"
+                          >
+                            <span>{{ l }}</span>
+                            <i v-if="isBatchRowLiupaiSelected(m, l)" class="mdi mdi-check check-icon"></i>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -430,7 +501,7 @@
       </div>
     </div>
 
-    <!-- 2-A. 批量【職能】多選 Modal (按鈕：確定在左，取消在右 - 圖五/圖六) -->
+    <!-- 2-A. 批量【職能】多選 Modal -->
     <div v-if="showBatchRoleDialog" class="modal-overlay" @click.self="showBatchRoleDialog = false">
       <div class="modal-card small-card wide-dialog">
         <div class="modal-header">
@@ -478,7 +549,7 @@
       </div>
     </div>
 
-    <!-- 2-C. 批量【群俠百家】Modal (多選 + 自訂) -->
+    <!-- 2-C. 批量【群俠百家】Modal -->
     <div v-if="showBatchQunxiaDialog" class="modal-overlay" @click.self="showBatchQunxiaDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -506,7 +577,7 @@
       </div>
     </div>
 
-    <!-- 2-D. 批量【流派技能】Modal (多選 + 自訂) -->
+    <!-- 2-D. 批量【流派技能】Modal -->
     <div v-if="showBatchLiupaiDialog" class="modal-overlay" @click.self="showBatchLiupaiDialog = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -534,7 +605,7 @@
       </div>
     </div>
 
-    <!-- 3. 編輯團隊 Modal (含「移除團隊」按鈕) -->
+    <!-- 3. 編輯團隊 Modal -->
     <div v-if="showEditTeamModal" class="modal-overlay" @click.self="showEditTeamModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -558,7 +629,6 @@
           </div>
 
           <div v-if="currentEditingTeam" class="edit-team-content-body margin-t">
-            <!-- 團隊名稱 + 移除團隊按鈕 -->
             <div class="form-row">
               <label><span class="req">*</span>團隊名稱：</label>
               <input 
@@ -650,7 +720,7 @@
       </div>
     </div>
 
-    <!-- 4. 格子有人時：排表信息 Modal -->
+    <!-- 4. 格子有人時：排表信息 Modal (圖二對應) -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
@@ -696,8 +766,9 @@
             </div>
           </div>
 
+          <!-- 區塊名稱為：推薦技能 (圖二對應) -->
           <div class="form-block margin-t">
-            <div class="block-title">◆ 配裝信息</div>
+            <div class="block-title">◆ 推薦技能</div>
             
             <div class="skill-input-row margin-t">
               <label>絕技：</label>
@@ -714,6 +785,7 @@
               </div>
             </div>
 
+            <!-- 群俠百家 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -722,13 +794,20 @@
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia_info' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'qunxia_info'" class="skill-dropdown-panel" @click.stop>
-                  <div v-for="q in qunxiaOptions" :key="q" class="dropdown-item" @mousedown.prevent.stop="tempSlotQunxia = q; activeSkillDropdown = null">
-                    {{ q }}
+                  <div 
+                    v-for="q in qunxiaOptions" 
+                    :key="q" 
+                    :class="['dropdown-item', { selected: isInfoQunxiaSelected(q) }]" 
+                    @mousedown.prevent.stop="toggleInfoQunxia(q)"
+                  >
+                    <span>{{ q }}</span>
+                    <i v-if="isInfoQunxiaSelected(q)" class="mdi mdi-check check-icon"></i>
                   </div>
                 </div>
               </div>
             </div>
 
+            <!-- 流派技能 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -737,8 +816,14 @@
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'liupai_info' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'liupai_info'" class="skill-dropdown-panel" @click.stop>
-                  <div v-for="l in liupaiSkillOptions" :key="l" class="dropdown-item" @mousedown.prevent.stop="tempSlotZhuangbei = l; activeSkillDropdown = null">
-                    {{ l }}
+                  <div 
+                    v-for="l in liupaiSkillOptions" 
+                    :key="l" 
+                    :class="['dropdown-item', { selected: isInfoLiupaiSelected(l) }]" 
+                    @mousedown.prevent.stop="toggleInfoLiupai(l)"
+                  >
+                    <span>{{ l }}</span>
+                    <i v-if="isInfoLiupaiSelected(l)" class="mdi mdi-check check-icon"></i>
                   </div>
                 </div>
               </div>
@@ -753,7 +838,7 @@
       </div>
     </div>
 
-    <!-- 5. 格子沒人時：席位配置 Modal -->
+    <!-- 5. 格子沒人時：席位配置 Modal (圖一對應) -->
     <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
       <div class="modal-card slot-modal-card" @click.stop>
         <div class="modal-header">
@@ -796,6 +881,7 @@
             </div>
           </div>
 
+          <!-- 區塊名稱為：推薦技能 (圖一對應) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
             
@@ -814,6 +900,7 @@
               </div>
             </div>
 
+            <!-- 群俠百家 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
@@ -822,13 +909,20 @@
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia_cfg' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'qunxia_cfg'" class="skill-dropdown-panel" @click.stop>
-                  <div v-for="q in qunxiaOptions" :key="q" class="dropdown-item" @mousedown.prevent.stop="tempConfigQunxia = q; activeSkillDropdown = null">
-                    {{ q }}
+                  <div 
+                    v-for="q in qunxiaOptions" 
+                    :key="q" 
+                    :class="['dropdown-item', { selected: isConfigQunxiaSelected(q) }]" 
+                    @mousedown.prevent.stop="toggleConfigQunxia(q)"
+                  >
+                    <span>{{ q }}</span>
+                    <i v-if="isConfigQunxiaSelected(q)" class="mdi mdi-check check-icon"></i>
                   </div>
                 </div>
               </div>
             </div>
 
+            <!-- 流派技能 (複選下拉修復) -->
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
@@ -837,8 +931,14 @@
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'liupai_cfg' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'liupai_cfg'" class="skill-dropdown-panel" @click.stop>
-                  <div v-for="l in liupaiSkillOptions" :key="l" class="dropdown-item" @mousedown.prevent.stop="tempConfigZhuangbei = l; activeSkillDropdown = null">
-                    {{ l }}
+                  <div 
+                    v-for="l in liupaiSkillOptions" 
+                    :key="l" 
+                    :class="['dropdown-item', { selected: isConfigLiupaiSelected(l) }]" 
+                    @mousedown.prevent.stop="toggleConfigLiupai(l)"
+                  >
+                    <span>{{ l }}</span>
+                    <i v-if="isConfigLiupaiSelected(l)" class="mdi mdi-check check-icon"></i>
                   </div>
                 </div>
               </div>
@@ -1168,6 +1268,7 @@ const closeAllSkillDropdowns = () => {
   activeSkillDropdown.value = null
   showOtherOpsDropdown.value = false
   showTemplateDropdown.value = false
+  activeBatchDropdown.value = null
 }
 
 const showSecondarySchool = ref(false)
@@ -1377,7 +1478,7 @@ function createDefaultSlots() {
   }))
 }
 
-// 計算當前已放上盤面的各職業上陣人數 (圖四對應)
+// 計算當前已放上盤面的各職業上陣人數
 const schoolAssignedCounts = computed(() => {
   const counts = {}
   availableSchools.forEach(s => counts[s.name] = 0)
@@ -1387,11 +1488,8 @@ const schoolAssignedCounts = computed(() => {
       squad.slots.forEach(slot => {
         if (slot.assignedMember && slot.assignedMember.currentSchool) {
           const sch = slot.assignedMember.currentSchool
-          if (counts[sch] !== undefined) {
-            counts[sch]++
-          } else {
-            counts[sch] = 1
-          }
+          if (counts[sch] !== undefined) counts[sch]++
+          else counts[sch] = 1
         }
       })
     })
@@ -1645,6 +1743,56 @@ const tempConfigQunxia = ref('')
 const tempConfigZhuangbei = ref('')
 const tempConfigDesc = ref('')
 
+// 【排表信息】多選 Helper
+const isInfoQunxiaSelected = (qName) => {
+  return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
+}
+
+const toggleInfoQunxia = (qName) => {
+  let list = tempSlotQunxia.value ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(qName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(qName)
+  tempSlotQunxia.value = list.join(', ')
+}
+
+const isInfoLiupaiSelected = (lName) => {
+  return tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
+}
+
+const toggleInfoLiupai = (lName) => {
+  let list = tempSlotZhuangbei.value ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(lName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(lName)
+  tempSlotZhuangbei.value = list.join(', ')
+}
+
+// 【席位配置】多選 Helper
+const isConfigQunxiaSelected = (qName) => {
+  return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
+}
+
+const toggleConfigQunxia = (qName) => {
+  let list = tempConfigQunxia.value ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(qName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(qName)
+  tempConfigQunxia.value = list.join(', ')
+}
+
+const isConfigLiupaiSelected = (lName) => {
+  return tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
+}
+
+const toggleConfigLiupai = (lName) => {
+  let list = tempConfigZhuangbei.value ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(lName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(lName)
+  tempConfigZhuangbei.value = list.join(', ')
+}
+
 const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotForModal.value = slot
   activeSlotTeamName.value = team.name
@@ -1807,9 +1955,45 @@ const tempBatchQunxiaVal = ref('')
 const showBatchLiupaiDialog = ref(false)
 const tempBatchLiupaiVal = ref('')
 
-const getRowSchoolBgStyle = (schoolName) => {
-  const bg = schoolColorMap[schoolName] || '#ffffff'
-  return { backgroundColor: bg }
+const activeBatchDropdown = ref(null)
+
+const toggleBatchRowDropdown = (key) => {
+  if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
+  else activeBatchDropdown.value = key
+}
+
+const isBatchRowRoleSelected = (m, roleName) => {
+  return m.rolesList.includes(roleName)
+}
+
+const toggleBatchRowRole = (m, roleName) => {
+  const idx = m.rolesList.indexOf(roleName)
+  if (idx > -1) m.rolesList.splice(idx, 1)
+  else m.rolesList.push(roleName)
+}
+
+const isBatchRowQunxiaSelected = (m, qName) => {
+  return m.qunxia.split(',').map(s => s.trim()).includes(qName)
+}
+
+const toggleBatchRowQunxia = (m, qName) => {
+  let list = m.qunxia ? m.qunxia.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(qName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(qName)
+  m.qunxia = list.join(', ')
+}
+
+const isBatchRowLiupaiSelected = (m, lName) => {
+  return m.zhuangbei.split(',').map(s => s.trim()).includes(lName)
+}
+
+const toggleBatchRowLiupai = (m, lName) => {
+  let list = m.zhuangbei ? m.zhuangbei.split(',').map(s => s.trim()).filter(Boolean) : []
+  const idx = list.indexOf(lName)
+  if (idx > -1) list.splice(idx, 1)
+  else list.push(lName)
+  m.zhuangbei = list.join(', ')
 }
 
 const openBatchEditModal = () => {
@@ -1891,7 +2075,7 @@ const applyBatchJuejiSelection = () => {
   showBatchJuejiDialog.value = false
 }
 
-// 批量【群俠百家】Modal 控制 (多選 + 自訂)
+// 批量【群俠百家】Modal 控制
 const openBatchQunxiaSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
   tempBatchQunxiaVal.value = '咚咚跳台'
@@ -1921,7 +2105,7 @@ const applyBatchQunxiaSelection = () => {
   showBatchQunxiaDialog.value = false
 }
 
-// 批量【流派技能】Modal 控制 (多選 + 自訂)
+// 批量【流派技能】Modal 控制
 const openBatchLiupaiSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
   tempBatchLiupaiVal.value = '清泉'
@@ -1965,7 +2149,7 @@ const saveBatchEdit = () => {
   showBatchEditModal.value = false
 }
 
-// 置中清空陣容 Modal
+// 置中刪除確認 Modal
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -2006,7 +2190,6 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// 選擇陣容模板下拉
 const showTemplateDropdown = ref(false)
 const appliedTemplateName = ref('')
 
@@ -2120,7 +2303,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .dropdown-item:hover { background: #f1f5f9; }
 
-/* ★ 上陣職業數量統計欄 (圖四對應) ★ */
+/* 上陣職業數量統計欄 */
 .onboard-stats-bar { display: flex; align-items: center; gap: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .stats-bar-title { font-size: 12px; font-weight: bold; color: #475569; }
 .stats-icons-list { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -2213,7 +2396,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .slot-info-modal { width: 500px; max-height: 85vh; overflow-y: auto; }
 .slot-modal-card { width: 520px; max-height: 85vh; overflow-y: auto; }
 .large-card { width: 680px; max-height: 85vh; overflow-y: auto; }
-.wide-card { width: 780px; max-height: 85vh; overflow-y: auto; }
+.wide-card { width: 840px; max-height: 85vh; overflow-y: auto; }
 .wide-swap-card { width: 440px; }
 
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -2258,7 +2441,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal (圖五對應) */
+/* 批量編輯 Modal (圖三/圖五對應) */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; }
@@ -2268,9 +2451,10 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .batch-table th, .batch-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
 .batch-table th { background: #ffffff; color: #64748b; font-weight: 600; }
 .table-inline-input { width: 100%; padding: 4px 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; box-sizing: border-box; outline: none; background: white; }
-.batch-roles-display { border: 1px solid #cbd5e1; background: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; min-height: 20px; color: #334155; }
+.batch-roles-display { border: 1px solid #cbd5e1; background: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; min-height: 20px; color: #334155; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
 
 .full-w { width: 100%; }
+.text-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 
 /* 交換團隊 Modal */
 .swap-checkbox-list { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; }
@@ -2283,15 +2467,13 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .warning-icon { font-size: 28px; color: #d97706; }
 .confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
 .confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
-.confirm-modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 
-/* 按鈕按順序 (確定在左，取消在右 - 圖五/圖六) */
-.modal-footer.space-between { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
-.gap-large { gap: 16px; }
+/* 按鈕按順序：確定在左/前面，取消在右/後面 (圖五/圖六對應) */
+.modal-footer.space-between, .confirm-modal-footer.space-between { display: flex; justify-content: flex-end; gap: 16px; margin-top: 20px; }
 
-.btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 18px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .btn-primary.btn-red { background: #ef4444; }
-.btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 18px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
 .text-left { text-align: left; }
