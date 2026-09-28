@@ -11,7 +11,7 @@
     <!-- 主要內容區 -->
     <div class="league-main">
 
-      <!-- ================= 1. 聯賽列表視圖 (圖六) ================= -->
+      <!-- ================= 1. 聯賽列表視圖 ================= -->
       <div v-if="currentView === 'list'">
         <!-- 頂部工具列 -->
         <div class="league-header-bar">
@@ -139,7 +139,7 @@
           </div>
         </div>
 
-        <!-- 表格列表 (對應圖六美化排版) -->
+        <!-- 表格列表 -->
         <div class="table-container margin-t">
           <table class="data-table">
             <thead>
@@ -152,7 +152,7 @@
                 <th>對陣幫會</th>
                 <th>比賽結果</th>
                 <th>備註</th>
-                <th width="180">操作</th>
+                <th width="170">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -197,12 +197,18 @@
 
                 <td class="text-gray">{{ item.notes || '—' }}</td>
 
-                <!-- 圖六操作欄位美化 -->
+                <!-- 操作欄位修訂：編輯與刪除改為上下排列 -->
                 <td>
-                  <button class="btn-pill-blue" @click="openRoster(item)">排表</button>
-                  <button class="btn-pill-gray margin-l">數據</button>
-                  <button class="btn-link margin-l" @click="openEditView(item)">編輯</button>
-                  <button class="btn-link text-red margin-l" @click="confirmDeleteLeague(item)">刪除</button>
+                  <div class="action-cell-container">
+                    <div class="action-pill-buttons">
+                      <button class="btn-pill-blue" @click="openRoster(item)">排表</button>
+                      <button class="btn-pill-gray">數據</button>
+                    </div>
+                    <div class="action-link-stacked">
+                      <button class="btn-link" @click="openEditView(item)">編輯</button>
+                      <button class="btn-link text-red" @click="confirmDeleteLeague(item)">刪除</button>
+                    </div>
+                  </div>
                 </td>
               </tr>
               <tr v-if="filteredLeagueList.length === 0">
@@ -213,7 +219,7 @@
         </div>
       </div>
 
-      <!-- ================= 2. 新建 / 編輯聯賽視圖 (圖一) ================= -->
+      <!-- ================= 2. 新建 / 編輯聯賽視圖 ================= -->
       <div v-else-if="currentView === 'form'" class="create-league-container">
         <div class="create-header-bar">
           <div class="back-title-group">
@@ -269,7 +275,7 @@
               </div>
             </div>
 
-            <!-- 開始時間與場次 (圖二 & 圖三) -->
+            <!-- 開始時間與場次 (修訂：僅保留 20:00 與 20:30 兩種時間) -->
             <div class="form-row margin-t">
               <label><span class="req">*</span>開始時間：</label>
               <div class="time-picker-group">
@@ -280,7 +286,7 @@
                     <span>{{ leagueForm.date || '選擇日期' }}</span>
                   </div>
 
-                  <!-- 視覺化月曆彈窗 (圖二) -->
+                  <!-- 視覺化月曆彈窗 -->
                   <div v-if="showDatePicker" class="calendar-popover-panel">
                     <div class="calendar-head">
                       <span class="cal-nav-btn" @click="changeMonth(-1)">&lt;</span>
@@ -303,7 +309,7 @@
                   </div>
                 </div>
 
-                <!-- 時刻選擇器 (圖三) -->
+                <!-- 時刻選擇器 (限定 20:00 與 20:30) -->
                 <div class="time-select-wrapper" @click.stop>
                   <div class="picker-input-box" @click="showTimePicker = !showTimePicker">
                     <span>{{ leagueForm.time }}</span>
@@ -311,7 +317,7 @@
                   </div>
                   <div v-if="showTimePicker" class="time-dropdown-panel">
                     <div 
-                      v-for="t in ['19:30', '20:00', '20:30', '21:00']" 
+                      v-for="t in ['20:00', '20:30']" 
                       :key="t" 
                       :class="['time-item', { selected: leagueForm.time === t }]"
                       @click="selectTime(t)"
@@ -346,7 +352,7 @@
             </div>
           </div>
 
-          <!-- 卡片 2: 報名與排表 (圖四對應) -->
+          <!-- 卡片 2: 報名與排表 -->
           <div class="form-card-block margin-t">
             <h3 class="card-block-title">報名與排表</h3>
 
@@ -375,7 +381,7 @@
 
     <!-- ================= 彈窗組件 ================= -->
 
-    <!-- 1. 複製已有聯賽 Modal (圖五對應) -->
+    <!-- 1. 複製已有聯賽 Modal (修訂：時間選單限定 20:00 與 20:30) -->
     <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -398,7 +404,10 @@
           <div class="form-row margin-t">
             <label><span class="req">*</span>新日期：</label>
             <input type="date" v-model="copyNewDate" class="flex-1 input-field" />
-            <input type="time" v-model="copyNewTime" class="margin-l input-field w-100" />
+            <select v-model="copyNewTime" class="margin-l select-field w-110">
+              <option value="20:00">20:00</option>
+              <option value="20:30">20:30</option>
+            </select>
           </div>
 
           <div class="form-row margin-t">
@@ -413,7 +422,7 @@
       </div>
     </div>
 
-    <!-- 2. 排表展示 Modal (圖四對應) -->
+    <!-- 2. 排表展示 Modal -->
     <div v-if="showRosterDisplayModal" class="modal-overlay" @click.self="showRosterDisplayModal = false">
       <div class="modal-card medium-card">
         <div class="modal-header">
@@ -559,7 +568,7 @@ const router = useRouter()
 const isDarkMode = ref(false)
 const username = ref('VIP')
 
-const currentView = ref('list') // 'list' | 'form'
+const currentView = ref('list')
 const editingLeagueId = ref(null)
 
 // 篩選與選項
@@ -586,7 +595,7 @@ const filterSortLabel = computed(() => {
   return found ? found.label : '創建時間倒序'
 })
 
-// 預設填選好的 2 組完整賽程 (圖六)
+// 聯賽清單預設資料
 const leagueList = ref([
   {
     id: 1,
@@ -641,10 +650,10 @@ const leagueForm = ref({
 
 const saveAsDefault = ref(false)
 
-// 月曆視覺化元件狀態 (圖二)
+// 月曆視覺化元件狀態
 const showDatePicker = ref(false)
 const calYear = ref(2026)
-const calMonth = ref(9) // 0-based, 9是10月
+const calMonth = ref(9)
 
 const toggleDatePicker = () => {
   showDatePicker.value = !showDatePicker.value
@@ -661,13 +670,11 @@ const calendarDays = computed(() => {
   const days = []
   const firstDay = new Date(calYear.value, calMonth.value, 1).getDay()
   const totalDays = new Date(calYear.value, calMonth.value + 1, 0).getDate()
-
-  // 填補上個月尾數
   const prevMonthTotal = new Date(calYear.value, calMonth.value, 0).getDate()
+
   for (let i = firstDay - 1; i >= 0; i--) {
     days.push({ dayNum: prevMonthTotal - i, isCurrentMonth: false, dateStr: '' })
   }
-  // 當月天數
   for (let i = 1; i <= totalDays; i++) {
     const mStr = String(calMonth.value + 1).padStart(2, '0')
     const dStr = String(i).padStart(2, '0')
@@ -683,14 +690,14 @@ const selectDate = (dateStr) => {
   }
 }
 
-// 時間下拉狀態 (圖三)
+// 時間下拉狀態 (修訂：僅提供 20:00 與 20:30)
 const showTimePicker = ref(false)
 const selectTime = (t) => {
   leagueForm.value.time = t
   showTimePicker.value = false
 }
 
-// 排表展示 Modal (圖四)
+// 排表展示 Modal
 const showRosterDisplayModal = ref(false)
 const rosterConfig = ref({
   visibility: '全部團隊',
@@ -707,11 +714,11 @@ const rosterDisplaySummary = computed(() => {
   return `${rosterConfig.value.visibility} · ${rosterConfig.value.cardBadges.join('、')}`
 })
 
-// 複製已有 Modal (圖五)
+// 複製已有 Modal
 const showCopyModal = ref(false)
 const copySourceId = ref('')
 const copyNewDate = ref('2026-10-24')
-const copyNewTime = ref('20:00')
+const copyNewTime = ref('20:00') // 修訂：預設 20:00
 const copyNewTitle = ref('')
 
 const sortedLeagueListForCopy = computed(() => {
@@ -741,7 +748,7 @@ const executeCopyLeague = () => {
   currentView.value = 'list'
 }
 
-// 編輯與新建視圖控制
+// 視圖控制
 const openCreateView = () => {
   editingLeagueId.value = null
   leagueForm.value = {
@@ -903,6 +910,7 @@ onMounted(() => {
 
 .league-main { flex: 1; max-width: 1400px; width: 100%; margin: 20px auto; padding: 0 20px; box-sizing: border-box; }
 
+/* 頂部工具列 */
 .league-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .page-title { margin: 0; font-size: 18px; font-weight: bold; color: #1e293b; }
 .header-right-tools { display: flex; align-items: center; gap: 12px; }
@@ -914,10 +922,12 @@ onMounted(() => {
 .btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 
+/* 篩選卡片 */
 .filter-card { background: #ffffff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .filter-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filter-input-text { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; width: 120px; }
 
+/* 下拉選單 */
 .custom-select-wrapper { position: relative; width: 140px; }
 .custom-select-input { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; min-height: 20px; }
 .placeholder-text { color: #94a3b8; }
@@ -932,6 +942,7 @@ onMounted(() => {
 
 .btn-query { background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #334155; }
 
+/* 表格欄位 */
 .table-container { background: #ffffff; border-radius: 8px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
@@ -957,12 +968,17 @@ onMounted(() => {
 .text-gray { color: #64748b; }
 .font-bold { font-weight: bold; }
 
+/* 操作欄位修訂：編輯與刪除改為上下排列 (圖四對應) */
+.action-cell-container { display: flex; align-items: center; gap: 12px; }
+.action-pill-buttons { display: flex; gap: 6px; }
+.action-link-stacked { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
 .btn-pill-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .btn-pill-gray { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
+.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
 
-/* 新建/編輯聯賽表單頁面 (圖一) */
+/* 新建/編輯聯賽表單頁面 */
 .create-league-container { background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .create-header-bar { display: flex; justify-content: space-between; align-items: center; }
 .back-title-group { display: flex; align-items: center; gap: 15px; }
@@ -1007,6 +1023,7 @@ onMounted(() => {
 .count-btn.active { background: #5b7db1; color: white; font-weight: bold; }
 
 .select-field, .input-field { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
+.w-110 { width: 110px; }
 
 .form-bottom-actions { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 15px; }
 .checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #475569; cursor: pointer; }
@@ -1023,9 +1040,7 @@ onMounted(() => {
 .form-row label { width: 90px; font-weight: bold; }
 .flex-1 { flex: 1; }
 .req { color: #ef4444; }
-.w-100 { width: 100px; }
 
-/* 排表展示 Modal (圖四) */
 .roster-setting-block { display: flex; flex-direction: column; gap: 8px; }
 .setting-title { font-weight: bold; font-size: 13px; color: #1e293b; }
 .pill-options-group { display: flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; width: fit-content; }
