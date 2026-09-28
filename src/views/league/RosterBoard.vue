@@ -1,6 +1,6 @@
 <template>
   <div class="roster-board-layout">
-    <!-- 頂部頁籤與引導 -->
+    <!-- 頂部頁籤與資訊 (圖一) -->
     <div class="roster-header-bar">
       <div class="header-left-info">
         <button class="btn-back-link" @click="$emit('back')">&lt; 返回聯賽列表</button>
@@ -16,14 +16,14 @@
 
     <div class="roster-main-container">
       
-      <!-- ================= 左側：待選成員區塊 (圖一 & 圖二) ================= -->
+      <!-- ================= 左側：待選成員區塊 (圖三) ================= -->
       <aside class="pending-sidebar">
-        <!-- 幫會切換與資訊 -->
+        <!-- 幫會資訊串接 -->
         <div class="guild-select-box">
-          <span class="guild-name-display">{{ guildName }}</span>
+          <span class="guild-name-display">{{ leagueInfo.guild || '百錵谷酒池肉林' }}</span>
         </div>
 
-        <!-- 搜尋與篩選列 -->
+        <!-- 搜尋與標題 -->
         <div class="pending-filter-bar">
           <div class="pending-title-group">
             <span class="pending-title">待選成員</span>
@@ -38,7 +38,7 @@
           />
         </div>
 
-        <!-- 流派 Icon 快篩列 (已排除鴻音) -->
+        <!-- 流派 Icon 快篩列 (已完全移除鴻音) -->
         <div class="school-icon-filter-row">
           <div 
             v-for="s in availableSchools" 
@@ -51,7 +51,7 @@
           </div>
         </div>
 
-        <!-- 按流派分類的待選成員列表 (圖二) -->
+        <!-- 按流派分類的待選成員手風琴列表 -->
         <div class="school-accordion-list">
           <div 
             v-for="s in filteredSchoolAccordion" 
@@ -68,7 +68,7 @@
               <i :class="['mdi', expandedSchools.includes(s.name) ? 'mdi-chevron-down' : 'mdi-chevron-right', 'accordion-arrow']"></i>
             </div>
 
-            <!-- 成員卡片清單 (支援拖拽進右側陣列) -->
+            <!-- 待選成員卡片 (點擊直接開啟圖四「編輯成員」彈窗；支援拖拽進右側) -->
             <div v-if="expandedSchools.includes(s.name)" class="accordion-body">
               <div 
                 v-for="m in getUnassignedMembersBySchool(s.name)" 
@@ -76,7 +76,8 @@
                 class="member-drag-card"
                 draggable="true"
                 @dragstart="onDragStartMember(m)"
-                @click="openMemberEditModal(m)"
+                @click="openFullMemberEditModal(m)"
+                title="按住拖拽至排表，或點擊編輯成員資料"
               >
                 <img :src="getSchoolImg(s.file)" class="drag-card-icon" />
                 <span class="drag-card-name">{{ m.name }}</span>
@@ -90,7 +91,7 @@
         </div>
       </aside>
 
-      <!-- ================= 右側：團隊矩陣排表區塊 (圖一 & 圖七 & 圖八) ================= -->
+      <!-- ================= 右側：團隊矩陣排表區塊 (圖七 & 圖八) ================= -->
       <main class="matrix-content-area">
         <!-- 團隊工具列 -->
         <div class="matrix-toolbar">
@@ -100,7 +101,7 @@
 
             <!-- 其他操作下拉 -->
             <div class="custom-dropdown-wrapper" @click.stop>
-              <button class="btn-secondary-sm" @click="showOtherOpsDropdown = !showTimePicker">
+              <button class="btn-secondary-sm" @click="showOtherOpsDropdown = !showOtherOpsDropdown">
                 其他操作 <i class="mdi mdi-chevron-down"></i>
               </button>
               <div v-if="showOtherOpsDropdown" class="ops-dropdown-menu">
@@ -110,11 +111,11 @@
             </div>
           </div>
 
-          <!-- 選擇陣容模板下拉 (圖一 & 圖七) -->
+          <!-- 選擇陣容模板下拉 (套用範本至格子) -->
           <div class="toolbar-right">
             <span class="template-select-label">團隊排表</span>
             <div class="custom-select-wrapper" @click.stop>
-              <div class="custom-select-input" @click="showTemplateDropdown = !showTimePicker">
+              <div class="custom-select-input" @click="showTemplateDropdown = !showTemplateDropdown">
                 <span>{{ appliedTemplateName || '選擇陣容模板' }}</span>
                 <i class="mdi mdi-chevron-down select-arrow"></i>
               </div>
@@ -132,7 +133,7 @@
           </div>
         </div>
 
-        <!-- 團隊矩陣 (Teams -> Squads -> Slots) -->
+        <!-- 團隊矩陣 (5大隊 × 5小隊) -->
         <div class="teams-matrix-wrapper">
           <div v-for="(team, tIdx) in matrixTeams" :key="team.id" class="team-matrix-row">
             <div class="team-row-title">{{ team.name }}</div>
@@ -151,15 +152,15 @@
                       'matrix-slot-card', 
                       { 
                         'has-member': slot.assignedMember, 
-                        'template-guideline': !slot.assignedMember && slot.templateRole 
+                        'template-guideline': !slot.assignedMember && getSlotGuidelineText(slot) 
                       }
                     ]"
                     :style="getSlotStyle(slot)"
                     @dragover.prevent
                     @drop="onDropMemberToSlot(team, squad, slot)"
-                    @click="clickSlot(team, squad, slot)"
+                    @click="clickSlot(team, squad, slot, slotIdx)"
                   >
-                    <!-- 1. 已放置成員 (圖八) -->
+                    <!-- 1. 格子已放置成員 (圖八) -->
                     <template v-if="slot.assignedMember">
                       <div class="assigned-slot-content">
                         <div class="member-head-info">
@@ -170,19 +171,19 @@
                       </div>
                     </template>
 
-                    <!-- 2. 淺色預設模板指導 (圖七) -->
-                    <template v-else-if="slot.templateRole">
+                    <!-- 2. 無人時顯示格子席位配置 (圖七) -->
+                    <template v-else-if="getSlotGuidelineText(slot)">
                       <div class="template-guideline-content">
-                        <span class="guideline-role-text">{{ slot.templateRole }}</span>
+                        <span class="guideline-role-text">{{ getSlotGuidelineText(slot) }}</span>
                       </div>
                     </template>
 
                     <!-- 3. 完全空白席位 -->
                     <template v-else>
-                      <div class="empty-slot-placeholder">點擊/拖拽配置</div>
+                      <div class="empty-slot-placeholder">點擊配置席位</div>
                     </template>
 
-                    <span v-if="slot.assignedMember" class="slot-clear-x" @click.stop="removeMemberFromSlot(slot)">&times;</span>
+                    <span v-if="slot.assignedMember" class="slot-clear-x" @click.stop="removeMemberFromSlot(slot)" title="移除席位">&times;</span>
                   </div>
                 </div>
               </div>
@@ -195,13 +196,14 @@
 
     <!-- ================= 彈窗組件 ================= -->
 
-    <!-- 1. 排表信息 Modal (點擊盤面上已放置成員時開起 - 圖四) -->
+    <!-- 1. 格子有人時：排表信息 Modal (圖一) -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal">
         <div class="modal-header">
           <h3>排表信息</h3>
           <div class="modal-header-actions">
-            <button class="btn-link" @click="openMemberEditModal(activeSlotForModal?.assignedMember)">修改成員</button>
+            <!-- 直接點擊修改成員，開啟圖四編輯成員 Modal -->
+            <button class="btn-link" @click="openFullMemberEditModal(activeSlotForModal?.assignedMember)">修改成員</button>
             <button class="btn-link text-red margin-l" @click="removeMemberFromSlot(activeSlotForModal)">移除席位</button>
             <span class="close-btn margin-l" @click="showSlotInfoModal = false">&times;</span>
           </div>
@@ -227,7 +229,7 @@
             </div>
           </div>
 
-          <!-- 聯賽職能選擇 (17項個人職能) -->
+          <!-- 聯賽職能選擇 -->
           <div class="form-block margin-t">
             <div class="block-title">◆ 聯賽職能</div>
             <div class="role-pills-grid margin-t">
@@ -267,7 +269,189 @@
       </div>
     </div>
 
-    <!-- 2. 批量編輯成員職能與配裝 Modal (圖五) -->
+    <!-- 2. 格子沒人時：席位配置 Modal (圖二) -->
+    <div v-if="showSlotConfigModal" class="modal-overlay" @click.self="showSlotConfigModal = false">
+      <div class="modal-card slot-modal-card">
+        <div class="modal-header">
+          <h3>席位配置</h3>
+          <span class="close-btn" @click="showSlotConfigModal = false">&times;</span>
+        </div>
+
+        <div class="modal-body">
+          <div class="slot-location-tag">
+            {{ activeSlotTeamName }} - {{ activeSlotSquadName }} - 第 {{ activeSlotIndex + 1 }} 席
+          </div>
+
+          <!-- 推薦流派 (圖二膠囊按鈕) -->
+          <div class="form-block">
+            <div class="block-title"><span class="req">*</span>推薦流派</div>
+            <div class="school-pills-group">
+              <button 
+                v-for="s in availableSchools" 
+                :key="s.name"
+                :class="['school-btn-card', { active: tempConfigSchools.includes(s.name) }]"
+                :style="{ '--badge-color': s.color, '--badge-bg': s.bg }"
+                @click="toggleConfigSchool(s.name)"
+              >
+                <img :src="getSchoolImg(s.file)" class="btn-img-icon" />
+                <span>{{ s.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 推薦職能 -->
+          <div class="form-block margin-t">
+            <div class="block-title">推薦職能</div>
+            <div class="role-tag-grid">
+              <button 
+                v-for="rName in personalRoleOptions" 
+                :key="rName"
+                :class="['role-tag-btn', { active: tempConfigRoles.includes(rName) }]"
+                @click="toggleConfigRole(rName)"
+              >
+                {{ rName }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 推薦技能 -->
+          <div class="form-block margin-t">
+            <div class="block-title">推薦技能</div>
+            <div class="skill-input-row margin-t">
+              <label>絕技：</label>
+              <input type="text" v-model="tempConfigJueji" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
+            </div>
+            <div class="skill-input-row margin-t">
+              <label>群俠百家：</label>
+              <input type="text" v-model="tempConfigQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
+            </div>
+            <div class="skill-input-row margin-t">
+              <label>流派技能：</label>
+              <input type="text" v-model="tempConfigZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
+            </div>
+          </div>
+
+          <!-- 描述 -->
+          <div class="form-block margin-t">
+            <div class="block-title">描述</div>
+            <textarea v-model="tempConfigDesc" maxlength="200" placeholder="選填，例如這部分的戰術職能" class="skill-textarea h-80 margin-t"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showSlotConfigModal = false">取消</button>
+          <button class="btn-primary" @click="saveSlotConfig">確定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 圖四：編輯成員數據 Modal (資料與成員管理完全同步) -->
+    <div v-if="showMemberEditModal" class="modal-overlay" @click.self="showMemberEditModal = false">
+      <div class="modal-card large-card">
+        <div class="modal-header">
+          <h3>編輯成員</h3>
+          <span class="close-btn" @click="showMemberEditModal = false">&times;</span>
+        </div>
+        <div class="modal-body form-grid">
+          <div class="form-section">
+            <h4 class="section-title">基礎資訊</h4>
+            
+            <div class="form-row">
+              <label><span class="req">*</span>角色名：</label>
+              <input type="text" v-model="memberEditForm.name" placeholder="請輸入角色名" class="flex-1 input-field" />
+            </div>
+
+            <div class="form-row">
+              <label><span class="req">*</span>流派列表：</label>
+              <div class="school-selector">
+                <button 
+                  v-for="s in availableSchools" 
+                  :key="s.name" 
+                  :class="['school-btn-card', { active: memberEditForm.schools.includes(s.name) }]"
+                  :style="{ '--badge-color': s.color, '--badge-bg': s.bg }"
+                  @click="toggleMemberEditSchool(s.name)"
+                >
+                  <img :src="getSchoolImg(s.file)" class="btn-img-icon" />
+                  <span>{{ s.name }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row" v-if="memberEditForm.schools.length > 0">
+              <label><span class="req">*</span>當前流派：</label>
+              <select v-model="memberEditForm.currentSchool" class="flex-1 select-field">
+                <option v-for="s in memberEditForm.schools" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>神兵：</label>
+              <input type="checkbox" v-model="memberEditForm.hasGodlyWeapon" />
+            </div>
+
+            <div class="form-row">
+              <label>所屬幫會：</label>
+              <select v-model="memberEditForm.guild" class="flex-1 select-field">
+                <option value="百錵谷酒池肉林">百錵谷酒池肉林</option>
+                <option value="未分配">未分配</option>
+              </select>
+
+              <label class="margin-l">幫眾狀態：</label>
+              <select v-model="memberEditForm.status" class="flex-1 select-field">
+                <option value="幫眾">幫眾</option>
+                <option value="學徒">學徒</option>
+                <option value="退幫">退幫</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label>聯繫方式：</label>
+              <input type="text" v-model="memberEditForm.contact" placeholder="DC名稱" class="flex-1 input-field" />
+            </div>
+
+            <div class="form-row">
+              <label>成員備註：</label>
+              <input type="text" v-model="memberEditForm.notes" placeholder="請輸入備註" class="flex-1 input-field" />
+            </div>
+
+            <div class="form-row">
+              <label>一線牽：</label>
+              <input type="text" v-model="memberEditForm.tether" placeholder="輸入角色名搜尋" class="flex-1 input-field" />
+            </div>
+
+            <!-- 職能偏好多選選單 -->
+            <div class="form-row align-start">
+              <label>職能偏好：</label>
+              <div class="custom-select-wrapper flex-1" @click.stop>
+                <div class="custom-select-input" @click="showRoleDropdownInMemberEdit = !showRoleDropdownInMemberEdit">
+                  <span>{{ memberEditForm.rolePrefList.length > 0 ? memberEditForm.rolePrefList.join(', ') : '未設置 (可多選)' }}</span>
+                  <i class="mdi mdi-chevron-down select-arrow"></i>
+                </div>
+                <div v-if="showRoleDropdownInMemberEdit" class="custom-select-dropdown">
+                  <div 
+                    v-for="r in personalRoleOptions" 
+                    :key="r" 
+                    :class="['dropdown-item', { selected: memberEditForm.rolePrefList.includes(r) }]"
+                    @click="toggleRolePrefInMemberEdit(r)"
+                  >
+                    <span>{{ r }}</span>
+                    <i v-if="memberEditForm.rolePrefList.includes(r)" class="mdi mdi-check check-icon"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showMemberEditModal = false">取消</button>
+          <button class="btn-primary" @click="saveFullMemberEdit">提交</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 批量編輯 Modal (圖五) -->
     <div v-if="showBatchEditModal" class="modal-overlay" @click.self="showBatchEditModal = false">
       <div class="modal-card wide-card">
         <div class="modal-header">
@@ -317,7 +501,7 @@
       </div>
     </div>
 
-    <!-- 3. 美化置中確認 Modal (圖六) -->
+    <!-- 5. 置中刪除/清空確認 Modal (圖六) -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -355,9 +539,8 @@ const props = defineProps({
 defineEmits(['back'])
 
 const leagueInfo = computed(() => props.leagueItem)
-const guildName = ref('百錵谷酒池肉林')
 
-// 可選流派 (已完全排除鴻音)
+// 現有 10 大流派 (無鴻音)
 const availableSchools = [
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -401,23 +584,17 @@ const personalRoleOptions = [
   '純保鏢', '統戰', '騰龍保鏢', '騰龍合軸'
 ]
 
-// 待選成員搜尋與流派快篩
+// 真實成員庫 (與 Members.vue 資料結構 100% 一致)
+const allMembers = ref([
+  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '錵小錵', rolePreference: ['D潮拆塔', '保鏢拆'], rolePrefList: ['D潮拆塔', '保鏢拆'], assigned: false },
+  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '行優', rolePreference: ['灌大團'], rolePrefList: ['灌大團'], assigned: false },
+  { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePreference: ['點殺'], rolePrefList: ['點殺'], assigned: false },
+  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePreference: ['奶絕', '清泉保活'], rolePrefList: ['奶絕', '清泉保活'], assigned: false }
+])
+
 const searchMemberQuery = ref('')
 const activeSchoolFilter = ref(null)
-const expandedSchools = ref(['潮光', '素問', '鐵衣', '血河'])
-
-// 成員總庫
-const allMembers = ref([
-  { id: 101, name: '小羽月', currentSchool: '潮光', rolePreference: ['清泉保活', 'D潮拆塔'], tether: '落花輕舞', assigned: true },
-  { id: 102, name: '落花輕舞', currentSchool: '潮光', rolePreference: ['保鏢拆', '埋頭猛拆'], tether: '小羽月', assigned: true },
-  { id: 103, name: '行優', currentSchool: '鐵衣', rolePreference: ['塔仇主T'], tether: '', assigned: false },
-  { id: 104, name: '銃銃', currentSchool: '九靈', rolePreference: ['灌大團'], tether: '', assigned: false },
-  { id: 105, name: '章小燒', currentSchool: '血河', rolePreference: ['點殺'], tether: '', assigned: false },
-  { id: 106, name: '夜小夜', currentSchool: '素問', rolePreference: ['奶絕', '清泉保活'], tether: '', assigned: false },
-  { id: 107, name: '可愛影', currentSchool: '龍吟', rolePreference: ['破甲人傷'], tether: '', assigned: false },
-  { id: 108, name: '飛雪', currentSchool: '血河', rolePreference: ['燒屍體'], tether: '', assigned: false },
-  { id: 109, name: '聆玨', currentSchool: '素問', rolePreference: ['純保鏢'], tether: '', assigned: false }
-])
+const expandedSchools = ref(['鐵衣', '血河', '九靈', '素問', '潮光'])
 
 const toggleSchoolFilter = (sName) => {
   activeSchoolFilter.value = activeSchoolFilter.value === sName ? null : sName
@@ -436,12 +613,15 @@ const filteredSchoolAccordion = computed(() => {
   return availableSchools
 })
 
+// 根據幫會與流派過濾待選成員
 const getUnassignedMembersBySchool = (schoolName) => {
+  const targetGuild = leagueInfo.value.guild || '百錵谷酒池肉林'
   return allMembers.value.filter(m => {
+    const matchGuild = m.guild === targetGuild
     const matchSchool = m.currentSchool === schoolName
     const notAssigned = !m.assigned
     const matchSearch = !searchMemberQuery.value || m.name.includes(searchMemberQuery.value.trim())
-    return matchSchool && notAssigned && matchSearch
+    return matchGuild && matchSchool && notAssigned && matchSearch
   })
 }
 
@@ -449,17 +629,17 @@ const getUnassignedCountBySchool = (schoolName) => {
   return getUnassignedMembersBySchool(schoolName).length
 }
 
-// 團隊矩陣數據
+// 團隊盤面結構 (格子的 templateConfig 獨立保留)
 const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
     squads: [
-      { id: 11, name: '一隊', zhineng: '塔後隊', slots: createDefaultSlotsWithSample(1) },
-      { id: 12, name: '二隊', zhineng: '保鏢隊', slots: createDefaultSlotsWithSample(2) },
-      { id: 13, name: '三隊', zhineng: '塔前隊', slots: Array.from({ length: 6 }, () => ({ id: Math.random(), assignedMember: null, roles: ['塔仇主T'], jueji: '', qunxia: '', zhuangbei: '' })) },
-      { id: 14, name: '四隊', zhineng: '', slots: Array.from({ length: 6 }, () => ({ id: Math.random(), assignedMember: null, roles: [], jueji: '', qunxia: '', zhuangbei: '' })) },
-      { id: 15, name: '五隊', zhineng: '', slots: Array.from({ length: 6 }, () => ({ id: Math.random(), assignedMember: null, roles: [], jueji: '', qunxia: '', zhuangbei: '' })) }
+      { id: 11, name: '一隊', zhineng: '塔後隊', slots: createDefaultSlots() },
+      { id: 12, name: '二隊', zhineng: '保鏢隊', slots: createDefaultSlots() },
+      { id: 13, name: '三隊', zhineng: '塔前隊', slots: createDefaultSlots() },
+      { id: 14, name: '四隊', zhineng: '', slots: createDefaultSlots() },
+      { id: 15, name: '五隊', zhineng: '', slots: createDefaultSlots() }
     ]
   },
   {
@@ -469,34 +649,31 @@ const matrixTeams = ref([
       id: 20 + i,
       name: `${i + 1}隊`,
       zhineng: '',
-      slots: Array.from({ length: 6 }, () => ({ id: Math.random(), assignedMember: null, roles: [], jueji: '', qunxia: '', zhuangbei: '' }))
+      slots: createDefaultSlots()
     }))
   }
 ])
 
-function createDefaultSlotsWithSample(type) {
-  const slots = Array.from({ length: 6 }, () => ({
+function createDefaultSlots() {
+  return Array.from({ length: 6 }, () => ({
     id: Math.random(),
     assignedMember: null,
     roles: [],
     jueji: '',
     qunxia: '',
-    zhuangbei: ''
+    zhuangbei: '',
+    templateConfig: {
+      schools: [],
+      roles: [],
+      jueji: '',
+      qunxia: '',
+      zhuangbei: '',
+      desc: ''
+    }
   }))
-
-  if (type === 1) {
-    slots[0].assignedMember = allMembers.value[0] // 小羽月
-    slots[0].roles = ['清泉保活', 'D潮拆塔']
-    slots[0].templateRole = '統戰 / 指揮'
-  } else if (type === 2) {
-    slots[0].assignedMember = allMembers.value[1] // 落花輕舞
-    slots[0].roles = ['保鏢拆', '埋頭猛拆']
-    slots[0].templateRole = '騰龍保鏢'
-  }
-  return slots
 }
 
-// 拖拽與席位連動
+// 拖拽與席位處理
 let draggedMember = null
 
 const onDragStartMember = (member) => {
@@ -510,6 +687,9 @@ const onDropMemberToSlot = (team, squad, slot) => {
   }
   slot.assignedMember = draggedMember
   draggedMember.assigned = true
+  if (draggedMember.rolePreference) {
+    slot.roles = [...draggedMember.rolePreference]
+  }
   draggedMember = null
 }
 
@@ -526,6 +706,11 @@ const getSlotStyle = (slot) => {
     const bg = schoolColorMap[slot.assignedMember.currentSchool] || '#eff6ff'
     return { backgroundColor: bg }
   }
+  if (slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
+    const firstSchool = slot.templateConfig.schools[0]
+    const bg = schoolColorMap[firstSchool] || '#fafafa'
+    return { backgroundColor: bg }
+  }
   return {}
 }
 
@@ -534,22 +719,63 @@ const getSlotRoleSummary = (slot) => {
   return '點擊配置職能'
 }
 
-// 席位彈窗 (圖四)
+const getSlotGuidelineText = (slot) => {
+  if (!slot.templateConfig) return ''
+  const parts = []
+  if (slot.templateConfig.roles && slot.templateConfig.roles.length > 0) {
+    parts.push(slot.templateConfig.roles.join(' / '))
+  }
+  if (slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
+    parts.push(slot.templateConfig.schools.join(' / '))
+  }
+  return parts.join(' - ')
+}
+
+// 點擊格子處理：有人顯示「排表信息」；無人顯示「席位配置」
 const showSlotInfoModal = ref(false)
+const showSlotConfigModal = ref(false)
+
 const activeSlotForModal = ref(null)
+const activeSlotTeamName = ref('')
+const activeSlotSquadName = ref('')
+const activeSlotIndex = ref(0)
+
 const tempSlotRoles = ref([])
 const tempSlotJueji = ref('')
 const tempSlotQunxia = ref('')
 const tempSlotZhuangbei = ref('')
 
-const clickSlot = (team, squad, slot) => {
-  if (!slot.assignedMember) return
+const tempConfigSchools = ref([])
+const tempConfigRoles = ref([])
+const tempConfigJueji = ref('')
+const tempConfigQunxia = ref('')
+const tempConfigZhuangbei = ref('')
+const tempConfigDesc = ref('')
+
+const clickSlot = (team, squad, slot, slotIdx) => {
   activeSlotForModal.value = slot
-  tempSlotRoles.value = [...(slot.roles || [])]
-  tempSlotJueji.value = slot.jueji || ''
-  tempSlotQunxia.value = slot.qunxia || ''
-  tempSlotZhuangbei.value = slot.zhuangbei || ''
-  showSlotInfoModal.value = true
+  activeSlotTeamName.value = team.name
+  activeSlotSquadName.value = squad.name
+  activeSlotIndex.value = slotIdx
+
+  if (slot.assignedMember) {
+    // 格子有人 -> 排表信息 (圖一)
+    tempSlotRoles.value = [...(slot.roles || [])]
+    tempSlotJueji.value = slot.jueji || ''
+    tempSlotQunxia.value = slot.qunxia || ''
+    tempSlotZhuangbei.value = slot.zhuangbei || ''
+    showSlotInfoModal.value = true
+  } else {
+    // 格子無人 -> 席位配置 (圖二)
+    const cfg = slot.templateConfig || {}
+    tempConfigSchools.value = [...(cfg.schools || [])]
+    tempConfigRoles.value = [...(cfg.roles || [])]
+    tempConfigJueji.value = cfg.jueji || ''
+    tempConfigQunxia.value = cfg.qunxia || ''
+    tempConfigZhuangbei.value = cfg.zhuangbei || ''
+    tempConfigDesc.value = cfg.desc || ''
+    showSlotConfigModal.value = true
+  }
 }
 
 const toggleTempSlotRole = (r) => {
@@ -566,6 +792,107 @@ const saveSlotInfo = () => {
     activeSlotForModal.value.zhuangbei = tempSlotZhuangbei.value.trim()
   }
   showSlotInfoModal.value = false
+}
+
+const toggleConfigSchool = (sName) => {
+  const idx = tempConfigSchools.value.indexOf(sName)
+  if (idx > -1) tempConfigSchools.value.splice(idx, 1)
+  else tempConfigSchools.value.push(sName)
+}
+
+const toggleConfigRole = (rName) => {
+  const idx = tempConfigRoles.value.indexOf(rName)
+  if (idx > -1) tempConfigRoles.value.splice(idx, 1)
+  else tempConfigRoles.value.push(rName)
+}
+
+const saveSlotConfig = () => {
+  if (activeSlotForModal.value) {
+    activeSlotForModal.value.templateConfig = {
+      schools: [...tempConfigSchools.value],
+      roles: [...tempConfigRoles.value],
+      jueji: tempConfigJueji.value.trim(),
+      qunxia: tempConfigQunxia.value.trim(),
+      zhuangbei: tempConfigZhuangbei.value.trim(),
+      desc: tempConfigDesc.value.trim()
+    }
+  }
+  showSlotConfigModal.value = false
+}
+
+// 完整「編輯成員」 Modal 控制 (圖四：資訊與 Members.vue 通用)
+const showMemberEditModal = ref(false)
+const showRoleDropdownInMemberEdit = ref(false)
+const editingMemberRef = ref(null)
+
+const memberEditForm = ref({
+  name: '',
+  schools: ['鐵衣'],
+  currentSchool: '鐵衣',
+  hasGodlyWeapon: false,
+  guild: '百錵谷酒池肉林',
+  status: '幫眾',
+  contact: '',
+  notes: '',
+  tether: '',
+  rolePrefList: []
+})
+
+const openFullMemberEditModal = (member) => {
+  if (!member) return
+  editingMemberRef.value = member
+  memberEditForm.value = {
+    name: member.name,
+    schools: [...(member.schools || [member.currentSchool])],
+    currentSchool: member.currentSchool,
+    hasGodlyWeapon: member.hasGodlyWeapon || false,
+    guild: member.guild || '百錵谷酒池肉林',
+    status: member.status || '幫眾',
+    contact: member.contact || '',
+    notes: member.notes || '',
+    tether: member.tether || '',
+    rolePrefList: [...(member.rolePrefList || member.rolePreference || [])]
+  }
+  showSlotInfoModal.value = false
+  showMemberEditModal.value = true
+}
+
+const toggleMemberEditSchool = (sName) => {
+  const idx = memberEditForm.value.schools.indexOf(sName)
+  if (idx > -1) {
+    if (memberEditForm.value.schools.length > 1) {
+      memberEditForm.value.schools.splice(idx, 1)
+      if (memberEditForm.value.currentSchool === sName) {
+        memberEditForm.value.currentSchool = memberEditForm.value.schools[0]
+      }
+    }
+  } else {
+    memberEditForm.value.schools.push(sName)
+  }
+}
+
+const toggleRolePrefInMemberEdit = (rName) => {
+  const idx = memberEditForm.value.rolePrefList.indexOf(rName)
+  if (idx > -1) memberEditForm.value.rolePrefList.splice(idx, 1)
+  else memberEditForm.value.rolePrefList.push(rName)
+}
+
+const saveFullMemberEdit = () => {
+  if (!memberEditForm.value.name.trim()) return alert('請輸入角色名！')
+  if (editingMemberRef.value) {
+    editingMemberRef.value.name = memberEditForm.value.name.trim()
+    editingMemberRef.value.schools = [...memberEditForm.value.schools]
+    editingMemberRef.value.currentSchool = memberEditForm.value.currentSchool
+    editingMemberRef.value.hasGodlyWeapon = memberEditForm.value.hasGodlyWeapon
+    editingMemberRef.value.guild = memberEditForm.value.guild
+    editingMemberRef.value.status = memberEditForm.value.status
+    editingMemberRef.value.contact = memberEditForm.value.contact
+    editingMemberRef.value.notes = memberEditForm.value.notes
+    editingMemberRef.value.tether = memberEditForm.value.tether
+    editingMemberRef.value.rolePreference = [...memberEditForm.value.rolePrefList]
+    editingMemberRef.value.rolePrefList = [...memberEditForm.value.rolePrefList]
+  }
+  showMemberEditModal.value = false
 }
 
 // 批量編輯 Modal (圖五)
@@ -630,7 +957,7 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// 選擇陣容模板 (圖一 & 圖七)
+// 選擇陣容模板下拉 (套用範本指導資訊)
 const showTemplateDropdown = ref(false)
 const appliedTemplateName = ref('')
 
@@ -643,9 +970,10 @@ const applyRosterTemplate = (tpl) => {
   appliedTemplateName.value = tpl.name
   showTemplateDropdown.value = false
 
-  // 為空白席位填寫淺色引導
-  matrixTeams.value[0].squads[0].slots.forEach(s => {
-    if (!s.assignedMember) s.templateRole = '統戰 / 指揮'
+  // 套用模板戰術指導至格子上的 templateConfig (不影響已經放上格子的成員)
+  matrixTeams.value[0].squads[0].slots.forEach((s, idx) => {
+    if (idx === 0) s.templateConfig.roles = ['統戰', '指揮']
+    if (idx === 1) s.templateConfig.roles = ['保鏢拆', '純保鏢']
   })
 }
 
@@ -659,11 +987,7 @@ const saveRosterBoard = () => {
 }
 
 const openAddMemberModal = () => {
-  alert('開啟新增成員視圖')
-}
-
-const openMemberEditModal = (member) => {
-  if (member) alert(`開啟成員【${member.name}】數據編輯彈窗`)
+  alert('請於成員頁面新增成員')
 }
 </script>
 
@@ -727,14 +1051,13 @@ const openMemberEditModal = (member) => {
 .ops-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .ops-item:hover { background: #f1f5f9; }
 
-/* 下拉選單 */
 .custom-select-wrapper { position: relative; width: 160px; }
 .custom-select-input { display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 12px; }
 .custom-select-dropdown { position: absolute; top: 100%; right: 0; width: 100%; margin-top: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; }
 .dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .dropdown-item:hover { background: #f1f5f9; }
 
-/* 團隊矩陣橫列 (圖一 & 圖八) */
+/* 團隊矩陣橫列 (圖七 & 圖八) */
 .teams-matrix-wrapper { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
 .team-matrix-row { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; }
 .team-row-title { font-size: 14px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
@@ -767,7 +1090,10 @@ const openMemberEditModal = (member) => {
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; }
 .slot-info-modal { width: 500px; max-height: 85vh; overflow-y: auto; }
+.slot-modal-card { width: 520px; max-height: 85vh; overflow-y: auto; }
+.large-card { width: 680px; max-height: 85vh; overflow-y: auto; }
 .wide-card { width: 780px; max-height: 85vh; overflow-y: auto; }
+
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .modal-header-actions { display: flex; align-items: center; }
 .close-btn { cursor: pointer; font-size: 20px; color: #94a3b8; }
@@ -780,17 +1106,33 @@ const openMemberEditModal = (member) => {
 .info-details-box { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #64748b; }
 .info-label { font-weight: bold; width: 80px; display: inline-block; }
 
+.slot-location-tag { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-bottom: 15px; }
+
 .form-block { display: flex; flex-direction: column; gap: 8px; }
 .block-title { font-size: 13px; font-weight: bold; color: #1e293b; }
-.role-pills-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-.role-pill-btn { border: 1px solid #cbd5e1; background: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #475569; }
-.role-pill-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; font-weight: bold; }
+.role-pills-grid, .role-tag-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.role-pill-btn, .role-tag-btn { border: 1px solid #cbd5e1; background: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; color: #475569; }
+.role-pill-btn.active, .role-tag-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; font-weight: bold; }
+
+.school-pills-group { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.school-btn-card { border: 1px solid #cbd5e1; background: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+.school-btn-card.active { border-color: var(--badge-color); background: var(--badge-bg); color: var(--badge-color); font-weight: bold; }
+.btn-img-icon { width: 18px; height: 18px; object-fit: contain; }
 
 .skill-input-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .skill-input-row label { width: 80px; font-weight: bold; }
-.skill-field { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
+.skill-field, .input-field, .select-field { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
+.skill-textarea { width: 100%; height: 80px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; resize: none; box-sizing: border-box; outline: none; }
 
-/* 批量編輯 Modal (圖五) */
+.form-section-title { font-weight: bold; font-size: 14px; border-left: 3px solid #3b82f6; padding-left: 8px; margin-bottom: 15px; }
+.form-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 13px; }
+.form-row.align-start { align-items: flex-start; }
+.form-row label { width: 100px; font-weight: bold; }
+.req { color: #ef4444; }
+
+.school-selector { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; align-items: center; }
+
+/* 批量編輯 Modal */
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; }
 .batch-group-block { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
