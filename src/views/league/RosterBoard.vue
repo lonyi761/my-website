@@ -34,7 +34,9 @@
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
-            <button class="btn-secondary-sm margin-l" @click="saveRosterBoard">保存陣容</button>
+            <button class="btn-secondary-sm margin-l" :disabled="isSaving" @click="saveRosterBoard">
+              {{ isSaving ? '保存中...' : '保存陣容' }}
+            </button>
             <button v-if="matrixTeams.length < 5" class="btn-primary-sm margin-l" @click="addTeam">+ 添加團隊</button>
             <button class="btn-secondary-sm margin-l" @click="openBatchEditModal">批量編輯</button>
 
@@ -149,7 +151,7 @@
 
     <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- ★ 全新：導出圖片預覽 Modal (對齊圖四控制欄位) ★ -->
+    <!-- 導出圖片預覽 Modal -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
         <!-- 頂部標頭 Bar -->
@@ -160,14 +162,14 @@
         </div>
 
         <div class="export-modal-body">
-          <!-- 左側導出配置邊欄 (對齊圖四控制需求) -->
+          <!-- 左側導出配置邊欄 -->
           <div class="export-sidebar-controls simple-sidebar">
             <div class="sidebar-info-card margin-b">
               <h4 class="sidebar-card-title">圖片導出說明</h4>
               <p class="sidebar-card-desc">預覽畫面即為最終導出之 PNG 高畫質圖片，畫面純淨不含水印與網址。</p>
             </div>
 
-            <!-- 表頭控制選單 (對齊圖四) -->
+            <!-- 表頭控制選單 -->
             <div class="export-control-section margin-b">
               <div class="export-section-title">表頭</div>
               <div class="control-switch-item">
@@ -186,7 +188,7 @@
               </div>
             </div>
 
-            <!-- 隊伍控制選單 (對齊圖四) -->
+            <!-- 隊伍控制選單 -->
             <div class="export-control-section margin-b">
               <div class="export-section-title">隊伍 (導入團隊)</div>
               <div v-for="team in matrixTeams" :key="team.id" class="control-switch-item">
@@ -1100,7 +1102,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { supabase } from '../../utils/supabase'
 import RosterSidebar from './components/RosterSidebar.vue'
 import RosterMatrixView from './components/RosterMatrixView.vue'
 import RosterTableView from './components/RosterTableView.vue'
@@ -1114,6 +1117,10 @@ const props = defineProps({
       startTime: '2026-10-10 20:00',
       guild: '百錵谷酒池肉林'
     })
+  },
+  userProfile: {
+    type: Object,
+    default: () => null
   }
 })
 
@@ -1203,7 +1210,84 @@ const showDetails = ref(false)
 const layoutMode = ref('matrix')
 const pendingViewMode = ref('school')
 
-// ★ 導出預覽 Modal 狀態管理與圖四左側控制變數 ★
+// ★ Supabase 雲端資料庫串接邏輯 ★
+const isSaving = ref(false)
+
+const fetchRosterDataFromDB = async () => {
+  if (!props.userProfile?.guild_id) return
+
+  // 1. 撈取同幫會成員 (guild_members)
+  const { data: membersData, error: memberErr } = await supabase
+    .from('guild_members')
+    .select('*')
+    .eq('guild_id', props.userProfile.guild_id)
+
+  if (!memberErr && membersData && membersData.length > 0) {
+    allMembers.value = membersData.map(m => ({
+      id: m.id,
+      name: m.name,
+      formerNames: m.former_names || [],
+      schools: m.schools || [m.current_school],
+      currentSchool: m.current_school,
+      hasGodlyWeapon: m.has_godly_weapon || false,
+      guild: props.leagueInfo.guild,
+      status: m.status || '幫眾',
+      contact: m.contact || '',
+      notes: m.notes || '',
+      tether: m.tether || '',
+      rolePreference: m.role_preference || [],
+      rolePrefList: m.role_preference || [],
+      assigned: m.assigned || false
+    }))
+  }
+
+  // 2. 撈取同幫會排表 (guild_rosters)
+  const { data: rosterData, error: rosterErr } = await supabase
+    .from('guild_rosters')
+    .select('*')
+    .eq('guild_id', props.userProfile.guild_id)
+    .single()
+
+  if (!rosterErr && rosterData && rosterData.matrix_teams) {
+    matrixTeams.value = rosterData.matrix_teams
+  }
+}
+
+// 點擊「保存陣容」時寫入 Supabase
+const saveRosterBoard = async () => {
+  if (!props.userProfile?.guild_id) {
+    alert('本地預覽模式（尚未登入或未指派幫會）')
+    return
+  }
+
+  isSaving.value = true
+  try {
+    const { error } = await supabase
+      .from('guild_rosters')
+      .upsert({
+        guild_id: props.userProfile.guild_id,
+        title: leagueInfo.value.title,
+        type: leagueInfo.value.type,
+        start_time: leagueInfo.value.startTime,
+        matrix_teams: matrixTeams.value,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'guild_id' })
+
+    if (error) throw error
+    alert('陣容成功儲存至雲端資料庫！同幫會成員登入即可看到最新排表。')
+  } catch (err) {
+    console.error('儲存失敗:', err)
+    alert('陣容保存失敗：' + err.message)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+// 元件裝載或屬性改變時自動載入 DB 資料
+onMounted(fetchRosterDataFromDB)
+watch(() => props.userProfile, fetchRosterDataFromDB, { deep: true })
+
+// 導出預覽 Modal 狀態管理
 const showExportModal = ref(false)
 const isExporting = ref(false)
 
@@ -1212,14 +1296,12 @@ const exportHeaderNoteVisible = ref(true)
 const exportVisibleTeamIds = ref([])
 
 const openExportPreviewModal = () => {
-  // 預設開啟時勾選所有團隊
   exportVisibleTeamIds.value = matrixTeams.value.map(t => t.id)
   exportHeaderTitleVisible.value = true
   exportHeaderNoteVisible.value = true
   showExportModal.value = true
 }
 
-// 根據勾選過濾導出的團隊
 const exportFilteredTeams = computed(() => {
   return matrixTeams.value.filter(team => exportVisibleTeamIds.value.includes(team.id))
 })
@@ -1340,7 +1422,7 @@ const toggleRolePrefInNewMember = (rName) => {
   else newMemberForm.value.rolePrefList.push(rName)
 }
 
-const saveNewMember = () => {
+const saveNewMember = async () => {
   if (!newMemberForm.value.name.trim()) return alert('請輸入角色名！')
   if (newMemberForm.value.schools.length === 0) return alert('請至少選擇一個流派！')
 
@@ -1359,6 +1441,22 @@ const saveNewMember = () => {
     rolePreference: [...newMemberForm.value.rolePrefList],
     rolePrefList: [...newMemberForm.value.rolePrefList],
     assigned: false
+  }
+
+  // 寫入資料庫
+  if (props.userProfile?.guild_id) {
+    await supabase.from('guild_members').insert([{
+      guild_id: props.userProfile.guild_id,
+      name: newObj.name,
+      schools: newObj.schools,
+      current_school: newObj.currentSchool,
+      has_godly_weapon: newObj.hasGodlyWeapon,
+      status: newObj.status,
+      contact: newObj.contact,
+      notes: newObj.notes,
+      tether: newObj.tether,
+      role_preference: newObj.rolePreference
+    }])
   }
 
   allMembers.value.push(newObj)
@@ -2168,10 +2266,6 @@ const formatArrayText = (arr) => {
   if (!arr || !Array.isArray(arr) || arr.length === 0) return '—'
   return arr.join('、')
 }
-
-const saveRosterBoard = () => {
-  alert('陣容保存成功！')
-}
 </script>
 
 <style scoped>
@@ -2228,7 +2322,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .stats-count-badge { font-size: 12px; font-weight: bold; color: #94a3b8; }
 .stats-count-badge.active { color: #2563eb; }
 
-/* 導出圖片預覽 Modal 樣式 (對齊圖四) */
+/* 導出圖片預覽 Modal 樣式 */
 .full-screen-overlay {
   z-index: 200;
   background: rgba(15, 23, 42, 0.6);
@@ -2264,7 +2358,6 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   overflow: hidden;
 }
 
-/* 左側導出配置邊欄 (對齊圖四) */
 .export-sidebar-controls.simple-sidebar {
   width: 260px;
   background: #ffffff;
@@ -2292,7 +2385,6 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   line-height: 1.4;
 }
 
-/* 左側控制區塊樣式 (對齊圖四) */
 .export-control-section {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -2441,7 +2533,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal (修復選單被裁剪受限，層級獨立) */
+/* 批量編輯 Modal */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; overflow: visible; }

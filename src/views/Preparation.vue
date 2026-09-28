@@ -34,6 +34,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { supabase } from '../utils/supabase'
 import Navbar from '../components/layout/Navbar.vue'
 import RoleManagement from './preparation/RoleManagement.vue'
 import SkillManagement from './preparation/SkillManagement.vue'
@@ -45,14 +46,18 @@ const isDarkMode = ref(false)
 const username = ref('VIP')
 const currentTab = ref('roles')
 
-onMounted(() => {
-  const user = JSON.parse(localStorage.getItem('user'))
-  if (user) {
-    username.value = user.username
+const checkAuth = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    username.value = session.user.email.split('@')[0]
   } else {
-    router.push('/login')
+    const user = JSON.parse(localStorage.getItem('user'))
+    if (user) username.value = user.username
+    else router.push('/login')
   }
-})
+}
+
+onMounted(checkAuth)
 </script>
 
 <style scoped>

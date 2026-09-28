@@ -3,7 +3,7 @@
     <!-- 頂部導航列 -->
     <header class="navbar">
       <div class="nav-left">
-        <span class="brand-logo">行優測試</span>
+        <span class="brand-logo">行優聯賽系統</span>
       </div>
 
       <nav class="nav-center">
@@ -175,32 +175,6 @@
       </main>
     </div>
 
-    <!-- 表格列設置彈窗 -->
-    <div v-if="showColumnModal" class="modal-overlay" @click.self="showColumnModal = false">
-      <div class="modal-card wide-card">
-        <div class="modal-header">
-          <h3>表格列設置</h3>
-          <span class="close-btn" @click="showColumnModal = false">&times;</span>
-        </div>
-        <div class="modal-body">
-          <div class="column-hint-box">勾選顯示列，拖拽手柄調整順序。</div>
-          <div class="column-grid">
-            <div v-for="col in columnList" :key="col.key" class="column-item">
-              <span class="drag-handle">=</span>
-              <label>
-                <input type="checkbox" v-model="columns[col.key]" />
-                {{ col.label }}
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showColumnModal = false">取消</button>
-          <button class="btn-primary" @click="showColumnModal = false">確定</button>
-        </div>
-      </div>
-    </div>
-
     <!-- 幫會設定彈窗 -->
     <div v-if="showGuildEditModal" class="modal-overlay" @click.self="showGuildEditModal = false">
       <div class="modal-card small-card">
@@ -253,9 +227,7 @@
                 >
                   <img v-if="s.file" :src="getSchoolImg(s.file)" class="btn-img-icon" />
                   <span>{{ s.name }}</span>
-                  <span v-if="role === 'admin' && s.isCustom" class="del-school-x" @click.stop="deleteSchool(s.name)">&times;</span>
                 </button>
-                <button v-if="role === 'admin'" class="btn-add-school" @click="handleAddSchool">+ 新增流派</button>
               </div>
             </div>
 
@@ -314,7 +286,6 @@
                   <i :class="['mdi', 'mdi-chevron-down', 'select-arrow', { rotate: showRoleDropdown }]"></i>
                 </div>
 
-                <!-- 下拉選項面板 -->
                 <div v-if="showRoleDropdown" class="custom-select-dropdown">
                   <div 
                     v-for="roleName in personalRoleOptions" 
@@ -338,89 +309,7 @@
       </div>
     </div>
 
-    <!-- 曾用名彈窗 -->
-    <div v-if="showFormerNamesModal" class="modal-overlay" @click.self="showFormerNamesModal = false">
-      <div class="modal-card small-card">
-        <div class="modal-header">
-          <h3>編輯曾用名</h3>
-          <span class="close-btn" @click="showFormerNamesModal = false">&times;</span>
-        </div>
-        <div class="modal-body">
-          <div v-for="(name, idx) in memberForm.formerNames" :key="idx" class="former-name-item margin-v">
-            <input type="text" v-model="memberForm.formerNames[idx]" />
-            <button class="btn-link text-red margin-l" @click="memberForm.formerNames.splice(idx, 1)">刪除</button>
-          </div>
-          <button class="btn-secondary full-width margin-t" @click="memberForm.formerNames.push('')">+ 新增歷史曾用名</button>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-primary" @click="showFormerNamesModal = false">確定</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 截圖導入彈窗 -->
-    <div v-if="showImportModal" class="modal-overlay" @click.self="showImportModal = false">
-      <div class="modal-card medium-card">
-        <div class="modal-header">
-          <h3>截圖導入</h3>
-          <span class="close-btn" @click="showImportModal = false">&times;</span>
-        </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <label>導入到幫會：</label>
-            <select v-model="importTargetGuild">
-              <option v-for="g in guildList" :key="g.id" :value="g.name">{{ g.name }}</option>
-            </select>
-          </div>
-
-          <div class="upload-box" @click="triggerFileUpload">
-            <i class="mdi mdi-cloud-upload-outline upload-icon"></i>
-            <p>點擊上傳幫會成員列表截圖（支援 JPG / PNG）</p>
-            <input type="file" ref="fileInput" @change="handleScreenshotUpload" accept="image/*" hidden />
-          </div>
-
-          <div v-if="ocrPreviewList.length > 0" class="ocr-result-box">
-            <h4>識別結果預覽 (共 {{ ocrPreviewList.length }} 人)：</h4>
-            <ul>
-              <li v-for="(item, idx) in ocrPreviewList" :key="idx">
-                {{ item.name }} — 流派：{{ item.school }}
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="showImportModal = false">取消</button>
-          <button class="btn-primary" @click="confirmImport" :disabled="ocrPreviewList.length === 0">開始導入</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 批量操作彈窗 -->
-    <div v-if="showBatchModal" class="modal-overlay" @click.self="showBatchModal = false">
-      <div class="modal-card small-card">
-        <div class="modal-header">
-          <h3>批量操作</h3>
-          <span class="close-btn" @click="showBatchModal = false">&times;</span>
-        </div>
-        <div class="modal-body">
-          <p class="sub-desc">已勾選 {{ selectedMemberIds.length }} 名成員</p>
-          
-          <div class="form-row margin-v">
-            <label>移動到幫會：</label>
-            <select v-model="batchTargetGuild">
-              <option v-for="g in guildList" :key="g.id" :value="g.name">{{ g.name }}</option>
-            </select>
-            <button class="btn-primary margin-l" @click="handleBatchMove">套用移動</button>
-          </div>
-
-          <hr />
-
-          <button class="btn-danger full-width margin-t" @click="handleBatchDelete">批量刪除選中成員</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <!-- 置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -432,7 +321,7 @@
         </div>
         <div class="confirm-modal-footer">
           <button class="btn-secondary" @click="showConfirmModal = false">取消</button>
-          <button class="btn-primary btn-red" @click="executeConfirmAction">刪除</button>
+          <button class="btn-primary btn-red" @click="executeConfirmAction">確定刪除</button>
         </div>
       </div>
     </div>
@@ -443,17 +332,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { supabase } from '../utils/supabase'
 
 const router = useRouter()
 const isDarkMode = ref(false)
 const showMenu = ref(false)
 const username = ref('VIP')
-const role = ref('admin')
+const userProfile = ref(null)
 
 const activePopoverMemberId = ref(null)
 const activeStatusPopoverMemberId = ref(null)
 
-// 美化置中刪除確認 Modal 狀態 (圖四對應)
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -471,7 +360,6 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// 戰備個人職能（17項）
 const personalRoleOptions = [
   'D潮拆塔', '保鏢拆', '埋頭猛拆', '塔仇主T', '增益絕', '奶絕', '指揮',
   '清泉人傷', '清泉保活', '灌大團', '點殺', '燒屍體', '破甲人傷',
@@ -497,17 +385,7 @@ const closePopover = () => {
   showRoleDropdown.value = false
 }
 
-const quickSwitchSchool = (member, schoolName) => {
-  member.currentSchool = schoolName
-  activePopoverMemberId.value = null
-}
-
-const quickSwitchStatus = (member, status) => {
-  member.status = status
-  activeStatusPopoverMemberId.value = null
-}
-
-// 預設幫會
+// 幫會與成員列表 (雲端拉取)
 const guildList = ref([
   { id: 1, name: '百錵谷酒池肉林' },
   { id: 2, name: '未分配' }
@@ -517,7 +395,6 @@ const showGuildEditModal = ref(false)
 const targetEditGuild = ref(null)
 const editingGuildName = ref('')
 
-// 可選流派與 PNG 檔名
 const availableSchools = ref([
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -536,27 +413,10 @@ const getSchoolImg = (fileName) => {
   return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
 }
 
-// 成員清單
-const members = ref([
-  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '九靈'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '', rolePref: '未設置', rolePrefList: [] },
-  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] },
-  { id: 3, name: '章小燒', formerNames: [], schools: ['血河'], currentSchool: '血河', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] },
-  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePref: '未設置', rolePrefList: [] }
-])
-
+const members = ref([])
 const searchQuery = ref('')
 const selectedMemberIds = ref([])
 
-// 表格列控制
-const showColumnModal = ref(false)
-const columnList = [
-  { key: 'school', label: '流派' },
-  { key: 'status', label: '幫眾狀態' },
-  { key: 'godlyWeapon', label: '神兵' },
-  { key: 'rolePref', label: '職能偏好' },
-  { key: 'notes', label: '成員備註' },
-  { key: 'contact', label: '聯繫方式' }
-]
 const columns = ref({
   school: true,
   status: true,
@@ -566,7 +426,6 @@ const columns = ref({
   contact: true
 })
 
-// 成員表單
 const showMemberModal = ref(false)
 const showFormerNamesModal = ref(false)
 const editingMemberId = ref(null)
@@ -586,7 +445,131 @@ const memberForm = ref({
   rolePrefList: []
 })
 
-// 職能偏好多選計算與切換
+// ★ Supabase 雲端資料讀取邏輯 ★
+const fetchCloudData = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    router.push('/login')
+    return
+  }
+
+  // 拉取使用者 Profile 屬性與幫會
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*, guilds(*)')
+    .eq('id', session.user.id)
+    .single()
+
+  if (profile) {
+    userProfile.value = profile
+    username.value = session.user.email.split('@')[0]
+  }
+
+  // 1. 拉取 Supabase 幫會表
+  const { data: guildsData } = await supabase.from('guilds').select('*')
+  if (guildsData && guildsData.length > 0) {
+    guildList.value = guildsData
+    if (profile?.guild_id) {
+      const found = guildsData.find(g => g.id === profile.guild_id)
+      if (found) currentGuildId.value = found.id
+    }
+  }
+
+  // 2. 拉取 Supabase 成員資料表
+  const { data: membersData } = await supabase.from('guild_members').select('*')
+  if (membersData) {
+    members.value = membersData.map(m => ({
+      id: m.id,
+      name: m.name,
+      formerNames: m.former_names || [],
+      schools: m.schools || [m.current_school],
+      currentSchool: m.current_school,
+      hasGodlyWeapon: m.has_godly_weapon || false,
+      guild: getGuildNameById(m.guild_id),
+      status: m.status || '幫眾',
+      contact: m.contact || '',
+      notes: m.notes || '',
+      tether: m.tether || '',
+      rolePref: (m.role_preference && m.role_preference.length > 0) ? m.role_preference.join(', ') : '未設置',
+      rolePrefList: m.role_preference || []
+    }))
+  }
+}
+
+const getGuildNameById = (guildId) => {
+  const found = guildList.value.find(g => g.id === guildId)
+  return found ? found.name : '未分配'
+}
+
+const getGuildIdByName = (guildName) => {
+  const found = guildList.value.find(g => g.name === guildName)
+  return found ? found.id : userProfile.value?.guild_id
+}
+
+// 快速切換流派並寫入 DB
+const quickSwitchSchool = async (member, schoolName) => {
+  member.currentSchool = schoolName
+  activePopoverMemberId.value = null
+  await supabase
+    .from('guild_members')
+    .update({ current_school: schoolName })
+    .eq('id', member.id)
+}
+
+// 快速切換幫眾狀態並寫入 DB
+const quickSwitchStatus = async (member, status) => {
+  member.status = status
+  activeStatusPopoverMemberId.value = null
+  await supabase
+    .from('guild_members')
+    .update({ status: status })
+    .eq('id', member.id)
+}
+
+// 寫入 / 更新成員 (Supabase)
+const saveMember = async () => {
+  if (!memberForm.value.name.trim()) return alert('請輸入角色名！')
+  if (memberForm.value.schools.length === 0) return alert('請至少選擇一個流派！')
+
+  const targetGuildId = getGuildIdByName(memberForm.value.guild)
+
+  const payload = {
+    guild_id: targetGuildId,
+    name: memberForm.value.name.trim(),
+    former_names: memberForm.value.formerNames,
+    schools: memberForm.value.schools,
+    current_school: memberForm.value.currentSchool,
+    has_godly_weapon: memberForm.value.hasGodlyWeapon,
+    status: memberForm.value.status,
+    contact: memberForm.value.contact.trim(),
+    notes: memberForm.value.notes.trim(),
+    tether: memberForm.value.tether.trim(),
+    role_preference: memberForm.value.rolePrefList
+  }
+
+  if (editingMemberId.value) {
+    await supabase.from('guild_members').update(payload).eq('id', editingMemberId.value)
+  } else {
+    await supabase.from('guild_members').insert([payload])
+  }
+
+  await fetchCloudData()
+  showMemberModal.value = false
+}
+
+// 刪除成員 (Supabase)
+const deleteMember = (id) => {
+  const m = members.value.find(item => item.id === id)
+  triggerConfirmModal(
+    '刪除成員',
+    `確定要刪除成員【${m?.name || ''}】嗎？刪除後無法恢復。`,
+    async () => {
+      await supabase.from('guild_members').delete().eq('id', id)
+      await fetchCloudData()
+    }
+  )
+}
+
 const displayRolePref = computed(() => {
   const list = memberForm.value.rolePrefList
   if (!list || list.length === 0) return '未設置 (可多選)'
@@ -600,23 +583,10 @@ const isRoleSelected = (roleName) => {
 const toggleRolePref = (roleName) => {
   if (!memberForm.value.rolePrefList) memberForm.value.rolePrefList = []
   const idx = memberForm.value.rolePrefList.indexOf(roleName)
-  if (idx > -1) {
-    memberForm.value.rolePrefList.splice(idx, 1)
-  } else {
-    memberForm.value.rolePrefList.push(roleName)
-  }
+  if (idx > -1) memberForm.value.rolePrefList.splice(idx, 1)
+  else memberForm.value.rolePrefList.push(roleName)
 }
 
-// 截圖與批量
-const showImportModal = ref(false)
-const importTargetGuild = ref('百錵谷酒池肉林')
-const fileInput = ref(null)
-const ocrPreviewList = ref([])
-
-const showBatchModal = ref(false)
-const batchTargetGuild = ref('百錵谷酒池肉林')
-
-// 依幫會篩選
 const currentGuildName = computed(() => {
   const g = guildList.value.find(item => item.id === currentGuildId.value)
   return g ? g.name : ''
@@ -639,109 +609,12 @@ const getSchoolInfo = (schoolName) => {
   return found || { name: schoolName, file: '', color: '#64748b', bg: '#f1f5f9' }
 }
 
-const openEditGuildModal = (guild) => {
-  targetEditGuild.value = guild
-  editingGuildName.value = guild.name
-  showGuildEditModal.value = true
-}
-
-const saveGuildName = () => {
-  if (targetEditGuild.value && editingGuildName.value.trim()) {
-    const oldName = targetEditGuild.value.name
-    const newName = editingGuildName.value.trim()
-    targetEditGuild.value.name = newName
-
-    members.value.forEach(m => {
-      if (m.guild === oldName) m.guild = newName
-    })
-
-    showGuildEditModal.value = false
-  }
-}
-
-// 移除幫會：置中確認彈窗
-const deleteGuild = () => {
-  const targetName = targetEditGuild.value.name
-  triggerConfirmModal(
-    '移除幫會',
-    `確定要移除幫會【${targetName}】嗎？該幫會的成員將移至【未分配】。`,
-    () => {
-      members.value.forEach(m => {
-        if (m.guild === targetName) m.guild = '未分配'
-      })
-      guildList.value = guildList.value.filter(g => g.id !== targetEditGuild.value.id)
-      currentGuildId.value = guildList.value[0]?.id || 1
-      showGuildEditModal.value = false
-    }
-  )
-}
-
-const isAllSelected = computed(() => {
-  return filteredMembers.value.length > 0 && selectedMemberIds.value.length === filteredMembers.value.length
-})
-
-const toggleSelectAll = (e) => {
-  if (e.target.checked) {
-    selectedMemberIds.value = filteredMembers.value.map(m => m.id)
-  } else {
-    selectedMemberIds.value = []
-  }
-}
-
-const getStatusClass = (status) => {
-  if (status === '幫眾') return 'status-green'
-  if (status === '學徒') return 'status-blue'
-  return 'status-gray'
-}
-
-const openAddGuildModal = () => {
+const openAddGuildModal = async () => {
   const name = prompt('請輸入新幫會名稱：')
   if (name && name.trim()) {
-    guildList.value.push({ id: Date.now(), name: name.trim() })
+    await supabase.from('guilds').insert([{ name: name.trim() }])
+    await fetchCloudData()
   }
-}
-
-const toggleSchoolSelection = (schoolName) => {
-  const idx = memberForm.value.schools.indexOf(schoolName)
-  if (idx > -1) {
-    memberForm.value.schools.splice(idx, 1)
-  } else {
-    if (memberForm.value.schools.length >= 2) {
-      alert('最多只能選擇 2 個流派！')
-      return
-    }
-    memberForm.value.schools.push(schoolName)
-  }
-
-  if (memberForm.value.schools.length > 0) {
-    memberForm.value.currentSchool = memberForm.value.schools[0]
-  } else {
-    memberForm.value.currentSchool = ''
-  }
-}
-
-const handleAddSchool = () => {
-  const name = prompt('請輸入新增的流派/職業名稱：')
-  if (name && name.trim()) {
-    availableSchools.value.push({
-      name: name.trim(),
-      file: '',
-      color: '#3b82f6',
-      bg: '#eff6ff',
-      isCustom: true
-    })
-  }
-}
-
-// 刪除自訂流派：置中確認彈窗
-const deleteSchool = (schoolName) => {
-  triggerConfirmModal(
-    '刪除流派',
-    `確定要刪除流派【${schoolName}】嗎？`,
-    () => {
-      availableSchools.value = availableSchools.value.filter(s => s.name !== schoolName)
-    }
-  )
 }
 
 const openMemberModal = (member = null) => {
@@ -749,13 +622,6 @@ const openMemberModal = (member = null) => {
   if (member) {
     editingMemberId.value = member.id
     memberForm.value = JSON.parse(JSON.stringify(member))
-    if (memberForm.value.rolePrefList) {
-      memberForm.value.rolePrefList = [...memberForm.value.rolePrefList]
-    } else if (memberForm.value.rolePref && memberForm.value.rolePref !== '未設置') {
-      memberForm.value.rolePrefList = memberForm.value.rolePref.split(', ').filter(Boolean)
-    } else {
-      memberForm.value.rolePrefList = []
-    }
   } else {
     editingMemberId.value = null
     memberForm.value = {
@@ -776,318 +642,83 @@ const openMemberModal = (member = null) => {
   showMemberModal.value = true
 }
 
-const saveMember = () => {
-  if (!memberForm.value.name.trim()) return alert('請輸入角色名！')
-  if (memberForm.value.schools.length === 0) return alert('請至少選擇一個流派！')
-
-  if (memberForm.value.rolePrefList && memberForm.value.rolePrefList.length > 0) {
-    memberForm.value.rolePref = memberForm.value.rolePrefList.join(', ')
+const toggleSchoolSelection = (schoolName) => {
+  const idx = memberForm.value.schools.indexOf(schoolName)
+  if (idx > -1) {
+    memberForm.value.schools.splice(idx, 1)
   } else {
-    memberForm.value.rolePref = '未設置'
-  }
-
-  if (editingMemberId.value) {
-    const idx = members.value.findIndex(m => m.id === editingMemberId.value)
-    if (idx > -1) members.value[idx] = { ...memberForm.value, id: editingMemberId.value }
-  } else {
-    members.value.push({ ...memberForm.value, id: Date.now() })
-  }
-
-  showMemberModal.value = false
-}
-
-// 刪除成員：置中確認彈窗
-const deleteMember = (id) => {
-  const m = members.value.find(item => item.id === id)
-  const mName = m ? m.name : ''
-  triggerConfirmModal(
-    '刪除成員',
-    `確定要刪除成員【${mName}】嗎？刪除後無法恢復。`,
-    () => {
-      members.value = members.value.filter(item => item.id !== id)
+    if (memberForm.value.schools.length >= 2) {
+      alert('最多只能選擇 2 個流派！')
+      return
     }
-  )
-}
-
-const triggerFileUpload = () => {
-  fileInput.value.click()
-}
-
-const handleScreenshotUpload = (e) => {
-  const file = e.target.files[0]
-  if (!file) return
-
-  ocrPreviewList.value = [
-    { name: '可愛影', school: '龍吟' },
-    { name: '夜小夜', school: '素問' },
-    { name: '飛雪', school: '血河' },
-    { name: '聆玨', school: '素問' }
-  ]
-}
-
-const confirmImport = () => {
-  ocrPreviewList.value.forEach(item => {
-    members.value.push({
-      id: Date.now() + Math.random(),
-      name: item.name,
-      formerNames: [],
-      schools: [item.school],
-      currentSchool: item.school,
-      hasGodlyWeapon: false,
-      guild: importTargetGuild.value,
-      status: '幫眾',
-      contact: '',
-      notes: '截圖自動導入',
-      tether: '',
-      rolePref: '未設置',
-      rolePrefList: []
-    })
-  })
-  alert(`成功導入 ${ocrPreviewList.value.length} 名成員！`)
-  ocrPreviewList.value = []
-  showImportModal.value = false
-}
-
-const handleBatchMove = () => {
-  members.value.forEach(m => {
-    if (selectedMemberIds.value.includes(m.id)) {
-      m.guild = batchTargetGuild.value
-    }
-  })
-  alert('批量移動成功！')
-  selectedMemberIds.value = []
-  showBatchModal.value = false
-}
-
-// 批量刪除成員：置中確認彈窗
-const handleBatchDelete = () => {
-  const count = selectedMemberIds.value.length
-  triggerConfirmModal(
-    '批量刪除成員',
-    `確定要刪除選中的 ${count} 名成員嗎？刪除後無法恢復。`,
-    () => {
-      members.value = members.value.filter(m => !selectedMemberIds.value.includes(m.id))
-      selectedMemberIds.value = []
-      showBatchModal.value = false
-    }
-  )
-}
-
-onMounted(() => {
-  const user = JSON.parse(localStorage.getItem('user'))
-  if (user) {
-    username.value = user.username
-    if (user.role) role.value = user.role
-  } else {
-    router.push('/login')
+    memberForm.value.schools.push(schoolName)
   }
-})
+  memberForm.value.currentSchool = memberForm.value.schools[0] || ''
+}
 
-const handleLogout = () => {
-  localStorage.removeItem('user')
+const getStatusClass = (status) => {
+  if (status === '幫眾') return 'status-green'
+  if (status === '學徒') return 'status-blue'
+  return 'status-gray'
+}
+
+const handleLogout = async () => {
+  await supabase.auth.signOut()
   router.push('/login')
 }
+
+onMounted(fetchCloudData)
 </script>
 
 <style scoped>
 .members-layout { min-height: 100vh; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .light-theme { background-color: #f4f6f9; color: #2c3e50; }
-.light-theme .navbar { background: #ffffff; border-bottom: 1px solid #e2e8f0; }
 .dark-theme { background-color: #121824; color: #e2e8f0; }
-.dark-theme .navbar { background: #1e2638; border-bottom: 1px solid #2d3748; }
 
 .navbar { height: 55px; padding: 0 30px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.nav-left { display: flex; align-items: center; }
 .brand-logo { font-size: 16px; font-weight: bold; letter-spacing: 1px; }
 .nav-center a { margin: 0 15px; text-decoration: none; color: inherit; opacity: 0.7; font-size: 14px; }
 .nav-center a.active { opacity: 1; font-weight: 600; border-bottom: 2px solid #3b82f6; padding-bottom: 4px; }
-.nav-right { display: flex; align-items: center; gap: 15px; }
-.icon-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; }
 .user-dropdown { position: relative; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 4px; }
-.dropdown-menu { position: absolute; right: 0; top: 30px; background: white; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 110px; display: flex; flex-direction: column; z-index: 50; }
-.dropdown-menu a { padding: 8px 12px; text-decoration: none; color: #333; font-size: 13px; }
 
-/* 內容版面 */
 .members-main { flex: 1; display: flex; max-width: 1400px; width: 100%; margin: 20px auto; padding: 0 20px; box-sizing: border-box; gap: 20px; }
-
-/* 左側幫會 */
 .guild-sidebar { width: 220px; background: #ffffff; border-radius: 8px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.sidebar-header h3 { margin: 0; font-size: 15px; }
 .btn-add-guild { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; font-weight: bold; }
 .guild-list { list-style: none; padding: 0; margin: 0; }
-.guild-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; transition: background 0.2s; }
+.guild-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .guild-item.active, .guild-item:hover { background: #eff6ff; color: #2563eb; font-weight: bold; }
-.guild-info { display: flex; justify-content: space-between; width: 100%; align-items: center; }
-.guild-count { font-size: 11px; opacity: 0.6; }
-.guild-actions { display: none; }
-.guild-item:hover .guild-actions { display: block; }
-.btn-icon-sm { background: none; border: none; color: #64748b; cursor: pointer; font-size: 14px; padding: 2px; }
-.btn-icon-sm:hover { color: #2563eb; }
 
 .content-area { flex: 1; background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .toolbar { display: flex; justify-content: space-between; margin-bottom: 15px; }
 .left-actions { display: flex; gap: 10px; align-items: center; }
 .search-input { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-.btn-primary.btn-red { background: #ef4444; }
 .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-.btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-.btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; }
 
-/* 表格欄位與 PopOver 選單 */
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
 .data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; position: relative; }
 .data-table th { background: #f8fafc; color: #64748b; font-weight: 600; }
 
-.school-popover-wrapper, .status-popover-wrapper { position: relative; display: inline-block; }
-.school-cell.clickable { cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 6px; transition: background 0.2s; }
-.school-cell.clickable:hover { background: #f1f5f9; }
-.school-img-badge { width: 24px; height: 24px; object-fit: contain; }
-.school-text-badge { background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-
-.status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
-.status-badge.clickable { cursor: pointer; transition: transform 0.15s; }
-.status-badge.clickable:hover { transform: scale(1.08); }
+.status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; cursor: pointer; }
 .status-green { background: #dcfce7; color: #16a34a; }
 .status-blue { background: #e0e7ff; color: #4338ca; }
 .status-gray { background: #f1f5f9; color: #64748b; }
 
-.school-popover-box, .status-popover-box {
-  position: absolute;
-  bottom: 115%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  display: flex;
-  gap: 8px;
-  z-index: 100;
-  white-space: nowrap;
-}
-.popover-arrow {
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  width: 8px;
-  height: 8px;
-  background: #ffffff;
-}
-.popover-school-btn {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #475569;
-  transition: all 0.2s;
-}
-.popover-school-btn.active {
-  border-color: #3b82f6;
-  background: #eff6ff;
-  color: #2563eb;
-  font-weight: bold;
-  box-shadow: 0 0 0 1px #3b82f6;
-}
-.popover-btn-img { width: 16px; height: 16px; object-fit: contain; }
-
-.popover-status-btn {
-  border: 1px solid transparent;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.popover-status-btn.active {
-  box-shadow: 0 0 0 2px #3b82f6;
-  font-weight: bold;
-}
-
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
-.empty-cell { text-align: center; color: #94a3b8; padding: 30px; }
 
-/* 表格列設置彈窗 */
-.column-hint-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #64748b; margin-bottom: 15px; }
-.column-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #f1f5f9; }
-.column-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; }
-.drag-handle { color: #94a3b8; font-weight: bold; cursor: grab; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
+.modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; max-height: 85vh; overflow-y: auto; }
+.large-card { width: 680px; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.close-btn { cursor: pointer; font-size: 20px; color: #94a3b8; }
+.form-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 13px; }
+.form-row label { width: 100px; font-weight: bold; }
+.form-row input[type="text"], .form-row select { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-/* 流派按鈕選單 */
-.school-selector { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; align-items: center; }
-.school-btn-card { border: 1px solid #cbd5e1; background: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; position: relative; }
-.school-btn-card.active { border-color: var(--badge-color); background: var(--badge-bg); color: var(--badge-color); font-weight: bold; }
-.btn-img-icon { width: 18px; height: 18px; object-fit: contain; }
-.btn-add-school { border: 1px dashed #3b82f6; background: #eff6ff; color: #3b82f6; padding: 4px 10px; border-radius: 20px; font-size: 12px; cursor: pointer; }
-.del-school-x { margin-left: 4px; color: #ef4444; font-weight: bold; cursor: pointer; }
-
-/* 下拉複選框組件樣式 */
-.custom-select-wrapper { position: relative; flex: 1; }
-.custom-select-input { 
-  display: flex; 
-  align-items: center; 
-  justify-content: space-between; 
-  padding: 6px 10px; 
-  border: 1px solid #cbd5e1; 
-  border-radius: 6px; 
-  background: white; 
-  cursor: pointer; 
-  font-size: 13px;
-  min-height: 20px;
-}
-.placeholder-text { color: #94a3b8; }
-.select-arrow { font-size: 16px; color: #94a3b8; transition: transform 0.2s; }
-.select-arrow.rotate { transform: rotate(180deg); }
-
-.custom-select-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  margin-top: 4px;
-  background: white;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  max-height: 220px;
-  overflow-y: auto;
-  z-index: 120;
-  padding: 4px 0;
-}
-
-.dropdown-option-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  color: #334155;
-  transition: background 0.15s;
-}
-
-.dropdown-option-item:hover {
-  background: #f1f5f9;
-}
-
-.dropdown-option-item.selected {
-  color: #2563eb;
-  font-weight: bold;
-  background: #eff6ff;
-}
-
-.check-icon { font-size: 16px; color: #2563eb; }
-
-/* 置中刪除確認 Modal (圖四對應) */
 .confirm-modal-card { width: 380px; text-align: center; padding: 24px; }
 .confirm-modal-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .warning-icon-wrapper { width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center; }
@@ -1095,30 +726,4 @@ const handleLogout = () => {
 .confirm-title { margin: 0; font-size: 16px; color: #1e293b; }
 .confirm-msg { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
 .confirm-modal-footer { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
-
-/* 彈窗基礎 */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
-.modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; max-height: 85vh; overflow-y: auto; }
-.small-card { width: 380px; }
-.medium-card { width: 500px; }
-.large-card { width: 680px; }
-.wide-card { width: 720px; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.close-btn { cursor: pointer; font-size: 20px; color: #94a3b8; }
-.form-section-title { font-weight: bold; font-size: 14px; border-left: 3px solid #3b82f6; padding-left: 8px; margin-bottom: 15px; }
-
-.form-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 13px; }
-.form-row.align-start { align-items: flex-start; }
-.form-row label { width: 100px; font-weight: bold; }
-.form-row input[type="text"], .form-row select { flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
-.req { color: #ef4444; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-.margin-l { margin-left: 10px; }
-.margin-t { margin-top: 10px; }
-.margin-v { margin: 10px 0; }
-.full-width { width: 100%; }
-
-.upload-box { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; background: #f8fafc; margin-top: 10px; }
-.upload-icon { font-size: 32px; color: #94a3b8; }
-.ocr-result-box { margin-top: 15px; background: #f1f5f9; padding: 10px; border-radius: 6px; font-size: 12px; }
 </style>
