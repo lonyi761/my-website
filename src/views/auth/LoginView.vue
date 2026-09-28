@@ -1,28 +1,35 @@
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h2 class="auth-title">{{ isRegister ? '註冊幫會帳號' : '聯賽排表系統登入' }}</h2>
+      <h2 class="auth-title">{{ isRegister ? '註冊帳號' : '聯賽排表系統登入' }}</h2>
 
       <form @submit.prevent="handleSubmit" class="auth-form">
         <div class="form-group">
-          <label>電子郵件 (Email)</label>
-          <input type="email" v-model="email" required placeholder="請輸入 Email" class="auth-input" />
+          <label>帳號 (ID)</label>
+          <input 
+            type="text" 
+            v-model="username" 
+            required 
+            placeholder="請輸入帳號 ID" 
+            class="auth-input" 
+          />
         </div>
 
         <div class="form-group">
           <label>密碼</label>
-          <input type="password" v-model="password" required placeholder="請輸入密碼" class="auth-input" />
-        </div>
-
-        <div v-if="isRegister" class="form-group">
-          <label>幫會名稱 (新幫會或輸入既有幫會)</label>
-          <input type="text" v-model="guildName" required placeholder="例如：百錵谷酒池肉林" class="auth-input" />
+          <input 
+            type="password" 
+            v-model="password" 
+            required 
+            placeholder="請輸入密碼" 
+            class="auth-input" 
+          />
         </div>
 
         <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
 
         <button type="submit" class="btn-primary full-w margin-t" :disabled="loading">
-          {{ loading ? '處理中...' : (isRegister ? '註冊帳號 (免費試用 7 天)' : '登入系統') }}
+          {{ loading ? '處理中...' : (isRegister ? '提交註冊 (等待管理員開通)' : '登入系統') }}
         </button>
 
         <div class="toggle-mode-row margin-t">
@@ -42,62 +49,51 @@ import { supabase } from '../../utils/supabase'
 const emit = defineEmits(['login-success'])
 
 const isRegister = ref(false)
-const email = ref('')
+const username = ref('')
 const password = ref('')
-const guildName = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 
+// 將使用者輸入的帳號 ID 轉為 Supabase Auth 內部識別字串 (對使用者完全透明)
+const getInternalEmail = (accId) => {
+  const cleanId = accId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+  return `${cleanId}@internal.roster`
+}
+
 const handleSubmit = async () => {
+  const accountId = username.value.trim()
+  if (!accountId) {
+    errorMessage.value = '請輸入帳號 ID！'
+    return
+  }
+
   loading.value = true
   errorMessage.value = ''
+  const internalEmail = getInternalEmail(accountId)
 
   try {
     if (isRegister.value) {
-      // 1. 註冊 Supabase Auth 帳號
+      // 1. 註冊 Supabase Auth 帳號 (攜帶 username 元數據)
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.value,
-        password: password.value
+        email: internalEmail,
+        password: password.value,
+        options: {
+          data: { username: accountId }
+        }
       })
       if (authError) throw authError
 
-      // 2. 尋找或建立幫會 (Guild)
-      let guildId = null
-      const { data: existingGuild } = await supabase
-        .from('guilds')
-        .select('id')
-        .eq('name', guildName.value.trim())
-        .single()
-
-      if (existingGuild) {
-        guildId = existingGuild.id
-      } else {
-        const { data: newGuild, error: guildError } = await supabase
-          .from('guilds')
-          .insert([{ name: guildName.value.trim() }])
-          .select()
-          .single()
-        if (guildError) throw guildError
-        guildId = newGuild.id
-      }
-
-      // 3. 更新 User Profile 所屬幫會
-      await supabase
-        .from('profiles')
-        .update({ guild_id: guildId })
-        .eq('id', authData.user.id)
-
-      alert('註冊成功！預設開通 7 天免費試用。')
+      alert('註冊成功！請聯繫總管理員開通權限與指派幫會。')
       isRegister.value = false
     } else {
-      // 登入驗證
+      // 2. 登入驗證
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.value,
+        email: internalEmail,
         password: password.value
       })
       if (authError) throw authError
 
-      // 檢查 Profile 與使用天數 (expire_at)
+      // 3. 讀取 Profile 資料與權限天數
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*, guilds(*)')
@@ -109,15 +105,22 @@ const handleSubmit = async () => {
       const now = new Date()
       const expireDate = new Date(profile.expire_at)
 
+      // 到期判定
       if (profile.role !== 'super_admin' && expireDate < now) {
         await supabase.auth.signOut()
-        throw new Error(`您的帳號已於 ${profile.expire_at.split('T')[0]} 到期，請聯繫總管理員開通使用天數！`)
+        throw new Error(`您的帳號天數已於 ${profile.expire_at.split('T')[0]} 到期，請聯繫總管理員續期！`)
       }
 
       emit('login-success', { user: authData.user, profile })
     }
   } catch (err) {
-    errorMessage.value = err.message || '操作失敗，請重試'
+    if (err.message.includes('Invalid login credentials')) {
+      errorMessage.value = '帳號 ID 或密碼錯誤！'
+    } else if (err.message.includes('User already registered')) {
+      errorMessage.value = '該帳號 ID 已被註冊，請直接登入！'
+    } else {
+      errorMessage.value = err.message || '操作失敗，請重試'
+    }
   } finally {
     loading.value = false
   }
