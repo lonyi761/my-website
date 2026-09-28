@@ -1,15 +1,15 @@
 <template>
   <div class="spreadsheet-view-wrapper">
     
-    <!-- 頂部 Banner 資訊列 (格式：幫會名稱 幫會聯賽 MM/DD HH:mm) -->
-    <div class="spreadsheet-header-banner">
+    <!-- 頂部 Banner 資訊列 (支援開關控制：showHeaderTitle) -->
+    <div v-if="showHeaderTitle" class="spreadsheet-header-banner">
       <span class="banner-title">
         {{ leagueInfo.guild || '百錵谷酒池肉林' }} &nbsp;&nbsp; {{ leagueInfo.type || '幫會聯賽' }} &nbsp;&nbsp; {{ formatShortDate(leagueInfo.startTime) }}
       </span>
     </div>
 
-    <!-- 中間可編輯備註橫幅 (點擊整條方框任意處即可編輯) -->
-    <div class="top-editable-banner-box" @click="startEditTopBanner">
+    <!-- 中間可編輯備註橫幅 (支援開關控制：showHeaderNote) -->
+    <div v-if="showHeaderNote" class="top-editable-banner-box" @click="startEditTopBanner">
       <!-- 1. 展示模式 (無雜項按鈕，極致乾淨，適合圖片導出) -->
       <div 
         v-if="!isEditingTopBanner" 
@@ -48,7 +48,7 @@
         :key="team.id" 
         class="spreadsheet-team-card"
       >
-        <!-- 團隊名稱頂部欄位 (不吃色，僅在前方顯示團隊顏色圓點 - 對齊圖三) -->
+        <!-- 團隊名稱頂部欄位 -->
         <div 
           class="spreadsheet-team-header-bar" 
           @click="$emit('open-edit-team', tIdx)"
@@ -84,7 +84,7 @@
                   @drop="$emit('drop-slot', { team, squad, slot })"
                   @click="$emit('click-slot', { team, squad, slot, slotIdx })"
                 >
-                  <!-- 小隊欄 (點擊開啟編輯團隊 Modal) -->
+                  <!-- 小隊欄 -->
                   <td 
                     v-if="slotIdx === 0" 
                     :rowspan="squad.slots.length" 
@@ -99,7 +99,7 @@
                     </div>
                   </td>
 
-                  <!-- 暱稱欄 (支援拖拽上位，顯示預設/推薦流派) -->
+                  <!-- 暱稱欄 -->
                   <td 
                     class="member-cell" 
                     :draggable="!!slot.assignedMember" 
@@ -150,7 +150,7 @@
           </table>
         </div>
 
-        <!-- 團隊底部備註與下方自訂備註 (整條框區域點擊皆可進入編輯 - 對齊圖三/圖四/圖五) -->
+        <!-- 團隊底部備註與下方自訂備註 -->
         <div class="spreadsheet-team-footer">
           <!-- 1. 團隊備註區塊 -->
           <div class="team-note-wrapper" @click="editingTeamDescId = team.id">
@@ -228,7 +228,9 @@ const props = defineProps({
   leagueInfo: { type: Object, default: () => ({}) },
   matrixTeams: { type: Array, default: () => [] },
   availableSchools: { type: Array, default: () => [] },
-  schoolColorMap: { type: Object, default: () => ({}) }
+  schoolColorMap: { type: Object, default: () => ({}) },
+  showHeaderTitle: { type: Boolean, default: true },
+  showHeaderNote: { type: Boolean, default: true }
 })
 
 defineEmits(['click-slot', 'drag-start-slot', 'drop-slot', 'open-edit-team'])
@@ -329,7 +331,6 @@ const getSlotRoleSummary = (slot) => {
   letter-spacing: 0.5px;
 }
 
-/* 中間可編輯備註區 (全框 100% 寬度可點擊) */
 .top-editable-banner-box {
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -376,7 +377,6 @@ const getSlotRoleSummary = (slot) => {
   text-align: center;
 }
 
-/* 字體大小微調控制項 */
 .font-size-controls {
   display: flex;
   align-items: center;
@@ -498,6 +498,7 @@ const getSlotRoleSummary = (slot) => {
 .squad-info-cell {
   background: #f8fafc;
   vertical-align: middle;
+  text-align: center;
   padding: 10px 4px !important;
   cursor: pointer;
   transition: background 0.15s;
@@ -506,20 +507,20 @@ const getSlotRoleSummary = (slot) => {
   background: #f1f5f9;
 }
 .squad-info-box {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  align-items: center;
-  justify-content: center;
+  text-align: center;
+  width: 100%;
+  margin: 0 auto;
 }
 .squad-title-text {
   font-weight: bold;
   font-size: 13px;
   color: #1e293b;
+  margin-bottom: 2px;
 }
 .squad-role-text {
   font-size: 11px;
   color: #475569;
+  margin-bottom: 2px;
 }
 .squad-desc-text {
   font-size: 10px;
@@ -534,32 +535,36 @@ const getSlotRoleSummary = (slot) => {
   filter: brightness(0.96);
 }
 
-/* 高對比文字，防職業底色洗掉字體 */
 .member-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: center;
+  vertical-align: middle;
+  text-align: center;
   font-weight: bold;
   font-size: 13px;
   color: #1e293b !important;
 }
 .guideline-school-icons {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 2px;
+  vertical-align: middle;
 }
 .slot-school-icon {
   width: 18px;
   height: 18px;
   object-fit: contain;
+  vertical-align: middle;
+  display: inline-block;
+  margin-right: 4px;
 }
 .member-name-text {
   color: #1e293b !important;
+  vertical-align: middle;
+  display: inline-block;
 }
 .slot-placeholder-text {
   color: #94a3b8;
   font-weight: normal;
+  vertical-align: middle;
 }
 
 .role-cell, .skill-cell, .jueji-cell {
@@ -569,9 +574,9 @@ const getSlotRoleSummary = (slot) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
-/* 團隊備註與可編輯備註區 (全區域皆可點擊進入編輯狀態) */
 .spreadsheet-team-footer {
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;

@@ -149,7 +149,7 @@
 
     <!-- ================= Modals 集中管理 ================= -->
 
-    <!-- 精簡版：導出圖片預覽 Modal -->
+    <!-- ★ 全新：導出圖片預覽 Modal (對齊圖四控制欄位) ★ -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
         <!-- 頂部標頭 Bar -->
@@ -160,14 +160,48 @@
         </div>
 
         <div class="export-modal-body">
-          <!-- 左側精簡邊欄 -->
+          <!-- 左側導出配置邊欄 (對齊圖四控制需求) -->
           <div class="export-sidebar-controls simple-sidebar">
-            <div class="sidebar-info-card">
+            <div class="sidebar-info-card margin-b">
               <h4 class="sidebar-card-title">圖片導出說明</h4>
               <p class="sidebar-card-desc">預覽畫面即為最終導出之 PNG 高畫質圖片，畫面純淨不含水印與網址。</p>
             </div>
 
-            <div class="export-actions-bottom">
+            <!-- 表頭控制選單 (對齊圖四) -->
+            <div class="export-control-section margin-b">
+              <div class="export-section-title">表頭</div>
+              <div class="control-switch-item">
+                <span>顯示名稱</span>
+                <label class="switch-sm">
+                  <input type="checkbox" v-model="exportHeaderTitleVisible" />
+                  <span class="slider-sm"></span>
+                </label>
+              </div>
+              <div class="control-switch-item">
+                <span>顯示備註</span>
+                <label class="switch-sm">
+                  <input type="checkbox" v-model="exportHeaderNoteVisible" />
+                  <span class="slider-sm"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 隊伍控制選單 (對齊圖四) -->
+            <div class="export-control-section margin-b">
+              <div class="export-section-title">隊伍 (導入團隊)</div>
+              <div v-for="team in matrixTeams" :key="team.id" class="control-switch-item">
+                <span class="team-switch-label">
+                  <span v-if="team.color" class="team-color-dot-sm" :style="{ backgroundColor: team.color }"></span>
+                  {{ team.name }}
+                </span>
+                <label class="switch-sm">
+                  <input type="checkbox" :value="team.id" v-model="exportVisibleTeamIds" />
+                  <span class="slider-sm"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="export-actions-bottom margin-t">
               <button class="btn-primary full-w btn-lg" :disabled="isExporting" @click="downloadExportImage">
                 <i class="mdi mdi-download margin-r"></i> {{ isExporting ? '正在生成圖片...' : '導出 PNG 圖片' }}
               </button>
@@ -175,12 +209,12 @@
             </div>
           </div>
 
-          <!-- 右側導出預覽畫布區域 (100% 與預覽一致) -->
+          <!-- 右側導出預覽畫布區域 -->
           <div class="export-preview-stage">
             <div class="preview-canvas-paper">
               <RosterMatrixView 
                 v-if="layoutMode === 'matrix'"
-                :matrixTeams="matrixTeams"
+                :matrixTeams="exportFilteredTeams"
                 :availableSchools="availableSchools"
                 :schoolColorMap="schoolColorMap"
                 :showSecondarySchool="showSecondarySchool"
@@ -189,9 +223,11 @@
               <RosterTableView 
                 v-else-if="layoutMode === 'table'"
                 :leagueInfo="leagueInfo"
-                :matrixTeams="matrixTeams"
+                :matrixTeams="exportFilteredTeams"
                 :availableSchools="availableSchools"
                 :schoolColorMap="schoolColorMap"
+                :showHeaderTitle="exportHeaderTitleVisible"
+                :showHeaderNote="exportHeaderNoteVisible"
               />
             </div>
           </div>
@@ -1129,7 +1165,6 @@ const schoolColorMap = {
   '滄瀾': '#e0e7ff'
 }
 
-// 補齊 getRowSchoolBgStyle 防護 (解決圖一/圖二點開批量編輯崩潰白屏的根本原因)
 const getRowSchoolBgStyle = (schoolName) => {
   const bg = schoolColorMap[schoolName] || '#ffffff'
   return { backgroundColor: bg }
@@ -1168,15 +1203,27 @@ const showDetails = ref(false)
 const layoutMode = ref('matrix')
 const pendingViewMode = ref('school')
 
-// 導出預覽 Modal 狀態與載入控制
+// ★ 導出預覽 Modal 狀態管理與圖四左側控制變數 ★
 const showExportModal = ref(false)
 const isExporting = ref(false)
 
+const exportHeaderTitleVisible = ref(true)
+const exportHeaderNoteVisible = ref(true)
+const exportVisibleTeamIds = ref([])
+
 const openExportPreviewModal = () => {
+  // 預設開啟時勾選所有團隊
+  exportVisibleTeamIds.value = matrixTeams.value.map(t => t.id)
+  exportHeaderTitleVisible.value = true
+  exportHeaderNoteVisible.value = true
   showExportModal.value = true
 }
 
-// 動態載入 html2canvas 套件 CDN (確保圖片導出 100% 成功)
+// 根據勾選過濾導出的團隊
+const exportFilteredTeams = computed(() => {
+  return matrixTeams.value.filter(team => exportVisibleTeamIds.value.includes(team.id))
+})
+
 const loadHtml2CanvasScript = () => {
   return new Promise((resolve, reject) => {
     if (window.html2canvas) return resolve(window.html2canvas)
@@ -1188,7 +1235,6 @@ const loadHtml2CanvasScript = () => {
   })
 }
 
-// 產生動態匯出檔案名稱 (連動標題)
 const formatExportFileName = () => {
   const guild = leagueInfo.value.guild || '百錵谷酒池肉林'
   const type = leagueInfo.value.type || '幫會聯賽'
@@ -1197,7 +1243,6 @@ const formatExportFileName = () => {
   return `${guild} ${type} ${time}`
 }
 
-// 真實導出高解析 PNG 圖片功能 (渲染預覽畫布 DOM)
 const downloadExportImage = async () => {
   const targetEl = document.querySelector('.preview-canvas-paper')
   if (!targetEl) return alert('找不到預覽畫面！')
@@ -2183,7 +2228,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .stats-count-badge { font-size: 12px; font-weight: bold; color: #94a3b8; }
 .stats-count-badge.active { color: #2563eb; }
 
-/* 導出圖片預覽 Modal 樣式 */
+/* 導出圖片預覽 Modal 樣式 (對齊圖四) */
 .full-screen-overlay {
   z-index: 200;
   background: rgba(15, 23, 42, 0.6);
@@ -2219,6 +2264,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   overflow: hidden;
 }
 
+/* 左側導出配置邊欄 (對齊圖四) */
 .export-sidebar-controls.simple-sidebar {
   width: 260px;
   background: #ffffff;
@@ -2226,29 +2272,67 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  overflow-y: auto;
 }
 .sidebar-info-card {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  padding: 14px;
+  padding: 12px;
   border-radius: 8px;
 }
 .sidebar-card-title {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0 0 6px 0;
+  font-size: 13px;
   color: #1e293b;
 }
 .sidebar-card-desc {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: #64748b;
-  line-height: 1.5;
+  line-height: 1.4;
+}
+
+/* 左側控制區塊樣式 (對齊圖四) */
+.export-control-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.export-section-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+.control-switch-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #334155;
+  font-weight: 500;
+}
+.team-switch-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.team-color-dot-sm {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .export-actions-bottom {
   display: flex;
   flex-direction: column;
+  margin-top: auto;
 }
 .btn-lg {
   padding: 12px;
@@ -2357,7 +2441,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .counter-input { width: 100%; padding: 6px 60px 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; box-sizing: border-box; }
 .input-char-counter { position: absolute; right: 10px; font-size: 11px; color: #94a3b8; pointer-events: none; }
 
-/* 批量編輯 Modal (修復選單被裁剪受限，層級獨立 - 對齊圖一) */
+/* 批量編輯 Modal (修復選單被裁剪受限，層級獨立) */
 .batch-modal-card { max-height: 85vh; overflow-y: auto; }
 .batch-toolbar-top { display: flex; align-items: center; font-size: 13px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
 .batch-table-container { display: flex; flex-direction: column; gap: 16px; overflow: visible; }
