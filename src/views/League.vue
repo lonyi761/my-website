@@ -64,7 +64,7 @@
             </div>
           </div>
 
-          <!-- 3. 聯賽類型 -->
+          <!-- 3. 聯賽類型 (精簡為：幫會聯賽 / 俱樂部比賽) -->
           <div class="custom-select-wrapper" @click.stop>
             <div class="custom-select-input" @click="toggleDropdown('type')">
               <span :class="{ 'placeholder-text': !filterType }">
@@ -84,7 +84,37 @@
             </div>
           </div>
 
-          <!-- 4. 排序 -->
+          <!-- 4. 參與者 (選項與成員分組相同) -->
+          <div class="custom-select-wrapper" @click.stop>
+            <div class="custom-select-input" @click="toggleDropdown('participant')">
+              <span :class="{ 'placeholder-text': !filterParticipant }">
+                {{ filterParticipant || '參與者' }}
+              </span>
+              <i :class="['mdi', 'mdi-chevron-down', 'select-arrow', { rotate: activeDropdown === 'participant' }]"></i>
+            </div>
+            <div v-if="activeDropdown === 'participant'" class="custom-select-dropdown">
+              <div class="dropdown-group-label">幫會</div>
+              <div 
+                v-for="g in guildOptions" 
+                :key="g" 
+                :class="['dropdown-item', { selected: filterParticipant === g }]"
+                @click="selectOption('participant', g)"
+              >
+                {{ g }}
+              </div>
+              <div class="dropdown-group-label">其他</div>
+              <div 
+                v-for="o in otherGroupOptions" 
+                :key="o" 
+                :class="['dropdown-item', { selected: filterParticipant === o }]"
+                @click="selectOption('participant', o)"
+              >
+                {{ o }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. 排序 -->
           <div class="custom-select-wrapper" @click.stop>
             <div class="custom-select-input" @click="toggleDropdown('sort')">
               <span>{{ filterSortLabel }}</span>
@@ -102,20 +132,21 @@
             </div>
           </div>
 
-          <!-- 5. 查詢按鈕 -->
+          <!-- 6. 查詢按鈕 -->
           <button class="btn-query" @click="handleSearch">查詢</button>
         </div>
       </div>
 
-      <!-- 表格視圖 (精簡 8 欄位) -->
+      <!-- 表格視圖 (全新 9 欄位) -->
       <div class="table-container margin-t">
         <table class="data-table">
           <thead>
             <tr>
               <th>聯賽標題</th>
               <th width="110">聯賽類型</th>
-              <th width="160">開始時間</th>
-              <th width="70">場次</th>
+              <th width="130">參與者</th>
+              <th width="150">開始時間</th>
+              <th width="60">場次</th>
               <th>對陣幫會</th>
               <th>比賽結果</th>
               <th>備註</th>
@@ -126,36 +157,37 @@
             <tr v-for="item in filteredLeagueList" :key="item.id">
               <td class="font-bold">{{ item.title }}</td>
               <td><span class="text-green">{{ item.type }}</span></td>
+              <td>{{ item.participant }}</td>
               <td class="text-gray">{{ item.startTime }}</td>
               <td>{{ item.matchCount }}</td>
 
-              <!-- 對陣幫會 (點擊編輯對陣幫會) -->
+              <!-- 對陣幫會 (上下垂直疊加呈現) -->
               <td>
                 <div class="clickable-cell" @click="openOpponentModal(item)" title="點擊編輯對陣幫會">
-                  <div v-if="item.matchCount === 1">
-                    <span :class="['opponent-pill', { unset: !item.opponents[0] }]">
-                      {{ item.opponents[0] || '未填選' }}
-                    </span>
-                  </div>
-                  <div v-else class="opponents-flex">
-                    <span :class="['opponent-pill', { unset: !item.opponents[0] }]">
-                      第1場: {{ item.opponents[0] || '未填選' }}
-                    </span>
-                    <span :class="['opponent-pill', { unset: !item.opponents[1] }]">
-                      第2場: {{ item.opponents[1] || '未填選' }}
-                    </span>
+                  <div class="opponents-flex-vertical">
+                    <template v-for="(opp, mIdx) in item.matchCount" :key="mIdx">
+                      <div class="vertical-row">
+                        <span v-if="item.matchCount > 1" class="match-tag-label">第{{ mIdx + 1 }}場:</span>
+                        <span :class="['opponent-pill', { unset: !item.opponents[mIdx] }]">
+                          {{ item.opponents[mIdx] || '未填選' }}
+                        </span>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </td>
 
-              <!-- 比賽結果 (並排顯示 我方贏 / 對方贏 膠囊標籤) -->
+              <!-- 比賽結果 (上下垂直疊加呈現我方贏 / 對方贏標籤) -->
               <td>
                 <div class="clickable-cell" @click="openResultModal(item)" title="點擊編輯比賽結果">
-                  <div class="results-flex">
+                  <div class="results-flex-vertical">
                     <template v-for="(res, mIdx) in item.matchCount" :key="mIdx">
-                      <span v-if="item.results[mIdx] === 'win'" class="res-badge win">我方贏</span>
-                      <span v-else-if="item.results[mIdx] === 'lose'" class="res-badge lose">對方贏</span>
-                      <span v-else class="res-badge unset">還沒出</span>
+                      <div class="vertical-row">
+                        <span v-if="item.matchCount > 1" class="match-tag-label">第{{ mIdx + 1 }}場:</span>
+                        <span v-if="item.results[mIdx] === 'win'" class="res-badge win">我方贏</span>
+                        <span v-else-if="item.results[mIdx] === 'lose'" class="res-badge lose">對方贏</span>
+                        <span v-else class="res-badge unset">還沒出</span>
+                      </div>
                     </template>
                   </div>
                 </div>
@@ -170,7 +202,7 @@
               </td>
             </tr>
             <tr v-if="filteredLeagueList.length === 0">
-              <td colspan="8" class="empty-cell">暫無聯賽資料</td>
+              <td colspan="9" class="empty-cell">暫無聯賽資料</td>
             </tr>
           </tbody>
         </table>
@@ -202,7 +234,7 @@
       </div>
     </div>
 
-    <!-- 2. 編輯比賽結果 Modal (對應圖三) -->
+    <!-- 2. 編輯比賽結果 Modal -->
     <div v-if="showResultModal" class="modal-overlay" @click.self="showResultModal = false">
       <div class="modal-card small-card">
         <div class="modal-header">
@@ -288,14 +320,15 @@ const username = ref('VIP')
 const filterTitle = ref('')
 const filterGroup = ref('')
 const filterType = ref('')
+const filterParticipant = ref('')
 const filterSort = ref('created_desc')
 
 const activeDropdown = ref(null)
 
-// 幫會選項 (預設為 百錵谷酒池肉林)
+// 幫會選項與聯賽類型（僅分：幫會聯賽 / 俱樂部比賽）
 const guildOptions = ['百錵谷酒池肉林']
 const otherGroupOptions = ['遊客']
-const typeOptions = ['幫會聯賽', '約戰', '俱樂部聯賽']
+const typeOptions = ['幫會聯賽', '俱樂部比賽']
 
 const sortOptions = [
   { label: '創建時間倒序', value: 'created_desc' },
@@ -327,24 +360,26 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// 模擬聯賽列表資料 (預設帶入 百錵谷酒池肉林)
+// 聯賽列表資料
 const leagueList = ref([
   {
     id: 1,
     title: '幫會聯賽',
-    guild: '百錵谷酒池肉林',
     type: '幫會聯賽',
+    participant: '百錵谷酒池肉林',
+    guild: '百錵谷酒池肉林',
     startTime: '2026-10-10 20:00',
-    matchCount: 2, // 1 或 2 場
+    matchCount: 2,
     opponents: ['未填選', '未填選'],
-    results: ['win', 'lose'], // 'unset' | 'win' | 'lose'
+    results: ['win', 'lose'],
     notes: '1'
   },
   {
     id: 2,
-    title: '第一場週六聯賽',
+    title: '俱樂部交流賽',
+    type: '俱樂部比賽',
+    participant: '百錵谷酒池肉林',
     guild: '百錵谷酒池肉林',
-    type: '約戰',
     startTime: '2026-10-17 20:00',
     matchCount: 1,
     opponents: ['未填選'],
@@ -364,6 +399,7 @@ const toggleDropdown = (dropdownName) => {
 const selectOption = (category, value) => {
   if (category === 'group') filterGroup.value = value
   if (category === 'type') filterType.value = value
+  if (category === 'participant') filterParticipant.value = value
   if (category === 'sort') filterSort.value = value
   activeDropdown.value = null
 }
@@ -379,7 +415,8 @@ const filteredLeagueList = computed(() => {
     const matchTitle = !filterTitle.value || item.title.includes(filterTitle.value) || item.guild.includes(filterTitle.value)
     const matchGroup = !filterGroup.value || item.guild === filterGroup.value
     const matchType = !filterType.value || item.type === filterType.value
-    return matchTitle && matchGroup && matchType
+    const matchPart = !filterParticipant.value || item.participant === filterParticipant.value
+    return matchTitle && matchGroup && matchType && matchPart
   })
 })
 
@@ -430,8 +467,9 @@ const createLeague = () => {
     leagueList.value.unshift({
       id: Date.now(),
       title: title.trim(),
-      guild: '百錵谷酒池肉林',
       type: '幫會聯賽',
+      participant: '百錵谷酒池肉林',
+      guild: '百錵谷酒池肉林',
       startTime: '2026-10-24 20:00',
       matchCount: 2,
       opponents: ['未填選', '未填選'],
@@ -512,13 +550,15 @@ onMounted(() => {
 .clickable-cell { cursor: pointer; display: inline-block; padding: 2px 4px; border-radius: 4px; transition: background 0.15s; }
 .clickable-cell:hover { background: #f1f5f9; }
 
-/* 對陣幫會樣式 */
-.opponents-flex { display: flex; align-items: center; gap: 8px; }
-.opponent-pill { font-size: 12px; color: #334155; font-weight: 500; }
-.opponent-pill.unset { color: #94a3b8; border: 1px dashed #cbd5e1; padding: 2px 6px; border-radius: 4px; }
+/* 上下垂直呈現對陣與結果 */
+.opponents-flex-vertical, .results-flex-vertical { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.vertical-row { display: flex; align-items: center; gap: 6px; }
+.match-tag-label { font-size: 11px; color: #64748b; font-weight: bold; }
 
-/* 比賽結果並排膠囊標籤 */
-.results-flex { display: flex; align-items: center; gap: 6px; }
+.opponent-pill { font-size: 12px; color: #334155; font-weight: 500; }
+.opponent-pill.unset { color: #94a3b8; border: 1px dashed #cbd5e1; padding: 1px 6px; border-radius: 4px; }
+
+/* 比賽結果勝負標籤 */
 .res-badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; display: inline-block; }
 .res-badge.win { background: #3b82f6; }
 .res-badge.lose { background: #ef4444; }
