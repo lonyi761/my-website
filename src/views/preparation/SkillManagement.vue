@@ -100,7 +100,7 @@
       </div>
     </div>
 
-    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <!-- 置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -121,10 +121,52 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { supabase } from '../../utils/supabase'
 
 const skillCategory = ref('jueji')
 const searchSkillQuery = ref('')
+const currentGuildId = ref(null)
+
+// 預設絕技 (14 項)
+const DEFAULT_JUEJI = [
+  '太極圖', '奶絕', '鈞天浩意', '蝶舞清夢', '花縈凌波',
+  '九天雷引', '冰火絕滅', '昀光神劍', '大鬧天宮', '劍魂沖霄',
+  '天遁白虹', '殘心三絕劍', '九靈本家絕', '騰龍躍淵'
+]
+
+// 預設群俠百家 (12 項)
+const DEFAULT_QUNXIA = [
+  '咚咚跳台', '冰牆', '風雪載圖。同歸', '不攻', '雲影濯香',
+  '潮傾浪野', '清弦鳴絕', '不動禪心', '四大皆空', '心眼無量',
+  '猿戲功', '流月無痕'
+]
+
+// 預設流派技能 (5 項)
+const DEFAULT_LIUPAI = [
+  '約定', '山盟', '清泉', '鐵壁', '碧海靈佑'
+]
+
+const nowTimeStr = '2026-09-30 00:00'
+
+// 初始 State 帶入預設資料
+const juejiSkillList = ref(
+  DEFAULT_JUEJI.map((content, idx) => ({
+    id: `def_j_${idx}`, content, createdAt: nowTimeStr, lastUsed: nowTimeStr, sortOrder: idx + 1
+  }))
+)
+
+const qunxiaSkillList = ref(
+  DEFAULT_QUNXIA.map((content, idx) => ({
+    id: `def_q_${idx}`, content, createdAt: nowTimeStr, lastUsed: nowTimeStr, sortOrder: idx + 1
+  }))
+)
+
+const liupaiSkillList = ref(
+  DEFAULT_LIUPAI.map((content, idx) => ({
+    id: `def_l_${idx}`, content, createdAt: nowTimeStr, lastUsed: nowTimeStr, sortOrder: idx + 1
+  }))
+)
 
 // 美化置中刪除確認 Modal 狀態
 const showConfirmModal = ref(false)
@@ -144,20 +186,93 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-const juejiSkillList = ref([
-  { id: 1, content: '狂發一怒', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' },
-  { id: 2, content: '太極圖', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' }
-])
+const fetchCurrentGuild = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return null
 
-const qunxiaSkillList = ref([
-  { id: 101, content: '咚咚跳台', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' },
-  { id: 102, content: '雲影濁香', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' }
-])
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+    if (profile) {
+      if (profile.guild_id) return profile.guild_id
+      if (profile.guild_ids && profile.guild_ids.length > 0) return profile.guild_ids[0]
+    }
 
-const liupaiSkillList = ref([
-  { id: 201, content: '約定', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' },
-  { id: 202, content: '清泉', createdAt: '2026-09-28 00:30', lastUsed: '2026-09-28 00:30' }
-])
+    const { data: guilds } = await supabase.from('guilds').select('id').limit(1)
+    if (guilds && guilds.length > 0) return guilds[0].id
+  } catch (e) {
+    console.warn('獲取幫會資訊失敗:', e)
+  }
+  return null
+}
+
+const loadSkillsFromDB = async () => {
+  const gId = await fetchCurrentGuild()
+  currentGuildId.value = gId
+
+  if (!gId) return
+
+  const { data, error } = await supabase
+    .from('preparation_skills')
+    .select('*')
+    .eq('guild_id', gId)
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    console.error('查詢 preparation_skills 失敗:', error)
+    return
+  }
+
+  const dbJueji = (data || []).filter(s => s.category === 'jueji')
+  const dbQunxia = (data || []).filter(s => s.category === 'qunxia')
+  const dbLiupai = (data || []).filter(s => s.category === 'liupai')
+
+  // 若 DB 無記錄，背景為幫會自動寫入全量預設選項
+  if (dbJueji.length === 0) {
+    const initJ = DEFAULT_JUEJI.map((content, idx) => ({
+      guild_id: gId, category: 'jueji', content, is_enabled: true, sort_order: idx + 1
+    }))
+    await supabase.from('preparation_skills').insert(initJ)
+  }
+  if (dbQunxia.length === 0) {
+    const initQ = DEFAULT_QUNXIA.map((content, idx) => ({
+      guild_id: gId, category: 'qunxia', content, is_enabled: true, sort_order: idx + 1
+    }))
+    await supabase.from('preparation_skills').insert(initQ)
+  }
+  if (dbLiupai.length === 0) {
+    const initL = DEFAULT_LIUPAI.map((content, idx) => ({
+      guild_id: gId, category: 'liupai', content, is_enabled: true, sort_order: idx + 1
+    }))
+    await supabase.from('preparation_skills').insert(initL)
+  }
+
+  // 重新從 DB 拉取最新 UUID 資料
+  const { data: latestData } = await supabase
+    .from('preparation_skills')
+    .select('*')
+    .eq('guild_id', gId)
+    .order('sort_order', { ascending: true })
+
+  if (latestData && latestData.length > 0) {
+    const formatTime = (isoStr) => isoStr ? isoStr.replace('T', ' ').slice(0, 16) : nowTimeStr
+
+    const mapFn = (s) => ({
+      id: s.id,
+      content: s.content,
+      createdAt: formatTime(s.created_at),
+      lastUsed: formatTime(s.updated_at || s.created_at),
+      sortOrder: s.sort_order
+    })
+
+    const jList = latestData.filter(s => s.category === 'jueji').map(mapFn)
+    const qList = latestData.filter(s => s.category === 'qunxia').map(mapFn)
+    const lList = latestData.filter(s => s.category === 'liupai').map(mapFn)
+
+    if (jList.length > 0) juejiSkillList.value = jList
+    if (qList.length > 0) qunxiaSkillList.value = qList
+    if (lList.length > 0) liupaiSkillList.value = lList
+  }
+}
 
 const currentSkillList = computed(() => {
   if (skillCategory.value === 'jueji') return juejiSkillList.value
@@ -176,14 +291,24 @@ const skillCategoryLabel = computed(() => {
   return '流派技能'
 })
 
+// 拖拽排序與更新
 const skillDragIndex = ref(null)
 const onSkillDragStart = (index) => { skillDragIndex.value = index }
-const onSkillDrop = (targetIndex) => {
+const onSkillDrop = async (targetIndex) => {
   if (skillDragIndex.value === null || skillDragIndex.value === targetIndex) return
   const list = currentSkillList.value
   const movedItem = list.splice(skillDragIndex.value, 1)[0]
   list.splice(targetIndex, 0, movedItem)
   skillDragIndex.value = null
+
+  if (currentGuildId.value) {
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i]
+      if (item.id && !String(item.id).startsWith('def_')) {
+        await supabase.from('preparation_skills').update({ sort_order: i + 1 }).eq('id', item.id)
+      }
+    }
+  }
 }
 
 const showSkillModal = ref(false)
@@ -201,28 +326,72 @@ const openSkillModal = (item = null) => {
   showSkillModal.value = true
 }
 
-const saveSkill = () => {
+// 確定保存（雙軌寫入本地 State 與 Supabase）
+const saveSkill = async () => {
   const content = skillForm.value.content.trim()
   if (!content) return alert('請輸入技能內容！')
 
-  const nowStr = '2026-09-28 00:30'
-  const targetList = currentSkillList.value
+  const gId = currentGuildId.value || await fetchCurrentGuild()
+  if (!gId) {
+    alert('尚無可用的幫會，請先在「成員」頁面新增或選擇幫會！')
+    return
+  }
+
+  const category = skillCategory.value
+  const targetList = category === 'jueji' ? juejiSkillList : (category === 'qunxia' ? qunxiaSkillList : liupaiSkillList)
 
   if (editingSkillId.value) {
-    const idx = targetList.findIndex(s => s.id === editingSkillId.value)
+    // 編輯模式
+    const idx = targetList.value.findIndex(s => s.id === editingSkillId.value)
     if (idx > -1) {
-      targetList[idx].content = content
-      targetList[idx].lastUsed = nowStr
+      targetList.value[idx].content = content
+      targetList.value[idx].lastUsed = nowTimeStr
+    }
+
+    if (!String(editingSkillId.value).startsWith('def_')) {
+      const { error } = await supabase
+        .from('preparation_skills')
+        .update({ content, updated_at: new Date().toISOString() })
+        .eq('id', editingSkillId.value)
+
+      if (error) {
+        alert('更新失敗！請確認 Supabase 中是否已關閉 RLS：' + error.message)
+        return
+      }
     }
   } else {
-    targetList.unshift({
+    // 新增模式
+    const newObj = {
       id: Date.now(),
       content,
-      createdAt: nowStr,
-      lastUsed: nowStr
-    })
+      createdAt: nowTimeStr,
+      lastUsed: nowTimeStr,
+      sortOrder: targetList.value.length + 1
+    }
+
+    const { data, error } = await supabase
+      .from('preparation_skills')
+      .insert([{
+        guild_id: gId,
+        category,
+        content,
+        is_enabled: true,
+        sort_order: targetList.value.length + 1
+      }])
+      .select()
+      .single()
+
+    if (error) {
+      alert('新增失敗！請確認 Supabase 中已建立 preparation_skills 資料表並解除 RLS：\n' + error.message)
+      return
+    }
+
+    if (data) newObj.id = data.id
+    targetList.value.unshift(newObj)
   }
+
   showSkillModal.value = false
+  await loadSkillsFromDB()
 }
 
 const deleteSkill = (id) => {
@@ -233,13 +402,22 @@ const deleteSkill = (id) => {
   triggerConfirmModal(
     '刪除技能',
     `確定要刪除${skillCategoryLabel.value}「${targetName}」嗎？刪除後無法恢復。`,
-    () => {
+    async () => {
+      if (id && !String(id).startsWith('def_')) {
+        const { error } = await supabase.from('preparation_skills').delete().eq('id', id)
+        if (error) {
+          alert('刪除失敗：' + error.message)
+          return
+        }
+      }
       if (skillCategory.value === 'jueji') juejiSkillList.value = juejiSkillList.value.filter(s => s.id !== id)
       else if (skillCategory.value === 'qunxia') qunxiaSkillList.value = qunxiaSkillList.value.filter(s => s.id !== id)
       else liupaiSkillList.value = liupaiSkillList.value.filter(s => s.id !== id)
     }
   )
 }
+
+onMounted(loadSkillsFromDB)
 </script>
 
 <style scoped>

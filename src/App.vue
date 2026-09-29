@@ -1,134 +1,132 @@
 <template>
   <div id="app">
-    <!-- 1. 未登入狀態：顯示登入/註冊頁面 -->
-    <LoginView 
-      v-if="!currentUser" 
-      @login-success="handleLoginSuccess" 
+    <!-- 全局頂部用戶狀態列 (登入頁不顯示) -->
+    <header v-if="currentUser && $route.path !== '/login'" class="global-user-bar">
+      <div class="user-info">
+        <span class="user-email">帳號：{{ userProfile?.username || userProfile?.email?.split('@')[0] }}</span>
+        <span class="user-guild">授權幫會：{{ assignedGuildNamesDisplay }}</span>
+        <span class="user-role-badge" :class="userProfile?.role">
+          {{ getRoleName(userProfile?.role) }}
+        </span>
+        <span class="expire-tag">
+          到期日：{{ userProfile?.expire_at ? userProfile.expire_at.split('T')[0] : '—' }}
+        </span>
+      </div>
+
+      <div class="user-actions">
+        <button 
+          v-if="userProfile?.role === 'super_admin'" 
+          class="btn-admin-nav"
+          @click="isAdminView = !isAdminView"
+        >
+          {{ isAdminView ? '返回系統' : '⚙️ 總管理員控制台' }}
+        </button>
+        <button class="btn-logout" @click="handleLogout">登出</button>
+      </div>
+    </header>
+
+    <AdminDashboard 
+      v-if="isAdminView && userProfile?.role === 'super_admin'" 
+      @back="isAdminView = false" 
     />
 
-    <!-- 2. 已登入狀態 -->
-    <template v-else>
-      <!-- 頂部用戶狀態列 -->
-      <header class="global-user-bar">
-        <div class="user-info">
-          <span class="user-email">帳號：{{ userProfile?.email }}</span>
-          <span class="user-guild">幫會：{{ userProfile?.guilds?.name || '未分配' }}</span>
-          <span class="user-role-badge" :class="userProfile?.role">
-            {{ getRoleName(userProfile?.role) }}
-          </span>
-          <span class="expire-tag">
-            到期日：{{ userProfile?.expire_at ? userProfile.expire_at.split('T')[0] : '—' }}
-          </span>
-        </div>
-
-        <div class="user-actions">
-          <button 
-            v-if="userProfile?.role === 'super_admin'" 
-            class="btn-admin-nav"
-            @click="currentView = currentView === 'admin' ? 'roster' : 'admin'"
-          >
-            {{ currentView === 'admin' ? '返回排表' : '⚙️ 總管理員控制台' }}
-          </button>
-          <button class="btn-logout" @click="handleLogout">登出</button>
-        </div>
-      </header>
-
-      <!-- 畫面切換：總管理員後台 OR 聯賽排表主頁 -->
-      <AdminDashboard 
-        v-if="currentView === 'admin' && userProfile?.role === 'super_admin'" 
-        @back="currentView = 'roster'" 
-      />
-      <RosterBoard 
-        v-else 
-        :leagueItem="leagueInfo" 
-        :userProfile="userProfile"
-      />
-    </template>
+    <router-view 
+      v-else 
+      @login-success="handleLoginSuccess" 
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from './utils/supabase'
-import LoginView from './views/auth/LoginView.vue'
-import RosterBoard from './views/league/RosterBoard.vue'
 import AdminDashboard from './views/admin/AdminDashboard.vue'
+
+const router = useRouter()
+const route = useRoute()
 
 const currentUser = ref(null)
 const userProfile = ref(null)
-const currentView = ref('roster') // 'roster' | 'admin'
-
-const leagueInfo = ref({
-  title: '幫會聯賽',
-  type: '幫會聯賽',
-  startTime: '2026-10-10 20:00',
-  guild: '百錵谷酒池肉林'
-})
+const allGuilds = ref([])
+const isAdminView = ref(false)
 
 const getRoleName = (role) => {
   const map = { super_admin: '總管理員', guild_admin: '幫主/統戰', member: '幫眾' }
   return map[role] || '幫眾'
 }
 
-// 檢查當前 Session
+const assignedGuildNamesDisplay = computed(() => {
+  if (userProfile.value?.role === 'super_admin') return '全部幫會 (總管理員)'
+  const guildIds = userProfile.value?.guild_ids || (userProfile.value?.guild_id ? [userProfile.value.guild_id] : [])
+  if (guildIds.length === 0) return '尚未綁定幫會'
+  
+  const names = allGuilds.value
+    .filter(g => guildIds.includes(g.id))
+    .map(g => g.name)
+  return names.length > 0 ? names.join('、') : '尚未綁定幫會'
+})
+
 const checkSession = async () => {
   const { data: { session } } = await supabase.auth.getSession()
   if (session) {
     currentUser.value = session.user
+    await fetchAllGuilds()
     await fetchProfile(session.user.id)
+    
+    if (route.path === '/login' || route.path === '/' || route.path === '/home') {
+      router.push('/members')
+    }
+  } else {
+    currentUser.value = null
+    userProfile.value = null
+    if (route.path !== '/login') {
+      router.push('/login')
+    }
   }
 }
 
-const fetchProfile = async (userId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*, guilds(*)')
-    .eq('id', userId)
-    .single()
+const fetchAllGuilds = async () => {
+  const { data } = await supabase.from('guilds').select('*')
+  if (data) allGuilds.value = data
+}
 
-  if (!error && data) {
+const fetchProfile = async (userId) => {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (data) {
     userProfile.value = data
-    if (data.guilds?.name) {
-      leagueInfo.value.guild = data.guilds.name
-    }
   }
 }
 
 const handleLoginSuccess = async ({ user, profile }) => {
   currentUser.value = user
   userProfile.value = profile
-  if (profile.guilds?.name) {
-    leagueInfo.value.guild = profile.guilds.name
-  }
+  isAdminView.value = false
+  await fetchAllGuilds()
+  router.push('/members')
 }
 
 const handleLogout = async () => {
   await supabase.auth.signOut()
   currentUser.value = null
   userProfile.value = null
-  currentView.value = 'roster'
+  isAdminView.value = false
+  router.push('/login')
 }
 
 onMounted(checkSession)
 </script>
 
 <style>
-.global-user-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background: #1e293b;
-  color: white;
-  font-size: 12px;
-}
+#app { min-height: 100vh; background-color: #f4f6f9; }
+.global-user-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #1e293b; color: white; font-size: 12px; }
 .user-info { display: flex; align-items: center; gap: 12px; }
-.user-role-badge {
-  background: #475569;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-}
+.user-role-badge { background: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
 .user-role-badge.super_admin { background: #ef4444; }
 .user-role-badge.guild_admin { background: #3b82f6; }
 .expire-tag { color: #cbd5e1; }

@@ -8,9 +8,7 @@
           <h2>排表模板管理</h2>
           <button class="btn-primary" @click="openTemplateModal()">+ 新建模板</button>
         </div>
-        <p class="sub-notice">
-          自訂體系模板，可依需求創建團隊與小隊架構，設定各位置推薦職能與技能配裝。
-        </p>
+        <p class="sub-notice"></p>
       </div>
 
       <div class="filter-bar margin-b">
@@ -311,7 +309,7 @@
             </div>
           </div>
 
-          <!-- 推薦技能（修復為右側獨立箭頭拉選單） -->
+          <!-- 推薦技能 -->
           <div class="form-block margin-t">
             <div class="block-title">推薦技能</div>
             <div class="sub-hint">與聯賽排表中的配裝資訊一致，可從歷史記錄選擇或手動輸入，每項最長 20 字。</div>
@@ -497,13 +495,13 @@ const getSchoolImgByName = (schoolName) => {
 }
 
 const personalRoleOptions = [
-  'D潮拆塔', '保鏢拆', '埋頭猛拆', '塔仇主T', '增益絕', '奶絕', '指揮',
-  '清泉人傷', '清泉保活', '灌大團', '點殺', '燒屍體', '破甲人傷',
-  '純保鏢', '統戰', '騰龍保鏢', '騰龍合軸'
+  '保鑣', '埋頭猛拆', '塔仇御鐵', '潮砲', '奶絕奶',
+  '增益奶', '輔潮', '燒屍體', '騰龍合軸', '拆塔指揮',
+  '保鑣指揮', '防守指揮', '點殺'
 ]
 
 const squadRoleOptions = [
-  '保鏢隊', '雙碎隊', '雙神隊', '塔前隊', '塔後隊', '請假隊', '輪空隊'
+  '保鑣隊', '拆塔隊', '塔前隊', '塔後隊', '防守隊'
 ]
 
 const juejiOptions = ['狂發一怒', '太極圖']
@@ -547,14 +545,14 @@ const templateList = ref([
   { 
     id: 1, 
     name: '甲組通用排表', 
-    desc: '日吉中排對陣高強戰', 
+    desc: '', 
     updatedAt: '2026-09-28 02:52',
     teams: createSampleTeams()
   },
   { 
     id: 2, 
     name: '乙組攻防陣型', 
-    desc: '偏向防守反擊', 
+    desc: '', 
     updatedAt: '2026-09-28 01:15',
     teams: createSampleTeams()
   }

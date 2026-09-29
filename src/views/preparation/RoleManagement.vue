@@ -50,7 +50,7 @@
             <td>{{ role.desc || '—' }}</td>
             <td>
               <label class="switch">
-                <input type="checkbox" v-model="role.tagSwitch" />
+                <input type="checkbox" v-model="role.tagSwitch" @change="toggleTagSwitch(role)" />
                 <span class="slider"></span>
               </label>
             </td>
@@ -90,7 +90,7 @@
       </div>
     </div>
 
-    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <!-- 置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -111,11 +111,28 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { supabase } from '../../utils/supabase'
 
 const roleCategory = ref('personal')
+const currentGuildId = ref(null)
 
-// 美化置中刪除確認 Modal 狀態
+// 預設 13 項個人職能
+const DEFAULT_PERSONAL_ROLES = [
+  '保鑣', '埋頭猛拆', '塔仇御鐵', '潮砲', '奶絕奶',
+  '增益奶', '輔潮', '燒屍體', '騰龍合軸', '拆塔指揮',
+  '保鑣指揮', '防守指揮', '點殺'
+]
+
+// 預設 5 項小隊職能
+const DEFAULT_SQUAD_ROLES = [
+  '保鑣隊', '拆塔隊', '塔前隊', '塔後隊', '防守隊'
+]
+
+const personalRoleList = ref([])
+const squadRoleList = ref([])
+
+// 置中刪除確認 Modal
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -133,48 +150,143 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-const personalRoleList = ref([
-  { id: 1, name: 'D潮拆塔', desc: '—', tagSwitch: false },
-  { id: 2, name: '保鏢拆', desc: '—', tagSwitch: false },
-  { id: 3, name: '埋頭猛拆', desc: '—', tagSwitch: false },
-  { id: 4, name: '塔仇主T', desc: '—', tagSwitch: false },
-  { id: 5, name: '增益絕', desc: '—', tagSwitch: false },
-  { id: 6, name: '奶絕', desc: '—', tagSwitch: false },
-  { id: 7, name: '指揮', desc: '—', tagSwitch: false },
-  { id: 8, name: '清泉人傷', desc: '—', tagSwitch: false },
-  { id: 9, name: '清泉保活', desc: '—', tagSwitch: false },
-  { id: 10, name: '灌大團', desc: '—', tagSwitch: false },
-  { id: 11, name: '點殺', desc: '—', tagSwitch: false },
-  { id: 12, name: '燒屍體', desc: '—', tagSwitch: false },
-  { id: 13, name: '破甲人傷', desc: '—', tagSwitch: false },
-  { id: 14, name: '純保鏢', desc: '—', tagSwitch: false },
-  { id: 15, name: '統戰', desc: '—', tagSwitch: false },
-  { id: 16, name: '騰龍保鏢', desc: '—', tagSwitch: false },
-  { id: 17, name: '騰龍合軸', desc: '—', tagSwitch: false }
-])
+// 取得當前幫會 ID（具備強效自動相容 Fallback）
+const fetchCurrentGuild = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return null
 
-const squadRoleList = ref([
-  { id: 101, name: '保鏢隊', desc: '—', tagSwitch: false },
-  { id: 102, name: '雙碎隊', desc: '—', tagSwitch: false },
-  { id: 103, name: '雙神隊', desc: '—', tagSwitch: false },
-  { id: 104, name: '塔前隊', desc: '—', tagSwitch: false },
-  { id: 105, name: '塔後隊', desc: '—', tagSwitch: false },
-  { id: 106, name: '請假隊', desc: '—', tagSwitch: false },
-  { id: 107, name: '輪空隊', desc: '—', tagSwitch: false }
-])
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+    if (profile) {
+      if (profile.guild_id) return profile.guild_id
+      if (profile.guild_ids && profile.guild_ids.length > 0) return profile.guild_ids[0]
+    }
+
+    // 容錯：若 profile 沒設定幫會，自動拉取第一筆幫會
+    const { data: guilds } = await supabase.from('guilds').select('id').limit(1)
+    if (guilds && guilds.length > 0) return guilds[0].id
+  } catch (e) {
+    console.warn('獲取幫會資訊失敗:', e)
+  }
+  return null
+}
+
+// 載入職能資料並初始化預設選項
+const loadRolesFromDB = async () => {
+  const gId = await fetchCurrentGuild()
+  currentGuildId.value = gId
+
+  if (!gId) {
+    initDefaultState()
+    return
+  }
+
+  const { data, error } = await supabase
+    .from('preparation_roles')
+    .select('*')
+    .eq('guild_id', gId)
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    console.error('查詢 preparation_roles 失敗，可能未建立資料庫:', error)
+    initDefaultState()
+    return
+  }
+
+  const dbPersonal = (data || []).filter(r => r.type === 'personal')
+  const dbSquad = (data || []).filter(r => r.type === 'squad')
+
+  // 若個人職能無紀錄，自動寫入預設值至 DB
+  if (dbPersonal.length === 0) {
+    const initPersonal = DEFAULT_PERSONAL_ROLES.map((name, idx) => ({
+      guild_id: gId,
+      name,
+      type: 'personal',
+      description: '—',
+      is_enabled: true,
+      sort_order: idx + 1
+    }))
+    await supabase.from('preparation_roles').insert(initPersonal)
+  }
+
+  // 若小隊職能無紀錄，自動寫入預設值至 DB
+  if (dbSquad.length === 0) {
+    const initSquad = DEFAULT_SQUAD_ROLES.map((name, idx) => ({
+      guild_id: gId,
+      name,
+      type: 'squad',
+      description: '—',
+      is_enabled: true,
+      sort_order: idx + 1
+    }))
+    await supabase.from('preparation_roles').insert(initSquad)
+  }
+
+  // 重新從 DB 拉取最新列表（取得真正的資料庫 UUID）
+  const { data: latestData } = await supabase
+    .from('preparation_roles')
+    .select('*')
+    .eq('guild_id', gId)
+    .order('sort_order', { ascending: true })
+
+  if (latestData && latestData.length > 0) {
+    personalRoleList.value = latestData.filter(r => r.type === 'personal').map(r => ({
+      id: r.id,
+      name: r.name,
+      desc: r.description || '—',
+      tagSwitch: r.is_enabled !== false,
+      sortOrder: r.sort_order
+    }))
+
+    squadRoleList.value = latestData.filter(r => r.type === 'squad').map(r => ({
+      id: r.id,
+      name: r.name,
+      desc: r.description || '—',
+      tagSwitch: r.is_enabled !== false,
+      sortOrder: r.sort_order
+    }))
+  } else {
+    initDefaultState()
+  }
+}
+
+const initDefaultState = () => {
+  personalRoleList.value = DEFAULT_PERSONAL_ROLES.map((name, idx) => ({
+    id: `def_p_${idx}`, name, desc: '—', tagSwitch: true, sortOrder: idx + 1
+  }))
+  squadRoleList.value = DEFAULT_SQUAD_ROLES.map((name, idx) => ({
+    id: `def_s_${idx}`, name, desc: '—', tagSwitch: true, sortOrder: idx + 1
+  }))
+}
 
 const currentRoleList = computed(() => {
   return roleCategory.value === 'personal' ? personalRoleList.value : squadRoleList.value
 })
 
+// 拖拽排序
 const dragIndex = ref(null)
 const onDragStart = (index) => { dragIndex.value = index }
-const onDrop = (targetIndex) => {
+const onDrop = async (targetIndex) => {
   if (dragIndex.value === null || dragIndex.value === targetIndex) return
   const list = currentRoleList.value
   const movedItem = list.splice(dragIndex.value, 1)[0]
   list.splice(targetIndex, 0, movedItem)
   dragIndex.value = null
+
+  if (currentGuildId.value) {
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i]
+      if (item.id && !String(item.id).startsWith('def_')) {
+        await supabase.from('preparation_roles').update({ sort_order: i + 1 }).eq('id', item.id)
+      }
+    }
+  }
+}
+
+const toggleTagSwitch = async (role) => {
+  if (role.id && !String(role.id).startsWith('def_')) {
+    await supabase.from('preparation_roles').update({ is_enabled: role.tagSwitch }).eq('id', role.id)
+  }
 }
 
 const showRoleModal = ref(false)
@@ -184,7 +296,7 @@ const roleForm = ref({ name: '', desc: '' })
 const openRoleModal = (role = null) => {
   if (role) {
     editingRoleId.value = role.id
-    roleForm.value = { ...role }
+    roleForm.value = { name: role.name, desc: role.desc === '—' ? '' : role.desc }
   } else {
     editingRoleId.value = null
     roleForm.value = { name: '', desc: '' }
@@ -192,16 +304,52 @@ const openRoleModal = (role = null) => {
   showRoleModal.value = true
 }
 
-const saveRole = () => {
-  if (!roleForm.value.name.trim()) return alert('請輸入職能名稱！')
-  const targetList = currentRoleList.value
-  if (editingRoleId.value) {
-    const idx = targetList.findIndex(r => r.id === editingRoleId.value)
-    if (idx > -1) targetList[idx] = { ...targetList[idx], ...roleForm.value }
-  } else {
-    targetList.push({ id: Date.now(), name: roleForm.value.name.trim(), desc: roleForm.value.desc.trim(), tagSwitch: false })
+// 確定保存（寫入 Supabase 並檢測 SQL 錯誤）
+const saveRole = async () => {
+  const name = roleForm.value.name.trim()
+  if (!name) return alert('請輸入職能名稱！')
+  const desc = roleForm.value.desc.trim() || '—'
+
+  const gId = currentGuildId.value || await fetchCurrentGuild()
+
+  if (!gId) {
+    alert('尚無可用的幫會，請先在「成員」頁面新增或選擇幫會！')
+    return
   }
+
+  if (editingRoleId.value && !String(editingRoleId.value).startsWith('def_')) {
+    // 編輯已有資料
+    const { error } = await supabase
+      .from('preparation_roles')
+      .update({ name, description: desc })
+      .eq('id', editingRoleId.value)
+
+    if (error) {
+      alert('更新失敗，請確認 SQL 資料庫是否正確建立：' + error.message)
+      return
+    }
+  } else {
+    // 新增資料
+    const list = currentRoleList.value
+    const { error } = await supabase
+      .from('preparation_roles')
+      .insert([{
+        guild_id: gId,
+        type: roleCategory.value,
+        name,
+        description: desc,
+        is_enabled: true,
+        sort_order: list.length + 1
+      }])
+
+    if (error) {
+      alert('新增失敗！請確認 Supabase 中已建立 preparation_roles 資料表：\n' + error.message)
+      return
+    }
+  }
+
   showRoleModal.value = false
+  await loadRolesFromDB() // 重新載入最新雲端資料
 }
 
 const deleteRole = (id) => {
@@ -213,15 +361,20 @@ const deleteRole = (id) => {
   triggerConfirmModal(
     `刪除${categoryName}`,
     `確定要刪除${categoryName}「${targetName}」嗎？刪除後無法恢復。`,
-    () => {
-      if (roleCategory.value === 'personal') {
-        personalRoleList.value = personalRoleList.value.filter(r => r.id !== id)
-      } else {
-        squadRoleList.value = squadRoleList.value.filter(r => r.id !== id)
+    async () => {
+      if (id && !String(id).startsWith('def_')) {
+        const { error } = await supabase.from('preparation_roles').delete().eq('id', id)
+        if (error) {
+          alert('刪除失敗：' + error.message)
+          return
+        }
       }
+      await loadRolesFromDB()
     }
   )
 }
+
+onMounted(loadRolesFromDB)
 </script>
 
 <style scoped>

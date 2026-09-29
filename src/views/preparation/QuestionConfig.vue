@@ -137,7 +137,7 @@
       </div>
     </div>
 
-    <!-- 置中刪除確認 Modal (圖四對應) -->
+    <!-- 置中刪除確認 Modal -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-card confirm-modal-card">
         <div class="confirm-modal-body">
@@ -160,9 +160,9 @@
 <script setup>
 import { ref } from 'vue'
 
+// 預設僅保留 1 條「聯賽是否開MIC」問卷題目
 const questionList = ref([
-  { id: 1, title: '本場聯賽開車', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 1 },
-  { id: 2, title: '本場聯賽保車', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 2 }
+  { id: 1, title: '聯賽是否開MIC', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 1 }
 ])
 
 // 美化置中刪除確認 Modal 狀態

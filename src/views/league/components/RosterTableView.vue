@@ -83,7 +83,7 @@
                   @drop="$emit('drop-slot', { team, squad, slot })"
                   @click="$emit('click-slot', { team, squad, slot, slotIdx })"
                 >
-                  <!-- ★ 小隊欄 (加入 position: relative 與 z-index: 2，解決 html2canvas 導出時 rowspan 內容被遮蓋 Bug) ★ -->
+                  <!-- ★ 小隊欄位 ★ -->
                   <td 
                     v-if="slotIdx === 0" 
                     :rowspan="squad.slots.length" 
@@ -98,7 +98,7 @@
                     </div>
                   </td>
 
-                  <!-- ★ 背景色掛在獨立的 td 元素上，避免 tr 的背景塗抹層刷掉跨行欄位 ★ -->
+                  <!-- 成員欄位 -->
                   <td 
                     class="member-cell" 
                     :style="getSlotRowStyle(slot)"
@@ -125,7 +125,7 @@
                     </template>
                   </td>
 
-                  <!-- 職能 -->
+                  <!-- 職能 (未配置時預設為空白 '') -->
                   <td class="role-cell" :style="getSlotRowStyle(slot)">
                     {{ getSlotRoleSummary(slot) }}
                   </td>
@@ -277,6 +277,7 @@ const getSchoolImg = (fileName) => {
 }
 
 const getSchoolImgByName = (schoolName) => {
+  if (!props.availableSchools) return ''
   const found = props.availableSchools.find(s => s.name === schoolName)
   return found ? getSchoolImg(found.file) : ''
 }
@@ -286,20 +287,30 @@ const getTeamColor = (team, tIdx) => {
   return defaultTeamColors[tIdx % defaultTeamColors.length]
 }
 
+// 支援「成員現有流派底色」與「席位配置推薦流派底色」雙重渲染
 const getSlotRowStyle = (slot) => {
   if (slot.assignedMember) {
     const bg = props.schoolColorMap[slot.assignedMember.currentSchool] || '#eff6ff'
     return { backgroundColor: bg }
   }
+  if (slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
+    const firstSchool = slot.templateConfig.schools[0]
+    const bg = props.schoolColorMap[firstSchool] || '#ffffff'
+    return { backgroundColor: bg }
+  }
   return { backgroundColor: '#ffffff' }
 }
 
+// 未配置職能預設回傳空白 ''
 const getSlotRoleSummary = (slot) => {
   if (slot.roles && slot.roles.length > 0) return slot.roles.join('、')
+  if (slot.assignedMember && slot.assignedMember.rolePreference && slot.assignedMember.rolePreference.length > 0) {
+    return slot.assignedMember.rolePreference.join('、')
+  }
   if (slot.templateConfig && slot.templateConfig.roles && slot.templateConfig.roles.length > 0) {
     return slot.templateConfig.roles.join('、')
   }
-  return '點擊配置職能'
+  return ''
 }
 </script>
 
@@ -492,7 +503,6 @@ const getSlotRoleSummary = (slot) => {
   border: 1px solid #e2e8f0;
 }
 
-/* ★ 小隊欄位加上 position: relative 與 z-index: 2，徹底防止被後續列的背景色覆蓋 ★ */
 .squad-info-cell {
   background-color: #f8fafc !important;
   vertical-align: middle;

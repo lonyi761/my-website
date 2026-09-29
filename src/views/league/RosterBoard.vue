@@ -154,7 +154,6 @@
     <!-- 導出圖片預覽 Modal -->
     <div v-if="showExportModal" class="modal-overlay full-screen-overlay" @click.self="showExportModal = false">
       <div class="export-modal-container">
-        <!-- 頂部標頭 Bar -->
         <div class="export-modal-topbar">
           <button class="btn-back-link" @click="showExportModal = false">&lt; 返回排表</button>
           <span class="export-modal-title">導出圖片預覽</span>
@@ -162,14 +161,12 @@
         </div>
 
         <div class="export-modal-body">
-          <!-- 左側導出配置邊欄 -->
           <div class="export-sidebar-controls simple-sidebar">
             <div class="sidebar-info-card margin-b">
               <h4 class="sidebar-card-title">圖片導出說明</h4>
               <p class="sidebar-card-desc">預覽畫面即為最終導出之 PNG 高畫質圖片，畫面純淨不含水印與網址。</p>
             </div>
 
-            <!-- 表頭控制選單 -->
             <div class="export-control-section margin-b">
               <div class="export-section-title">表頭</div>
               <div class="control-switch-item">
@@ -188,7 +185,6 @@
               </div>
             </div>
 
-            <!-- 隊伍控制選單 -->
             <div class="export-control-section margin-b">
               <div class="export-section-title">隊伍 (導入團隊)</div>
               <div v-for="team in matrixTeams" :key="team.id" class="control-switch-item">
@@ -211,7 +207,6 @@
             </div>
           </div>
 
-          <!-- 右側導出預覽畫布區域 -->
           <div class="export-preview-stage">
             <div class="preview-canvas-paper">
               <RosterMatrixView 
@@ -783,6 +778,7 @@
             </div>
           </div>
 
+          <!-- 推薦職能 (動態帶入 13 項個人職能) -->
           <div class="form-block margin-t">
             <div class="block-title">推薦職能</div>
             <div class="role-tag-grid">
@@ -817,7 +813,7 @@
 
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
-              <div class="custom-dropdown-container">
+              <div class="custom-select-wrapper flex-1" @click.stop>
                 <input type="text" v-model="tempConfigQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
                 <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('qunxia_cfg')">
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia_cfg' }]"></i>
@@ -917,9 +913,8 @@
 
             <div class="form-row">
               <label>所屬幫會：</label>
-              <select v-model="memberEditForm.guild" class="flex-1 select-field">
-                <option value="百錵谷酒池肉林">百錵谷酒池肉林</option>
-                <option value="未分配">未分配</option>
+              <select v-model="memberEditForm.guild" class="flex-1 select-field" disabled>
+                <option :value="leagueInfo.guild">{{ leagueInfo.guild }}</option>
               </select>
 
               <label class="margin-l">幫眾狀態：</label>
@@ -980,7 +975,7 @@
     <div v-if="showAddMemberModal" class="modal-overlay" @click.self="showAddMemberModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
-          <h3>新增成員</h3>
+          <h3>新增成員至【{{ leagueInfo.guild || '授權幫會' }}】</h3>
           <span class="close-btn" @click="showAddMemberModal = false">&times;</span>
         </div>
         <div class="modal-body form-grid">
@@ -1023,8 +1018,7 @@
             <div class="form-row">
               <label>所屬幫會：</label>
               <select v-model="newMemberForm.guild" class="flex-1 select-field">
-                <option value="百錵谷酒池肉林">百錵谷酒池肉林</option>
-                <option value="未分配">未分配</option>
+                <option :value="leagueInfo.guild">{{ leagueInfo.guild }}</option>
               </select>
 
               <label class="margin-l">幫眾狀態：</label>
@@ -1115,7 +1109,8 @@ const props = defineProps({
       title: '幫會聯賽',
       type: '幫會聯賽',
       startTime: '2026-10-10 20:00',
-      guild: '百錵谷酒池肉林'
+      guild: '百錵谷酒池肉林',
+      participant: '百錵谷酒池肉林'
     })
   },
   userProfile: {
@@ -1126,8 +1121,7 @@ const props = defineProps({
 
 defineEmits(['back'])
 
-const leagueInfo = computed(() => props.leagueItem)
-
+// 常數宣告 (最頂層)
 const availableSchools = [
   { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
   { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
@@ -1149,6 +1143,206 @@ const teamColorOptions = [
   { color: '#a855f7', label: '淡紫色' }
 ]
 
+const schoolColorMap = {
+  '鐵衣': '#fef3c7', '血河': '#ffe4e6', '九靈': '#f3e8ff', '神相': '#e0e7ff',
+  '碎夢': '#cffaff', '素問': '#ffe4e6', '龍吟': '#d1fae5', '玄機': '#ecfccb',
+  '潮光': '#f0f9ff', '滄瀾': '#e0e7ff'
+}
+
+// 所有 State 宣告
+const allMembers = ref([])
+const isSaving = ref(false)
+const showSecondarySchool = ref(false)
+const showDetails = ref(false)
+const layoutMode = ref('matrix')
+
+const showOtherOpsDropdown = ref(false)
+const showTemplateDropdown = ref(false)
+const appliedTemplateName = ref('')
+const activeSkillDropdown = ref(null)
+
+// 新版 13 項個人與 5 項小隊職能預設
+const DEFAULT_PERSONAL_ROLES = [
+  '保鑣', '埋頭猛拆', '塔仇御鐵', '潮砲', '奶絕奶',
+  '增益奶', '輔潮', '燒屍體', '騰龍合軸', '拆塔指揮',
+  '保鑣指揮', '防守指揮', '點殺'
+]
+const DEFAULT_SQUAD_ROLES = ['保鑣隊', '拆塔隊', '塔前隊', '塔後隊', '防守隊']
+const DEFAULT_JUEJI = ['太極圖', '奶絕', '鈞天浩意', '蝶舞清夢', '花縈凌波', '九天雷引', '冰火絕滅', '昀光神劍', '大鬧天宮', '劍魂沖霄', '天遁白虹', '殘心三絕劍', '九靈本家絕', '騰龍躍淵']
+const DEFAULT_QUNXIA = ['咚咚跳台', '冰牆', '風雪載圖。同歸', '不攻', '雲影濯香', '潮傾浪野', '清弦鳴絕', '不動禪心', '四大皆空', '心眼無量', '猿戲功', '流月無痕']
+const DEFAULT_LIUPAI = ['約定', '山盟', '清泉', '鐵壁', '碧海靈佑']
+
+const personalRoleOptions = ref([...DEFAULT_PERSONAL_ROLES])
+const squadRoleOptions = ref([...DEFAULT_SQUAD_ROLES])
+const juejiOptions = ref([...DEFAULT_JUEJI])
+const qunxiaOptions = ref([...DEFAULT_QUNXIA])
+const liupaiSkillOptions = ref([...DEFAULT_LIUPAI])
+
+// Modals State
+const showExportModal = ref(false)
+const isExporting = ref(false)
+const exportHeaderTitleVisible = ref(true)
+const exportHeaderNoteVisible = ref(true)
+const exportVisibleTeamIds = ref([])
+
+const showSwapSquadModal = ref(false)
+const swapOptions = ref({ name: true, zhineng: true, desc: true, template: true })
+
+const showBatchEditModal = ref(false)
+const selectedBatchMembers = ref([])
+const batchMemberGroups = ref([])
+const activeBatchDropdown = ref(null)
+
+const showBatchRoleDialog = ref(false)
+const tempBatchRolePills = ref([])
+const showBatchJuejiDialog = ref(false)
+const tempBatchJuejiVal = ref('')
+const showBatchQunxiaDialog = ref(false)
+const tempBatchQunxiaVal = ref('')
+const showBatchLiupaiDialog = ref(false)
+const tempBatchLiupaiVal = ref('')
+
+const showEditTeamModal = ref(false)
+const activeEditTeamIndex = ref(0)
+
+const showSlotInfoModal = ref(false)
+const showSlotConfigModal = ref(false)
+const activeSlotForModal = ref(null)
+const activeSlotTeamName = ref('')
+const activeSlotSquadName = ref('')
+const activeSlotIndex = ref(0)
+
+const tempSlotRoles = ref([])
+const tempSlotJueji = ref('')
+const tempSlotQunxia = ref('')
+const tempSlotZhuangbei = ref('')
+
+const tempConfigSchools = ref([])
+const tempConfigRoles = ref([])
+const tempConfigJueji = ref('')
+const tempConfigQunxia = ref('')
+const tempConfigZhuangbei = ref('')
+const tempConfigDesc = ref('')
+
+const showMemberEditModal = ref(false)
+const showRoleDropdownInMemberEdit = ref(false)
+const editingMemberRef = ref(null)
+const memberEditForm = ref({
+  name: '', schools: ['鐵衣'], currentSchool: '鐵衣',
+  hasGodlyWeapon: false, guild: '', status: '幫眾',
+  contact: '', notes: '', tether: '', rolePrefList: []
+})
+
+const showAddMemberModal = ref(false)
+const showRoleDropdownInNewMember = ref(false)
+const newMemberForm = ref({
+  name: '', schools: ['鐵衣'], currentSchool: '鐵衣',
+  hasGodlyWeapon: false, guild: '', status: '幫眾',
+  contact: '', notes: '', tether: '', rolePrefList: []
+})
+
+const showConfirmModal = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let confirmActionCallback = null
+
+// 團隊盤面矩陣資料 State
+const matrixTeams = ref([
+  {
+    id: 1,
+    name: '進攻一團',
+    desc: '我是團隊備註會顯示的地方',
+    color: '#84cc16',
+    squads: Array.from({ length: 5 }, (_, i) => ({
+      id: 10 + i,
+      name: `${i + 1}隊`,
+      zhineng: i === 0 ? '拆塔隊' : (i === 1 ? '保鑣隊' : ''),
+      desc: '',
+      slots: createDefaultSlots()
+    }))
+  }
+])
+
+function createDefaultSlots() {
+  return Array.from({ length: 6 }, () => ({
+    id: Math.random(),
+    assignedMember: null,
+    roles: [],
+    jueji: '', qunxia: '', zhuangbei: '',
+    templateConfig: { schools: [], roles: [], jueji: '', qunxia: '', zhuangbei: '', desc: '' }
+  }))
+}
+
+// Computed 計算屬性
+const leagueInfo = computed(() => {
+  const item = props.leagueItem || {}
+  const gName = item.participant || item.guild || '百錵谷酒池肉林'
+  return { ...item, guild: gName, participant: gName }
+})
+
+const assignedMemberIds = computed(() => {
+  const set = new Set()
+  if (Array.isArray(matrixTeams.value)) {
+    matrixTeams.value.forEach(team => {
+      team.squads?.forEach(squad => {
+        squad.slots?.forEach(slot => {
+          if (slot.assignedMember?.id) {
+            set.add(slot.assignedMember.id)
+          }
+        })
+      })
+    })
+  }
+  return set
+})
+
+const schoolAssignedCounts = computed(() => {
+  const counts = {}
+  availableSchools.forEach(s => counts[s.name] = 0)
+
+  if (Array.isArray(matrixTeams.value)) {
+    matrixTeams.value.forEach(team => {
+      if (team && Array.isArray(team.squads)) {
+        team.squads.forEach(squad => {
+          if (squad && Array.isArray(squad.slots)) {
+            squad.slots.forEach(slot => {
+              if (slot?.assignedMember?.currentSchool) {
+                const sch = slot.assignedMember.currentSchool
+                if (counts[sch] !== undefined) counts[sch]++
+              }
+            })
+          }
+        })
+      }
+    })
+  }
+  return counts
+})
+
+const exportFilteredTeams = computed(() => {
+  return matrixTeams.value.filter(team => exportVisibleTeamIds.value.includes(team.id))
+})
+
+const currentEditingTeam = computed(() => {
+  if (!Array.isArray(matrixTeams.value)) return null
+  return matrixTeams.value[activeEditTeamIndex.value] || null
+})
+
+// 方法與事件
+const updateMembersAssignedStatus = () => {
+  if (Array.isArray(allMembers.value)) {
+    allMembers.value.forEach(m => {
+      if (m) {
+        m.assigned = assignedMemberIds.value.has(m.id)
+      }
+    })
+  }
+}
+
+watch(assignedMemberIds, () => {
+  updateMembersAssignedStatus()
+}, { immediate: true })
+
 const getSchoolImg = (fileName) => {
   if (!fileName) return ''
   return new URL(`../../assets/schools/${fileName}.png`, import.meta.url).href
@@ -1159,39 +1353,42 @@ const getSchoolImgByName = (schoolName) => {
   return found ? getSchoolImg(found.file) : ''
 }
 
-const schoolColorMap = {
-  '鐵衣': '#fef3c7',
-  '血河': '#ffe4e6',
-  '九靈': '#f3e8ff',
-  '神相': '#e0e7ff',
-  '碎夢': '#cffaff',
-  '素問': '#ffe4e6',
-  '龍吟': '#d1fae5',
-  '玄機': '#ecfccb',
-  '潮光': '#f0f9ff',
-  '滄瀾': '#e0e7ff'
-}
-
 const getRowSchoolBgStyle = (schoolName) => {
   const bg = schoolColorMap[schoolName] || '#ffffff'
   return { backgroundColor: bg }
 }
 
-const personalRoleOptions = [
-  'D潮拆塔', '保鏢拆', '埋頭猛拆', '塔仇主T', '增益絕', '奶絕', '指揮',
-  '清泉人傷', '清泉保活', '灌大團', '點殺', '燒屍體', '破甲人傷',
-  '純保鏢', '統戰', '騰龍保鏢', '騰龍合軸'
-]
+// ★ 核心修復：雙重映射 (s.content || s.name) 與 .filter(Boolean) 確保選單讀出文字，不呈現空白 ★
+const fetchPrepDataFromDB = async (guildId) => {
+  try {
+    let rQuery = supabase.from('preparation_roles').select('*')
+    if (guildId) rQuery = rQuery.or(`guild_id.eq.${guildId},guild_id.is.null`)
+    const { data: rData } = await rQuery
 
-const squadRoleOptions = [
-  '保鏢隊', '雙碎隊', '雙神隊', '塔前隊', '塔後隊', '請假隊', '輪空隊'
-]
+    if (rData && rData.length > 0) {
+      const pList = rData.filter(r => r.type === 'personal' && r.is_enabled !== false).map(r => r.name).filter(Boolean)
+      const sList = rData.filter(r => r.type === 'squad' && r.is_enabled !== false).map(r => r.name).filter(Boolean)
+      if (pList.length > 0) personalRoleOptions.value = pList
+      if (sList.length > 0) squadRoleOptions.value = sList
+    }
 
-const juejiOptions = ['狂發一怒', '太極圖']
-const qunxiaOptions = ['咚咚跳台', '雲影濁香']
-const liupaiSkillOptions = ['約定', '清泉']
+    let sQuery = supabase.from('preparation_skills').select('*')
+    if (guildId) sQuery = sQuery.or(`guild_id.eq.${guildId},guild_id.is.null`)
+    const { data: skData } = await sQuery
 
-const activeSkillDropdown = ref(null)
+    if (skData && skData.length > 0) {
+      const jList = skData.filter(s => s.category === 'jueji' && s.is_enabled !== false).map(s => s.content || s.name).filter(Boolean)
+      const qList = skData.filter(s => s.category === 'qunxia' && s.is_enabled !== false).map(s => s.content || s.name).filter(Boolean)
+      const lList = skData.filter(s => s.category === 'liupai' && s.is_enabled !== false).map(s => s.content || s.name).filter(Boolean)
+
+      if (jList.length > 0) juejiOptions.value = jList
+      if (qList.length > 0) qunxiaOptions.value = qList
+      if (lList.length > 0) liupaiSkillOptions.value = lList
+    }
+  } catch (err) {
+    console.warn('載入戰備資料備用:', err)
+  }
+}
 
 const toggleSkillDropdown = (type) => {
   if (activeSkillDropdown.value === type) activeSkillDropdown.value = null
@@ -1205,73 +1402,87 @@ const closeAllSkillDropdowns = () => {
   activeBatchDropdown.value = null
 }
 
-const showSecondarySchool = ref(false)
-const showDetails = ref(false)
-const layoutMode = ref('matrix')
-const pendingViewMode = ref('school')
-
-// ★ Supabase 雲端資料庫串接邏輯 ★
-const isSaving = ref(false)
-
 const fetchRosterDataFromDB = async () => {
-  if (!props.userProfile?.guild_id) return
+  const targetGuildName = leagueInfo.value.guild
 
-  // 1. 撈取同幫會成員 (guild_members)
-  const { data: membersData, error: memberErr } = await supabase
-    .from('guild_members')
-    .select('*')
-    .eq('guild_id', props.userProfile.guild_id)
+  const { data: guildsData } = await supabase.from('guilds').select('*')
+  let targetGuildId = props.leagueItem?.guild_id
 
-  if (!memberErr && membersData && membersData.length > 0) {
-    allMembers.value = membersData.map(m => ({
-      id: m.id,
-      name: m.name,
-      formerNames: m.former_names || [],
-      schools: m.schools || [m.current_school],
-      currentSchool: m.current_school,
-      hasGodlyWeapon: m.has_godly_weapon || false,
-      guild: props.leagueInfo.guild,
-      status: m.status || '幫眾',
-      contact: m.contact || '',
-      notes: m.notes || '',
-      tether: m.tether || '',
-      rolePreference: m.role_preference || [],
-      rolePrefList: m.role_preference || [],
-      assigned: m.assigned || false
-    }))
+  if (!targetGuildId && guildsData) {
+    const foundG = guildsData.find(g => g.name === targetGuildName)
+    if (foundG) targetGuildId = foundG.id
   }
 
-  // 2. 撈取同幫會排表 (guild_rosters)
-  const { data: rosterData, error: rosterErr } = await supabase
-    .from('guild_rosters')
-    .select('*')
-    .eq('guild_id', props.userProfile.guild_id)
-    .single()
+  await fetchPrepDataFromDB(targetGuildId)
 
-  if (!rosterErr && rosterData && rosterData.matrix_teams) {
+  const { data: membersData, error: memberErr } = await supabase.from('guild_members').select('*')
+
+  if (!memberErr && membersData) {
+    let matchedMembers = membersData.filter(m => {
+      if (targetGuildId && m.guild_id === targetGuildId) return true
+      const mGuildName = guildsData?.find(g => g.id === m.guild_id)?.name
+      if (targetGuildName && mGuildName === targetGuildName) return true
+      return false
+    })
+
+    if (matchedMembers.length === 0 && membersData.length > 0) {
+      matchedMembers = membersData
+    }
+
+    allMembers.value = matchedMembers.map(m => {
+      const currSch = (m.current_school || m.currentSchool || (m.schools && m.schools[0]) || '鐵衣').trim()
+      const schList = (m.schools && m.schools.length > 0) ? m.schools : [currSch]
+      return {
+        id: m.id,
+        name: m.name || '未知',
+        formerNames: m.former_names || [],
+        schools: schList,
+        currentSchool: currSch,
+        hasGodlyWeapon: m.has_godly_weapon || false,
+        guild: targetGuildName,
+        status: m.status || '幫眾',
+        contact: m.contact || '',
+        notes: m.notes || '',
+        tether: m.tether || '',
+        rolePreference: m.role_preference || [],
+        rolePrefList: m.role_preference || [],
+        assigned: false
+      }
+    })
+
+    updateMembersAssignedStatus()
+  }
+
+  let rosterData = null
+  if (props.leagueItem?.id) {
+    const { data } = await supabase
+      .from('guild_rosters')
+      .select('*')
+      .eq('id', props.leagueItem.id)
+      .maybeSingle()
+    rosterData = data
+  }
+
+  if (rosterData && rosterData.matrix_teams && rosterData.matrix_teams.length > 0) {
     matrixTeams.value = rosterData.matrix_teams
+    updateMembersAssignedStatus()
   }
 }
 
-// 點擊「保存陣容」時寫入 Supabase
 const saveRosterBoard = async () => {
-  if (!props.userProfile?.guild_id) {
-    alert('本地預覽模式（尚未登入或未指派幫會）')
-    return
-  }
-
   isSaving.value = true
   try {
-    const { error } = await supabase
-      .from('guild_rosters')
-      .upsert({
-        guild_id: props.userProfile.guild_id,
-        title: leagueInfo.value.title,
-        type: leagueInfo.value.type,
-        start_time: leagueInfo.value.startTime,
-        matrix_teams: matrixTeams.value,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'guild_id' })
+    let error = null
+    if (props.leagueItem?.id) {
+      const res = await supabase
+        .from('guild_rosters')
+        .update({
+          matrix_teams: matrixTeams.value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', props.leagueItem.id)
+      error = res.error
+    }
 
     if (error) throw error
     alert('陣容成功儲存至雲端資料庫！同幫會成員登入即可看到最新排表。')
@@ -1283,28 +1494,12 @@ const saveRosterBoard = async () => {
   }
 }
 
-// 元件裝載或屬性改變時自動載入 DB 資料
-onMounted(fetchRosterDataFromDB)
-watch(() => props.userProfile, fetchRosterDataFromDB, { deep: true })
-
-// 導出預覽 Modal 狀態管理
-const showExportModal = ref(false)
-const isExporting = ref(false)
-
-const exportHeaderTitleVisible = ref(true)
-const exportHeaderNoteVisible = ref(true)
-const exportVisibleTeamIds = ref([])
-
 const openExportPreviewModal = () => {
   exportVisibleTeamIds.value = matrixTeams.value.map(t => t.id)
   exportHeaderTitleVisible.value = true
   exportHeaderNoteVisible.value = true
   showExportModal.value = true
 }
-
-const exportFilteredTeams = computed(() => {
-  return matrixTeams.value.filter(team => exportVisibleTeamIds.value.includes(team.id))
-})
 
 const loadHtml2CanvasScript = () => {
   return new Promise((resolve, reject) => {
@@ -1317,21 +1512,11 @@ const loadHtml2CanvasScript = () => {
   })
 }
 
-const formatExportFileName = () => {
-  const guild = leagueInfo.value.guild || '百錵谷酒池肉林'
-  const type = leagueInfo.value.type || '幫會聯賽'
-  let time = leagueInfo.value.startTime || '10/10 20:00'
-  time = time.replace(/^\d{4}-/, '').replace('/', '-').replace(':', '-')
-  return `${guild} ${type} ${time}`
-}
-
 const downloadExportImage = async () => {
   const targetEl = document.querySelector('.preview-canvas-paper')
   if (!targetEl) return alert('找不到預覽畫面！')
 
-  const fileName = `${formatExportFileName()}.png`
   isExporting.value = true
-
   try {
     const html2canvas = await loadHtml2CanvasScript()
     const canvas = await html2canvas(targetEl, {
@@ -1344,43 +1529,16 @@ const downloadExportImage = async () => {
     const image = canvas.toDataURL('image/png')
     const link = document.createElement('a')
     link.href = image
-    link.download = fileName
+    link.download = `${leagueInfo.value.guild}_${leagueInfo.value.title}.png`
     link.click()
 
-    isExporting.value = false
     showExportModal.value = false
   } catch (err) {
-    console.error('導出圖片失敗:', err)
     alert('導出圖片失敗，請稍微重試。')
+  } finally {
     isExporting.value = false
   }
 }
-
-const allMembers = ref([
-  { id: 1, name: '行優', formerNames: [], schools: ['鐵衣', '龍吟'], currentSchool: '鐵衣', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '學徒', contact: '行優#1234', notes: '主力坦克', tether: '錵小錵', rolePreference: ['D潮拆塔', '保鏢拆'], rolePrefList: ['D潮拆塔', '保鏢拆'], assigned: false },
-  { id: 2, name: '錵小錵', formerNames: [], schools: ['九靈', '碎夢'], currentSchool: '九靈', hasGodlyWeapon: true, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '行優', rolePreference: ['灌大團'], rolePrefList: ['灌大團'], assigned: false },
-  { id: 3, name: '章小燒', formerNames: [], schools: ['血河', '鐵衣'], currentSchool: '血河', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePreference: ['點殺'], rolePrefList: ['點殺'], assigned: false },
-  { id: 4, name: '夜小夜', formerNames: [], schools: ['素問', '玄機'], currentSchool: '素問', hasGodlyWeapon: false, guild: '百錵谷酒池肉林', status: '幫眾', contact: '', notes: '', tether: '', rolePreference: ['奶絕', '清泉保活'], rolePrefList: ['奶絕', '清泉保活'], assigned: false }
-])
-
-const searchMemberQuery = ref('')
-const activeSchoolFilter = ref(null)
-
-const showAddMemberModal = ref(false)
-const showRoleDropdownInNewMember = ref(false)
-
-const newMemberForm = ref({
-  name: '',
-  schools: ['鐵衣'],
-  currentSchool: '鐵衣',
-  hasGodlyWeapon: false,
-  guild: '百錵谷酒池肉林',
-  status: '幫眾',
-  contact: '',
-  notes: '',
-  tether: '',
-  rolePrefList: []
-})
 
 const openAddMemberModal = () => {
   newMemberForm.value = {
@@ -1388,7 +1546,7 @@ const openAddMemberModal = () => {
     schools: ['鐵衣'],
     currentSchool: '鐵衣',
     hasGodlyWeapon: false,
-    guild: leagueInfo.value.guild || '百錵谷酒池肉林',
+    guild: leagueInfo.value.guild,
     status: '幫眾',
     contact: '',
     notes: '',
@@ -1408,10 +1566,7 @@ const toggleNewMemberSchool = (sName) => {
       }
     }
   } else {
-    if (newMemberForm.value.schools.length >= 2) {
-      alert('最多只能選擇 2 個流派！')
-      return
-    }
+    if (newMemberForm.value.schools.length >= 2) return alert('最多只能選擇 2 個流派！')
     newMemberForm.value.schools.push(sName)
   }
 }
@@ -1423,128 +1578,36 @@ const toggleRolePrefInNewMember = (rName) => {
 }
 
 const saveNewMember = async () => {
-  if (!newMemberForm.value.name.trim()) return alert('請輸入角色名！')
-  if (newMemberForm.value.schools.length === 0) return alert('請至少選擇一個流派！')
+  const cleanName = newMemberForm.value.name.trim()
+  if (!cleanName) return alert('請輸入角色名！')
 
-  const newObj = {
-    id: Date.now(),
-    name: newMemberForm.value.name.trim(),
-    formerNames: [],
-    schools: [...newMemberForm.value.schools],
-    currentSchool: newMemberForm.value.currentSchool,
-    hasGodlyWeapon: newMemberForm.value.hasGodlyWeapon,
-    guild: newMemberForm.value.guild,
-    status: newMemberForm.value.status,
-    contact: newMemberForm.value.contact.trim(),
-    notes: newMemberForm.value.notes.trim(),
-    tether: newMemberForm.value.tether.trim(),
-    rolePreference: [...newMemberForm.value.rolePrefList],
-    rolePrefList: [...newMemberForm.value.rolePrefList],
-    assigned: false
-  }
+  const { data: gData } = await supabase.from('guilds').select('id').eq('name', leagueInfo.value.guild).maybeSingle()
 
-  // 寫入資料庫
-  if (props.userProfile?.guild_id) {
-    await supabase.from('guild_members').insert([{
-      guild_id: props.userProfile.guild_id,
-      name: newObj.name,
-      schools: newObj.schools,
-      current_school: newObj.currentSchool,
-      has_godly_weapon: newObj.hasGodlyWeapon,
-      status: newObj.status,
-      contact: newObj.contact,
-      notes: newObj.notes,
-      tether: newObj.tether,
-      role_preference: newObj.rolePreference
+  if (gData) {
+    const { error } = await supabase.from('guild_members').insert([{
+      guild_id: gData.id,
+      name: cleanName,
+      schools: newMemberForm.value.schools,
+      current_school: newMemberForm.value.currentSchool,
+      has_godly_weapon: newMemberForm.value.hasGodlyWeapon,
+      status: newMemberForm.value.status,
+      contact: newMemberForm.value.contact.trim(),
+      notes: newMemberForm.value.notes.trim(),
+      tether: newMemberForm.value.tether.trim(),
+      role_preference: newMemberForm.value.rolePrefList
     }])
+
+    if (error) return alert('新增成員失敗：' + error.message)
   }
 
-  allMembers.value.push(newObj)
+  await fetchRosterDataFromDB()
   showAddMemberModal.value = false
 }
 
-// 團隊盤面數據
-const matrixTeams = ref([
-  {
-    id: 1,
-    name: '進攻一團',
-    desc: '我是團隊備註會顯示的地方',
-    color: '#84cc16',
-    squads: [
-      { id: 11, name: '一隊', zhineng: '塔後隊', desc: '我是顯示備註的地方', slots: createDefaultSlots() },
-      { id: 12, name: '二隊', zhineng: '保鏢隊', desc: '', slots: createDefaultSlots() },
-      { id: 13, name: '三隊', zhineng: '塔前隊', desc: '', slots: createDefaultSlots() },
-      { id: 14, name: '四隊', zhineng: '', desc: '', slots: createDefaultSlots() },
-      { id: 15, name: '五隊', zhineng: '', desc: '', slots: createDefaultSlots() }
-    ]
-  },
-  {
-    id: 2,
-    name: '進攻二團',
-    desc: '',
-    color: '#eab308',
-    squads: Array.from({ length: 5 }, (_, i) => ({
-      id: 20 + i,
-      name: `${i + 1}隊`,
-      zhineng: '',
-      desc: '',
-      slots: createDefaultSlots()
-    }))
-  }
-])
-
-function createDefaultSlots() {
-  return Array.from({ length: 6 }, () => ({
-    id: Math.random(),
-    assignedMember: null,
-    roles: [],
-    jueji: '',
-    qunxia: '',
-    zhuangbei: '',
-    templateConfig: {
-      schools: [],
-      roles: [],
-      jueji: '',
-      qunxia: '',
-      zhuangbei: '',
-      desc: ''
-    }
-  }))
-}
-
-const schoolAssignedCounts = computed(() => {
-  const counts = {}
-  availableSchools.forEach(s => counts[s.name] = 0)
-
-  if (Array.isArray(matrixTeams.value)) {
-    matrixTeams.value.forEach(team => {
-      if (team && Array.isArray(team.squads)) {
-        team.squads.forEach(squad => {
-          if (squad && Array.isArray(squad.slots)) {
-            squad.slots.forEach(slot => {
-              if (slot && slot.assignedMember && slot.assignedMember.currentSchool) {
-                const sch = slot.assignedMember.currentSchool
-                if (counts[sch] !== undefined) counts[sch]++
-                else counts[sch] = 1
-              }
-            })
-          }
-        })
-      }
-    })
-  }
-
-  return counts
-})
-
 const addTeam = () => {
-  if (matrixTeams.value.length >= 5) {
-    alert('最多只能創建 5 個團隊！')
-    return
-  }
+  if (matrixTeams.value.length >= 5) return alert('最多只能創建 5 個團隊！')
   const num = matrixTeams.value.length + 1
-  const defaultTeamColors = ['#84cc16', '#eab308', '#06b6d4', '#3b82f6', '#a855f7']
-  const defaultColor = defaultTeamColors[(num - 1) % defaultTeamColors.length]
+  const defaultColor = teamColorOptions[(num - 1) % teamColorOptions.length].color
   matrixTeams.value.push({
     id: Date.now(),
     name: `團隊 ${num}`,
@@ -1561,10 +1624,7 @@ const addTeam = () => {
 }
 
 const addSquadToTeam = (team) => {
-  if (team.squads.length >= 5) {
-    alert('每個團隊最多只能創建 5 個小隊！')
-    return
-  }
+  if (team.squads.length >= 5) return alert('每個團隊最多只能創建 5 個小隊！')
   const squadNum = team.squads.length + 1
   team.squads.push({
     id: Date.now(),
@@ -1575,20 +1635,12 @@ const addSquadToTeam = (team) => {
   })
 }
 
-// 拖拽狀態與交換兩隊
+// 拖拽與交換
 let draggedType = null
 let draggedPendingMember = null
 let draggedSlotRef = null
 let draggedSquadRef = null
 let targetSquadRef = null
-
-const showSwapSquadModal = ref(false)
-const swapOptions = ref({
-  name: true,
-  zhineng: true,
-  desc: true,
-  template: true
-})
 
 const onDragStartPendingMember = (member) => {
   draggedType = 'pendingMember'
@@ -1608,9 +1660,7 @@ const onDragStartSquad = ({ team, squad }) => {
 
 const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
   if (draggedType === 'pendingMember' && draggedPendingMember) {
-    if (targetSlot.assignedMember) {
-      targetSlot.assignedMember.assigned = false
-    }
+    if (targetSlot.assignedMember) targetSlot.assignedMember.assigned = false
     targetSlot.assignedMember = draggedPendingMember
     draggedPendingMember.assigned = true
     if (draggedPendingMember.rolePreference) {
@@ -1678,43 +1728,30 @@ const executeSwapSquad = () => {
   targetSquadRef = null
 }
 
-const showEditTeamModal = ref(false)
-const activeEditTeamIndex = ref(0)
-
 const openEditTeamModal = (idx) => {
   activeEditTeamIndex.value = idx
   showEditTeamModal.value = true
 }
 
-const currentEditingTeam = computed(() => {
-  if (!Array.isArray(matrixTeams.value)) return null
-  return matrixTeams.value[activeEditTeamIndex.value] || null
-})
-
 const deleteCurrentEditingTeam = () => {
   if (!currentEditingTeam.value) return
   triggerConfirmModal(
     '移除團隊',
-    `確定要移除團隊「${currentEditingTeam.value.name}」嗎？團隊內部所有成員將退回待選清單。`,
+    `確定要移除團隊「${currentEditingTeam.value.name}」嗎？`,
     () => {
-      if (currentEditingTeam.value && Array.isArray(currentEditingTeam.value.squads)) {
+      if (currentEditingTeam.value?.squads) {
         currentEditingTeam.value.squads.forEach(s => {
-          if (s && Array.isArray(s.slots)) {
-            s.slots.forEach(slot => {
-              if (slot && slot.assignedMember) {
-                slot.assignedMember.assigned = false
-                slot.assignedMember = null
-              }
-            })
-          }
+          s?.slots?.forEach(slot => {
+            if (slot?.assignedMember) {
+              slot.assignedMember.assigned = false
+              slot.assignedMember = null
+            }
+          })
         })
       }
       matrixTeams.value.splice(activeEditTeamIndex.value, 1)
-      if (matrixTeams.value.length === 0) {
-        showEditTeamModal.value = false
-      } else {
-        activeEditTeamIndex.value = Math.max(0, activeEditTeamIndex.value - 1)
-      }
+      if (matrixTeams.value.length === 0) showEditTeamModal.value = false
+      else activeEditTeamIndex.value = Math.max(0, activeEditTeamIndex.value - 1)
     }
   )
 }
@@ -1740,31 +1777,7 @@ const removeMemberFromSlot = (slot) => {
   showSlotInfoModal.value = false
 }
 
-const showSlotInfoModal = ref(false)
-const showSlotConfigModal = ref(false)
-
-const activeSlotForModal = ref(null)
-const activeSlotTeamName = ref('')
-const activeSlotSquadName = ref('')
-const activeSlotIndex = ref(0)
-
-const tempSlotRoles = ref([])
-const tempSlotJueji = ref('')
-const tempSlotQunxia = ref('')
-const tempSlotZhuangbei = ref('')
-
-const tempConfigSchools = ref([])
-const tempConfigRoles = ref([])
-const tempConfigJueji = ref('')
-const tempConfigQunxia = ref('')
-const tempConfigZhuangbei = ref('')
-const tempConfigDesc = ref('')
-
-const isInfoQunxiaSelected = (qName) => {
-  if (typeof tempSlotQunxia.value !== 'string' || !tempSlotQunxia.value) return false
-  return tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
-}
-
+const isInfoQunxiaSelected = (qName) => typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
 const toggleInfoQunxia = (qName) => {
   let list = (typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value) ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
@@ -1773,11 +1786,7 @@ const toggleInfoQunxia = (qName) => {
   tempSlotQunxia.value = list.join(', ')
 }
 
-const isInfoLiupaiSelected = (lName) => {
-  if (typeof tempSlotZhuangbei.value !== 'string' || !tempSlotZhuangbei.value) return false
-  return tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
-}
-
+const isInfoLiupaiSelected = (lName) => typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
 const toggleInfoLiupai = (lName) => {
   let list = (typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value) ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
@@ -1786,11 +1795,7 @@ const toggleInfoLiupai = (lName) => {
   tempSlotZhuangbei.value = list.join(', ')
 }
 
-const isConfigQunxiaSelected = (qName) => {
-  if (typeof tempConfigQunxia.value !== 'string' || !tempConfigQunxia.value) return false
-  return tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
-}
-
+const isConfigQunxiaSelected = (qName) => typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
 const toggleConfigQunxia = (qName) => {
   let list = (typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value) ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
@@ -1799,11 +1804,7 @@ const toggleConfigQunxia = (qName) => {
   tempConfigQunxia.value = list.join(', ')
 }
 
-const isConfigLiupaiSelected = (lName) => {
-  if (typeof tempConfigZhuangbei.value !== 'string' || !tempConfigZhuangbei.value) return false
-  return tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
-}
-
+const isConfigLiupaiSelected = (lName) => typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
 const toggleConfigLiupai = (lName) => {
   let list = (typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value) ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
@@ -1878,24 +1879,6 @@ const saveSlotConfig = () => {
   showSlotConfigModal.value = false
 }
 
-// 編輯成員 Modal
-const showMemberEditModal = ref(false)
-const showRoleDropdownInMemberEdit = ref(false)
-const editingMemberRef = ref(null)
-
-const memberEditForm = ref({
-  name: '',
-  schools: ['鐵衣'],
-  currentSchool: '鐵衣',
-  hasGodlyWeapon: false,
-  guild: '百錵谷酒池肉林',
-  status: '幫眾',
-  contact: '',
-  notes: '',
-  tether: '',
-  rolePrefList: []
-})
-
 const openFullMemberEditModal = (member) => {
   if (!member) return
   editingMemberRef.value = member
@@ -1904,7 +1887,7 @@ const openFullMemberEditModal = (member) => {
     schools: [...(member.schools || [member.currentSchool])],
     currentSchool: member.currentSchool,
     hasGodlyWeapon: member.hasGodlyWeapon || false,
-    guild: member.guild || '百錵谷酒池肉林',
+    guild: member.guild || leagueInfo.value.guild,
     status: member.status || '幫眾',
     contact: member.contact || '',
     notes: member.notes || '',
@@ -1925,10 +1908,7 @@ const toggleMemberEditSchool = (sName) => {
       }
     }
   } else {
-    if (memberEditForm.value.schools.length >= 2) {
-      alert('最多只能選擇 2 個流派！')
-      return
-    }
+    if (memberEditForm.value.schools.length >= 2) return alert('最多只能選擇 2 個流派！')
     memberEditForm.value.schools.push(sName)
   }
 }
@@ -1939,53 +1919,42 @@ const toggleRolePrefInMemberEdit = (rName) => {
   else memberEditForm.value.rolePrefList.push(rName)
 }
 
-const saveFullMemberEdit = () => {
-  if (!memberEditForm.value.name.trim()) return alert('請輸入角色名！')
-  if (editingMemberRef.value) {
-    editingMemberRef.value.name = memberEditForm.value.name.trim()
-    editingMemberRef.value.schools = [...memberEditForm.value.schools]
-    editingMemberRef.value.currentSchool = memberEditForm.value.currentSchool
-    editingMemberRef.value.hasGodlyWeapon = memberEditForm.value.hasGodlyWeapon
-    editingMemberRef.value.guild = memberEditForm.value.guild
-    editingMemberRef.value.status = memberEditForm.value.status
-    editingMemberRef.value.contact = memberEditForm.value.contact
-    editingMemberRef.value.notes = memberEditForm.value.notes
-    editingMemberRef.value.tether = memberEditForm.value.tether
-    editingMemberRef.value.rolePreference = [...memberEditForm.value.rolePrefList]
-    editingMemberRef.value.rolePrefList = [...memberEditForm.value.rolePrefList]
+const saveFullMemberEdit = async () => {
+  const cleanName = memberEditForm.value.name.trim()
+  if (!cleanName) return alert('請輸入角色名！')
+
+  const payload = {
+    name: cleanName,
+    schools: memberEditForm.value.schools,
+    current_school: memberEditForm.value.currentSchool,
+    has_godly_weapon: memberEditForm.value.hasGodlyWeapon,
+    status: memberEditForm.value.status,
+    contact: memberEditForm.value.contact.trim(),
+    notes: memberEditForm.value.notes.trim(),
+    tether: memberEditForm.value.tether.trim(),
+    role_preference: memberEditForm.value.rolePrefList
   }
+
+  if (editingMemberRef.value?.id) {
+    const { error } = await supabase
+      .from('guild_members')
+      .update(payload)
+      .eq('id', editingMemberRef.value.id)
+
+    if (error) {
+      return alert('編輯成員同步至資料庫失敗：' + error.message)
+    }
+  }
+
+  await fetchRosterDataFromDB()
   showMemberEditModal.value = false
 }
 
-// 批量編輯 Modal
-const showBatchEditModal = ref(false)
-const selectedBatchMembers = ref([])
-const batchMemberGroups = ref([])
-
-const showBatchRoleDialog = ref(false)
-const tempBatchRolePills = ref([])
-
-const showBatchJuejiDialog = ref(false)
-const tempBatchJuejiVal = ref('')
-
-const showBatchQunxiaDialog = ref(false)
-const tempBatchQunxiaVal = ref('')
-
-const showBatchLiupaiDialog = ref(false)
-const tempBatchLiupaiVal = ref('')
-
-const activeBatchDropdown = ref(null)
-
 const toggleBatchRowDropdown = (key) => {
-  if (activeBatchDropdown.value === key) activeBatchDropdown.value = null
-  else activeBatchDropdown.value = key
+  activeBatchDropdown.value = activeBatchDropdown.value === key ? null : key
 }
 
-const isBatchRowRoleSelected = (m, roleName) => {
-  if (!m || !Array.isArray(m.rolesList)) return false
-  return m.rolesList.includes(roleName)
-}
-
+const isBatchRowRoleSelected = (m, roleName) => Array.isArray(m?.rolesList) && m.rolesList.includes(roleName)
 const toggleBatchRowRole = (m, roleName) => {
   if (!m) return
   if (!Array.isArray(m.rolesList)) m.rolesList = []
@@ -1994,11 +1963,7 @@ const toggleBatchRowRole = (m, roleName) => {
   else m.rolesList.push(roleName)
 }
 
-const isBatchRowQunxiaSelected = (m, qName) => {
-  if (!m || typeof m.qunxia !== 'string' || !m.qunxia) return false
-  return m.qunxia.split(',').map(s => s.trim()).includes(qName)
-}
-
+const isBatchRowQunxiaSelected = (m, qName) => typeof m?.qunxia === 'string' && m.qunxia.split(',').map(s => s.trim()).includes(qName)
 const toggleBatchRowQunxia = (m, qName) => {
   if (!m) return
   let list = (typeof m.qunxia === 'string' && m.qunxia) ? m.qunxia.split(',').map(s => s.trim()).filter(Boolean) : []
@@ -2008,11 +1973,7 @@ const toggleBatchRowQunxia = (m, qName) => {
   m.qunxia = list.join(', ')
 }
 
-const isBatchRowLiupaiSelected = (m, lName) => {
-  if (!m || typeof m.zhuangbei !== 'string' || !m.zhuangbei) return false
-  return m.zhuangbei.split(',').map(s => s.trim()).includes(lName)
-}
-
+const isBatchRowLiupaiSelected = (m, lName) => typeof m?.zhuangbei === 'string' && m.zhuangbei.split(',').map(s => s.trim()).includes(lName)
 const toggleBatchRowLiupai = (m, lName) => {
   if (!m) return
   let list = (typeof m.zhuangbei === 'string' && m.zhuangbei) ? m.zhuangbei.split(',').map(s => s.trim()).filter(Boolean) : []
@@ -2057,7 +2018,6 @@ const openBatchEditModal = () => {
     showBatchEditModal.value = true
     showOtherOpsDropdown.value = false
   } catch (err) {
-    console.error("批量編輯開啟失敗:", err)
     alert("批量編輯資料載入失敗，請稍後重試。")
   }
 }
@@ -2072,10 +2032,9 @@ const toggleGroupBatchSelect = (group, event) => {
   })
 }
 
-// 批量【職能】多選 Modal 控制
 const openBatchRoleSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
-  tempBatchRolePills.value = ['D潮拆塔']
+  tempBatchRolePills.value = ['保鑣']
   showBatchRoleDialog.value = true
 }
 
@@ -2098,10 +2057,9 @@ const applyBatchRoleSelection = () => {
   showBatchRoleDialog.value = false
 }
 
-// 批量【絕技】單選 Modal 控制
 const openBatchJuejiSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
-  tempBatchJuejiVal.value = '狂發一怒'
+  tempBatchJuejiVal.value = '太極圖'
   showBatchJuejiDialog.value = true
 }
 
@@ -2118,18 +2076,13 @@ const applyBatchJuejiSelection = () => {
   showBatchJuejiDialog.value = false
 }
 
-// 批量【群俠百家】Modal 控制
 const openBatchQunxiaSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
   tempBatchQunxiaVal.value = '咚咚跳台'
   showBatchQunxiaDialog.value = true
 }
 
-const isBatchQunxiaPillSelected = (q) => {
-  if (typeof tempBatchQunxiaVal.value !== 'string' || !tempBatchQunxiaVal.value) return false
-  return tempBatchQunxiaVal.value.split(',').map(s => s.trim()).includes(q)
-}
-
+const isBatchQunxiaPillSelected = (q) => typeof tempBatchQunxiaVal.value === 'string' && tempBatchQunxiaVal.value.split(',').map(s => s.trim()).includes(q)
 const toggleBatchQunxiaPill = (q) => {
   let list = (typeof tempBatchQunxiaVal.value === 'string' && tempBatchQunxiaVal.value) ? tempBatchQunxiaVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(q)
@@ -2151,18 +2104,13 @@ const applyBatchQunxiaSelection = () => {
   showBatchQunxiaDialog.value = false
 }
 
-// 批量【流派技能】Modal 控制
 const openBatchLiupaiSelectModal = () => {
   if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
   tempBatchLiupaiVal.value = '清泉'
   showBatchLiupaiDialog.value = true
 }
 
-const isBatchLiupaiPillSelected = (l) => {
-  if (typeof tempBatchLiupaiVal.value !== 'string' || !tempBatchLiupaiVal.value) return false
-  return tempBatchLiupaiVal.value.split(',').map(s => s.trim()).includes(l)
-}
-
+const isBatchLiupaiPillSelected = (l) => typeof tempBatchLiupaiVal.value === 'string' && tempBatchLiupaiVal.value.split(',').map(s => s.trim()).includes(l)
 const toggleBatchLiupaiPill = (l) => {
   let list = (typeof tempBatchLiupaiVal.value === 'string' && tempBatchLiupaiVal.value) ? tempBatchLiupaiVal.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(l)
@@ -2202,20 +2150,12 @@ const saveBatchEdit = () => {
   showBatchEditModal.value = false
 }
 
-// 置中刪除確認 Modal
-const showConfirmModal = ref(false)
-const confirmTitle = ref('')
-const confirmMessage = ref('')
-const showOtherOpsDropdown = ref(false)
-
 const confirmClearRoster = () => {
   showOtherOpsDropdown.value = false
   confirmTitle.value = '清空陣容'
   confirmMessage.value = '將清空本場全部排表，頁面會刷新；此操作不可撤銷。'
   showConfirmModal.value = true
 }
-
-let confirmActionCallback = null
 
 const triggerConfirmModal = (title, message, onConfirm) => {
   confirmTitle.value = title
@@ -2243,10 +2183,6 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// 選擇陣容模板下拉
-const showTemplateDropdown = ref(false)
-const appliedTemplateName = ref('')
-
 const templateOptions = [
   { id: 1, name: '甲組通用模板' },
   { id: 2, name: '乙組防守模板' }
@@ -2257,8 +2193,8 @@ const applyRosterTemplate = (tpl) => {
   showTemplateDropdown.value = false
 
   matrixTeams.value[0].squads[0].slots.forEach((s, idx) => {
-    if (idx === 0) s.templateConfig.roles = ['統戰', '指揮']
-    if (idx === 1) s.templateConfig.roles = ['保鏢拆', '純保鏢']
+    if (idx === 0) s.templateConfig.roles = ['拆塔指揮', '保鑣指揮']
+    if (idx === 1) s.templateConfig.roles = ['保鑣', '埋頭猛拆']
   })
 }
 
@@ -2266,6 +2202,8 @@ const formatArrayText = (arr) => {
   if (!arr || !Array.isArray(arr) || arr.length === 0) return '—'
   return arr.join('、')
 }
+
+onMounted(fetchRosterDataFromDB)
 </script>
 
 <style scoped>

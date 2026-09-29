@@ -67,6 +67,7 @@
           <i :class="['mdi', expandedSchools.includes(s.name) ? 'mdi-chevron-down' : 'mdi-chevron-right', 'accordion-arrow']"></i>
         </div>
 
+        <!-- 流派折疊區域 (點擊展開) -->
         <div v-if="expandedSchools.includes(s.name)" class="accordion-body">
           <div 
             v-for="m in getUnassignedMembersBySchool(s.name)" 
@@ -141,7 +142,9 @@ defineEmits(['open-add-member', 'open-edit-member', 'drag-start-member'])
 const searchMemberQuery = ref('')
 const activeSchoolFilter = ref(null)
 const pendingViewMode = ref('school')
-const expandedSchools = ref(['鐵衣', '血河', '九靈', '素問', '潮光', '龍吟'])
+
+// 預設全部折疊/縮起 (空陣列)
+const expandedSchools = ref([])
 
 const getSchoolImg = (fileName) => {
   if (!fileName) return ''
@@ -149,7 +152,7 @@ const getSchoolImg = (fileName) => {
 }
 
 const getSchoolImgByName = (schoolName) => {
-  const found = props.availableSchools.find(s => s.name === schoolName)
+  const found = props.availableSchools?.find(s => s.name === schoolName)
   return found ? getSchoolImg(found.file) : ''
 }
 
@@ -160,6 +163,9 @@ const getSecondarySchool = (member) => {
 
 const toggleSchoolFilter = (sName) => {
   activeSchoolFilter.value = activeSchoolFilter.value === sName ? null : sName
+  if (activeSchoolFilter.value && !expandedSchools.value.includes(sName)) {
+    expandedSchools.value.push(sName)
+  }
 }
 
 const toggleAccordion = (sName) => {
@@ -175,22 +181,22 @@ const filteredSchoolAccordion = computed(() => {
   return props.availableSchools
 })
 
+// ★ 核心修復：精準比對與容錯，過濾上陣成員 (!m.assigned) ★
 const getUnassignedMembersBySchool = (schoolName) => {
-  const targetGuild = props.guildName || '百錵谷酒池肉林'
-  return props.allMembers.filter(m => {
+  return (props.allMembers || []).filter(m => {
     if (!m) return false
-    const matchGuild = m.guild === targetGuild
-    const notAssigned = !m.assigned
-    const matchSearch = !searchMemberQuery.value || (m.name && m.name.includes(searchMemberQuery.value.trim()))
+    const notAssigned = !m.assigned // 自動過濾已上陣角色
+    const matchSearch = !searchMemberQuery.value || (m.name && m.name.toLowerCase().includes(searchMemberQuery.value.trim().toLowerCase()))
 
     let matchSchool = false
+    const mSchool = (m.currentSchool || '').trim()
     if (props.showSecondarySchool) {
-      matchSchool = m.schools ? m.schools.includes(schoolName) : (m.currentSchool === schoolName)
+      matchSchool = m.schools ? m.schools.includes(schoolName) : (mSchool === schoolName)
     } else {
-      matchSchool = (m.currentSchool === schoolName)
+      matchSchool = (mSchool === schoolName)
     }
 
-    return matchGuild && matchSchool && notAssigned && matchSearch
+    return matchSchool && notAssigned && matchSearch
   })
 }
 
@@ -199,24 +205,23 @@ const getUnassignedCountBySchool = (schoolName) => {
 }
 
 const allUnassignedMembersList = computed(() => {
-  const targetGuild = props.guildName || '百錵谷酒池肉林'
   if (!Array.isArray(props.allMembers)) return []
   return props.allMembers.filter(m => {
     if (!m) return false
-    const matchGuild = m.guild === targetGuild
     const notAssigned = !m.assigned
-    const matchSearch = !searchMemberQuery.value || (m.name && m.name.includes(searchMemberQuery.value.trim()))
+    const matchSearch = !searchMemberQuery.value || (m.name && m.name.toLowerCase().includes(searchMemberQuery.value.trim().toLowerCase()))
 
     let matchSchool = true
     if (activeSchoolFilter.value) {
+      const mSchool = (m.currentSchool || '').trim()
       if (props.showSecondarySchool) {
-        matchSchool = m.schools ? m.schools.includes(activeSchoolFilter.value) : (m.currentSchool === activeSchoolFilter.value)
+        matchSchool = m.schools ? m.schools.includes(activeSchoolFilter.value) : (mSchool === activeSchoolFilter.value)
       } else {
-        matchSchool = (m.currentSchool === activeSchoolFilter.value)
+        matchSchool = (mSchool === activeSchoolFilter.value)
       }
     }
 
-    return matchGuild && notAssigned && matchSearch && matchSchool
+    return notAssigned && matchSearch && matchSchool
   })
 })
 </script>

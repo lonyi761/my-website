@@ -1,11 +1,9 @@
 <template>
-  <div :class="['prep-layout', isDarkMode ? 'dark-theme' : 'light-theme']">
-    <!-- 頂部導航列 -->
+  <div class="prep-layout light-theme">
+    <!-- 全局頂部導航列 -->
     <Navbar 
       activeNav="preparation" 
-      :isDarkMode="isDarkMode" 
       :username="username" 
-      @toggle-theme="isDarkMode = !isDarkMode" 
     />
 
     <!-- 主要內容區 -->
@@ -42,7 +40,6 @@ import LineupTemplate from './preparation/LineupTemplate.vue'
 import QuestionConfig from './preparation/QuestionConfig.vue'
 
 const router = useRouter()
-const isDarkMode = ref(false)
 const username = ref('VIP')
 const currentTab = ref('roles')
 
@@ -63,7 +60,6 @@ onMounted(checkAuth)
 <style scoped>
 .prep-layout { min-height: 100vh; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 .light-theme { background-color: #f4f6f9; color: #2c3e50; }
-.dark-theme { background-color: #121824; color: #e2e8f0; }
 
 .prep-main { flex: 1; display: flex; max-width: 1400px; width: 100%; margin: 20px auto; padding: 0 20px; box-sizing: border-box; gap: 20px; }
 .prep-sidebar { width: 180px; background: #ffffff; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
