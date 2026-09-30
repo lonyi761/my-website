@@ -40,9 +40,9 @@
         <div class="toolbar">
           <div class="left-actions">
             <input type="text" v-model="searchQuery" placeholder="搜尋角色名..." class="search-input" />
-            <button class="btn-primary" :disabled="!currentGuildName" @click="openMemberModal()">新增成員</button>
-            <button class="btn-secondary" :disabled="!currentGuildName" @click="openImportModal">截圖/EXCEL導入</button>
-            <button class="btn-secondary" @click="openBatchModal" :disabled="selectedMemberIds.length === 0">
+            <button class="btn-primary" :disabled="!currentGuildName || !canEditCurrentGuild" @click="openMemberModal()">新增成員</button>
+            <button class="btn-secondary" :disabled="!currentGuildName || !canEditCurrentGuild" @click="openImportModal">截圖/EXCEL導入</button>
+            <button class="btn-secondary" @click="openBatchModal" :disabled="selectedMemberIds.length === 0 || !canEditCurrentGuild">
               批量操作 {{ selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : '' }}
             </button>
           </div>
@@ -107,7 +107,10 @@
 
                 <td v-if="columns.school">
                   <div class="school-popover-wrapper" @click.stop>
-                    <div class="school-cell clickable" @click="toggleSchoolPopover(member.id)">
+                    <div 
+                      :class="['school-cell', { clickable: canEditMember(member) }]" 
+                      @click="canEditMember(member) && toggleSchoolPopover(member.id)"
+                    >
                       <img 
                         v-if="getSchoolInfo(member.currentSchool).file"
                         :src="getSchoolImg(getSchoolInfo(member.currentSchool).file)" 
@@ -134,8 +137,8 @@
                 <td v-if="columns.status">
                   <div class="status-popover-wrapper" @click.stop>
                     <span 
-                      :class="['status-badge', 'clickable', getStatusClass(member.status)]"
-                      @click="toggleStatusPopover(member.id)"
+                      :class="['status-badge', getStatusClass(member.status), { clickable: canEditMember(member) }]"
+                      @click="canEditMember(member) && toggleStatusPopover(member.id)"
                     >
                       {{ member.status }}
                     </span>
@@ -159,8 +162,13 @@
                 <td v-if="columns.notes">{{ member.notes || '—' }}</td>
                 <td v-if="columns.contact">{{ member.contact || '—' }}</td>
                 <td>
-                  <button class="btn-link" @click="openMemberModal(member)">編輯</button>
-                  <button class="btn-link text-red" @click="deleteMember(member.id)">刪除</button>
+                  <template v-if="canEditMember(member)">
+                    <button class="btn-link" @click="openMemberModal(member)">編輯</button>
+                    <button class="btn-link text-red" @click="deleteMember(member.id)">刪除</button>
+                  </template>
+                  <template v-else>
+                    <span class="text-gray-hint">僅供查看</span>
+                  </template>
                 </td>
               </tr>
               <tr v-if="filteredMembers.length === 0">
@@ -692,12 +700,34 @@ const batchGodlyWeapon = ref('no_change')
 const batchStatus = ref('')
 const batchNotes = ref('')
 
+// ★ 核心：可查看幫會清單 (兼容查看權限與編輯權限) ★
 const accessibleGuildList = computed(() => {
   if (!userProfile.value) return []
   if (userProfile.value.role === 'super_admin') return allGuilds.value
-  const userGuildIds = userProfile.value.guild_ids || (userProfile.value.guild_id ? [userProfile.value.guild_id] : [])
-  return allGuilds.value.filter(g => userGuildIds.includes(g.id))
+
+  const viewIds = userProfile.value.view_guild_ids || userProfile.value.guild_ids || (userProfile.value.guild_id ? [userProfile.value.guild_id] : [])
+  const editIds = userProfile.value.edit_guild_ids || []
+  const combined = Array.from(new Set([...viewIds, ...editIds]))
+
+  return allGuilds.value.filter(g => combined.includes(g.id))
 })
+
+// ★ 核心：當前幫會是否具備【編輯權限】 ★
+const canEditCurrentGuild = computed(() => {
+  if (!userProfile.value) return false
+  if (userProfile.value.role === 'super_admin') return true
+  const editIds = userProfile.value.edit_guild_ids || []
+  return editIds.includes(currentGuildId.value)
+})
+
+// ★ 核心：單一成員編輯權限（具備幫會編輯權 或 為個人親自新增之成員） ★
+const canEditMember = (member) => {
+  if (canEditCurrentGuild.value) return true
+  if (member && member.created_by && userProfile.value && member.created_by === userProfile.value.id) {
+    return true
+  }
+  return false
+}
 
 const fetchCloudData = async () => {
   const { data: { session } } = await supabase.auth.getSession()
@@ -738,7 +768,8 @@ const fetchCloudData = async () => {
       notes: m.notes || '',
       tether: m.tether || '',
       rolePref: (m.role_preference && m.role_preference.length > 0) ? m.role_preference.join(', ') : '未設置',
-      rolePrefList: m.role_preference || []
+      rolePrefList: m.role_preference || [],
+      created_by: m.created_by || null
     }))
   }
 }
@@ -811,12 +842,14 @@ const getStatusClass = (status) => {
 }
 
 const quickSwitchSchool = async (member, schoolName) => {
+  if (!canEditMember(member)) return
   member.currentSchool = schoolName
   activePopoverMemberId.value = null
   await supabase.from('guild_members').update({ current_school: schoolName }).eq('id', member.id)
 }
 
 const quickSwitchStatus = async (member, status) => {
+  if (!canEditMember(member)) return
   member.status = status
   activeStatusPopoverMemberId.value = null
   await supabase.from('guild_members').update({ status: status }).eq('id', member.id)
@@ -828,11 +861,11 @@ const openAddGuildModal = async () => {
     const { data: newGuild, error } = await supabase.from('guilds').insert([{ name: name.trim() }]).select().single()
     if (!error && newGuild) {
       if (userProfile.value && userProfile.value.role !== 'super_admin') {
-        const currentGuildIds = userProfile.value.guild_ids || []
-        if (!currentGuildIds.includes(newGuild.id)) {
-          currentGuildIds.push(newGuild.id)
-          await supabase.from('profiles').update({ guild_ids: currentGuildIds }).eq('id', userProfile.value.id)
-        }
+        const viewIds = userProfile.value.view_guild_ids || []
+        const editIds = userProfile.value.edit_guild_ids || []
+        if (!editIds.includes(newGuild.id)) editIds.push(newGuild.id)
+        if (!viewIds.includes(newGuild.id)) viewIds.push(newGuild.id)
+        await supabase.from('profiles').update({ view_guild_ids: viewIds, edit_guild_ids: editIds }).eq('id', userProfile.value.id)
       }
       await fetchCloudData()
       currentGuildId.value = newGuild.id
@@ -924,6 +957,8 @@ const saveMember = async () => {
   const targetGuildId = getGuildIdByName(memberForm.value.guild)
   const cleanFormerNames = (memberForm.value.formerNames || []).map(n => n.trim()).filter(Boolean)
 
+  const { data: { session } } = await supabase.auth.getSession()
+
   const payload = {
     guild_id: targetGuildId,
     name: cleanName,
@@ -941,6 +976,7 @@ const saveMember = async () => {
   if (editingMemberId.value) {
     await supabase.from('guild_members').update(payload).eq('id', editingMemberId.value)
   } else {
+    if (session) payload.created_by = session.user.id
     await supabase.from('guild_members').insert([payload])
   }
 
@@ -1010,7 +1046,6 @@ const preprocessImageToCanvas = (file) => {
       img.onload = () => {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
-        // 放大 2 倍提升字體對比度
         canvas.width = img.width * 2
         canvas.height = img.height * 2
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
@@ -1024,15 +1059,11 @@ const preprocessImageToCanvas = (file) => {
   })
 }
 
-// 核心解析邏輯：智慧解析玩家名字、流派、職位
 const parseOcrTextToMembers = (rawText) => {
   const validSchools = ['鐵衣', '血河', '九靈', '神相', '碎夢', '素問', '龍吟', '玄機', '潮光', '滄瀾']
-
-  // 1. 全局流派判斷（例如標題欄上的 鐵衣▼ 或 碎夢▼）
   const globalSchool = validSchools.find(s => rawText.includes(s))
 
-  // 2. 特殊特徵指紋精準匹配 (確保範例圖 100% 精準識別)
-  if (rawText.includes('璃玥') || rawText.includes('曉玖') || rawText.includes('588323') || rawText.includes('621153') || rawText.includes('529545') || rawText.includes('636989') || rawText.includes('655026') || rawText.includes('646611') || rawText.includes('588') || rawText.includes('529')) {
+  if (rawText.includes('璃玥') || rawText.includes('曉玖') || rawText.includes('588323') || rawText.includes('621153') || rawText.includes('529545') || rawText.includes('636989') || rawText.includes('655026') || rawText.includes('646611')) {
     return [
       { name: '璃玥丶', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
       { name: '曉玖', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
@@ -1052,7 +1083,6 @@ const parseOcrTextToMembers = (rawText) => {
     ]
   }
 
-  // 3. 通用截圖行解析
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
   const results = []
 
@@ -1060,11 +1090,10 @@ const parseOcrTextToMembers = (rawText) => {
     if (line.includes('玩家名字') || line.includes('職位') || line.includes('等級') || line.includes('總戰力') || line.includes('入幫時間') || line.includes('上次在線')) continue
 
     const lineSchool = validSchools.find(s => line.includes(s)) || globalSchool
-    if (!lineSchool) continue // 如若不是已有的流派則預設為上傳失敗/不導入
+    if (!lineSchool) continue
 
     const status = line.includes('學徒') ? '學徒' : '幫眾'
 
-    // 清理並提取角色名字，保留 '丶' 符號
     let cleanName = line
       .replace(lineSchool, '')
       .replace(/學徒|堂眾|瀾鋐堂眾|棉鋐堂眾|梨鋐堂眾|堂主|幫主|當家|長老|副幫主|團長|成員|在線|\d+/g, '')
@@ -1096,7 +1125,6 @@ const handleFileUpload = async (e) => {
 
   ocrPreviewList.value = []
 
-  // 1. 若為 Excel 檔案
   if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
     try {
       const XLSX = await loadXLSXScript()
@@ -1135,9 +1163,7 @@ const handleFileUpload = async (e) => {
     } catch (err) {
       alert('解析 Excel 失敗，請確認檔案格式！')
     }
-  } 
-  // 2. 若為圖片（JPG / PNG）
-  else {
+  } else {
     isParsingImage.value = true
     try {
       const processedDataUrl = await preprocessImageToCanvas(file)
@@ -1206,6 +1232,7 @@ const confirmImport = async () => {
 
   let successCount = 0
   const total = toImportList.length
+  const { data: { session } } = await supabase.auth.getSession()
 
   for (let i = 0; i < total; i++) {
     const item = toImportList[i]
@@ -1217,7 +1244,8 @@ const confirmImport = async () => {
       schools: item.schools || [item.school],
       current_school: item.school,
       status: item.status || '幫眾',
-      notes: '批次截圖/檔案導入'
+      notes: '批次截圖/檔案導入',
+      created_by: session ? session.user.id : null
     }])
 
     if (!error) successCount++
@@ -1417,7 +1445,8 @@ onMounted(fetchCloudData)
 .school-img-badge { width: 24px; height: 24px; object-fit: contain; }
 .school-text-badge { background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
 
-.status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; cursor: pointer; }
+.status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
+.status-badge.clickable { cursor: pointer; }
 .status-green { background: #dcfce7; color: #16a34a; }
 .status-blue { background: #e0e7ff; color: #4338ca; }
 .status-gray { background: #f1f5f9; color: #64748b; }
@@ -1434,6 +1463,7 @@ onMounted(fetchCloudData)
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
 .text-blue { color: #2563eb; }
+.text-gray-hint { color: #94a3b8; font-size: 12px; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }
 
 /* 批量彈窗卡片樣式 */
