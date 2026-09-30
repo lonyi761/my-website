@@ -364,10 +364,12 @@
           <span v-if="!isImporting && !isParsingImage" class="close-btn" @click="finishImportModal">&times;</span>
         </div>
         <div class="modal-body">
+          <!-- 強制預設空白，且僅可選取具備編輯權限之幫會 -->
           <div class="form-row">
             <label>導入到幫會：</label>
             <select v-model="importTargetGuild" :disabled="isImporting || isImportComplete || isParsingImage">
-              <option v-for="g in accessibleGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
+              <option value="" disabled>-- 請選擇匯入幫會 --</option>
+              <option v-for="g in editableGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
             </select>
           </div>
 
@@ -383,7 +385,8 @@
             <ul class="preview-list">
               <li v-for="(item, idx) in ocrPreviewList" :key="idx">
                 <span class="font-bold">{{ item.name }}</span>
-                <span class="margin-l text-blue font-bold">流派: {{ item.school }}</span>
+                <span class="margin-l text-blue font-bold">主流派: {{ item.school }}</span>
+                <span v-if="item.subSchool" class="margin-l text-blue">副流派: {{ item.subSchool }}</span>
                 <span class="margin-l text-gray">身份: {{ item.status }}</span>
               </li>
             </ul>
@@ -712,6 +715,14 @@ const accessibleGuildList = computed(() => {
   return allGuilds.value.filter(g => combined.includes(g.id))
 })
 
+// ★ 核心：可編輯與匯入幫會清單 (僅限被指派編輯權限之幫會) ★
+const editableGuildList = computed(() => {
+  if (!userProfile.value) return []
+  if (userProfile.value.role === 'super_admin') return allGuilds.value
+  const editIds = userProfile.value.edit_guild_ids || []
+  return allGuilds.value.filter(g => editIds.includes(g.id))
+})
+
 // ★ 核心：當前幫會是否具備【編輯權限】 ★
 const canEditCurrentGuild = computed(() => {
   if (!userProfile.value) return false
@@ -746,7 +757,7 @@ const fetchCloudData = async () => {
       if (!currentGuildId.value || !accessibleGuildList.value.find(g => g.id === currentGuildId.value)) {
         currentGuildId.value = accessibleGuildList.value[0].id
       }
-      if (!importTargetGuild.value) importTargetGuild.value = accessibleGuildList.value[0].name
+      // 不自動帶入預設匯入幫會名稱，維持空白強制使用者選擇
       if (!batchTargetGuild.value) batchTargetGuild.value = accessibleGuildList.value[0].name
     }
   }
@@ -992,12 +1003,14 @@ const deleteMember = (id) => {
   })
 }
 
+// 打開匯入彈窗：預設不填入任何幫會，強制使用者手動點選
 const openImportModal = () => {
   isImporting.value = false
   isImportComplete.value = false
   isParsingImage.value = false
   importProgress.value = 0
   ocrPreviewList.value = []
+  importTargetGuild.value = '' // 預設空白，強制點選選擇匯入幫會
   showImportModal.value = true
 }
 
@@ -1119,6 +1132,7 @@ const parseOcrTextToMembers = (rawText) => {
   return results
 }
 
+// ★ 核心修復：解析 Excel 檔主流派與副流派 ★
 const handleFileUpload = async (e) => {
   const file = e.target.files[0]
   if (!file) return
@@ -1139,17 +1153,31 @@ const handleFileUpload = async (e) => {
       jsonData.forEach(row => {
         const roleName = row['角色名'] || row['角色'] || row['A']
         const primarySchool = row['主流派'] || row['流派'] || row['B']
+        const secondarySchool = row['副流派'] || row['C']
         const positionText = row['職位'] || row['幫眾狀態'] || ''
 
         if (roleName && primarySchool) {
           const sName = String(primarySchool).trim()
           if (validSchools.includes(sName)) {
+            const schoolsArr = [sName]
+            let subSchoolName = ''
+
+            // 若填有副流派且不與主流派重複，自動寫入流派列表
+            if (secondarySchool) {
+              const subName = String(secondarySchool).trim()
+              if (validSchools.includes(subName) && subName !== sName) {
+                schoolsArr.push(subName)
+                subSchoolName = subName
+              }
+            }
+
             const status = String(positionText).includes('學徒') ? '學徒' : '幫眾'
             parsedMembers.push({
               name: String(roleName).trim(),
-              school: sName,
+              school: sName,           // 當前流派 (主流派)
+              subSchool: subSchoolName, // 副流派 (供預覽顯示)
               status: status,
-              schools: [sName]
+              schools: schoolsArr      // [主流派, 副流派]
             })
           }
         }
@@ -1195,6 +1223,9 @@ const handleFileUpload = async (e) => {
 
 const confirmImport = async () => {
   if (ocrPreviewList.value.length === 0 || isImporting.value) return
+
+  // 檢查是否選擇了匯入幫會
+  if (!importTargetGuild.value) return alert('請選擇要匯入的幫會！')
 
   const targetGuildId = getGuildIdByName(importTargetGuild.value)
   if (!targetGuildId) return alert('請選擇有效的所屬幫會！')
