@@ -353,24 +353,24 @@
       <div class="modal-card medium-card">
         <div class="modal-header">
           <h3>成員資料導入 (截圖 / Excel)</h3>
-          <span v-if="!isImporting" class="close-btn" @click="finishImportModal">&times;</span>
+          <span v-if="!isImporting && !isParsingImage" class="close-btn" @click="finishImportModal">&times;</span>
         </div>
         <div class="modal-body">
           <div class="form-row">
             <label>導入到幫會：</label>
-            <select v-model="importTargetGuild" :disabled="isImporting || isImportComplete">
+            <select v-model="importTargetGuild" :disabled="isImporting || isImportComplete || isParsingImage">
               <option v-for="g in accessibleGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
             </select>
           </div>
 
-          <div v-if="!isImporting && !isImportComplete" class="upload-box" @click="triggerFileUpload">
+          <div v-if="!isImporting && !isImportComplete && !isParsingImage" class="upload-box" @click="triggerFileUpload">
             <i class="mdi mdi-cloud-upload-outline upload-icon"></i>
             <p>點擊上傳幫會成員列表截圖 (JPG / PNG) 或 Excel 檔案 (.xlsx / .xls)</p>
             <input type="file" ref="fileInput" @change="handleFileUpload" accept="image/*,.xlsx,.xls" hidden />
           </div>
 
           <!-- 識別結果預覽列表 -->
-          <div v-if="ocrPreviewList.length > 0 && !isImporting && !isImportComplete" class="ocr-result-box">
+          <div v-if="ocrPreviewList.length > 0 && !isImporting && !isImportComplete && !isParsingImage" class="ocr-result-box">
             <h4>識別結果預覽 (共 {{ ocrPreviewList.length }} 人)：</h4>
             <ul class="preview-list">
               <li v-for="(item, idx) in ocrPreviewList" :key="idx">
@@ -1009,19 +1009,13 @@ const parseOcrTextToMembers = (rawText) => {
   const results = []
 
   for (let line of lines) {
-    // 過濾無關的表頭文字
     if (line.includes('玩家名字') || line.includes('職位') || line.includes('等級')) continue
 
-    // 1. 去判斷職業（流派）：若文字中包含已有流派名稱，則提取
     const matchedSchool = validSchools.find(s => line.includes(s))
-
-    // 2. 如若不是已有的流派，則認定該行無效（不預設，直接導入失敗/跳過）
     if (!matchedSchool) continue
 
-    // 3. 職位判定：若包含「學徒」字樣則設為「學徒」，其餘職位（如瀾鋐堂眾、幫主、當家等）皆認定為「幫眾」
     const status = line.includes('學徒') ? '學徒' : '幫眾'
 
-    // 4. 清理並提取角色名稱（過濾流派名、職位名、等級數字等）
     let cleanName = line
       .replace(matchedSchool, '')
       .replace(/學徒|堂眾|瀾鋐堂眾|堂主|幫主|當家|長老|副幫主|團長|成員/g, '')
@@ -1029,10 +1023,8 @@ const parseOcrTextToMembers = (rawText) => {
       .replace(/[|\s\t:：,，._丶]/g, '')
       .trim()
 
-    // 保留原本底下的合法角色名（如帶有丶符號）
     const origMatch = line.match(/[\u4e00-\u9fa5A-Za-z0-9丶.]+/g)
     if (origMatch && origMatch.length > 0) {
-      // 找出不屬於流派與數字的部分
       const potentialName = origMatch.find(part => !validSchools.includes(part) && !/^\d+$/.test(part) && !part.includes('堂眾') && !part.includes('學徒'))
       if (potentialName) cleanName = potentialName
     }
@@ -1050,12 +1042,15 @@ const parseOcrTextToMembers = (rawText) => {
   return results
 }
 
-// ★ 核心修復：上傳截圖動態 OCR 辨識與結構解析 ★
+// ★ 核心修復：上傳新檔案時清空舊預覽與重置 input value，徹底解除舊名單固化問題 ★
 const handleFileUpload = async (e) => {
   const file = e.target.files[0]
   if (!file) return
 
-  // 1. 若為 Excel 檔案，進行表格解析
+  // 1. 立即清空舊預覽資料，防止殘留
+  ocrPreviewList.value = []
+
+  // 2. 若為 Excel 檔案
   if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
     try {
       const XLSX = await loadXLSXScript()
@@ -1085,12 +1080,17 @@ const handleFileUpload = async (e) => {
           }
         }
       })
-      ocrPreviewList.value = parsedMembers
+
+      if (parsedMembers.length === 0) {
+        alert('Excel 中未找到包含有效流派名稱的成員資料！')
+      } else {
+        ocrPreviewList.value = parsedMembers
+      }
     } catch (err) {
       alert('解析 Excel 失敗，請確認檔案格式！')
     }
   } 
-  // 2. 若為圖片（JPG / PNG），進行動態 OCR 辨識
+  // 3. 若為圖片（JPG / PNG），進行動態 OCR 辨識
   else {
     isParsingImage.value = true
     try {
@@ -1104,38 +1104,23 @@ const handleFileUpload = async (e) => {
         if (parsed.length > 0) {
           ocrPreviewList.value = parsed
         } else {
-          // 若 OCR 全圖識別未找到精確流派，則採用精準座標匹配演算法預設降級解析
-          ocrPreviewList.value = [
-            { name: '琉璃丶', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-            { name: '嗨小之', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-            { name: '浮雲丶', school: '碎夢', status: '學徒', schools: ['碎夢'] },
-            { name: '一劍星河', school: '碎夢', status: '學徒', schools: ['碎夢'] }
-          ]
+          alert('圖片中未識別到包含合法流派的成員，請上傳清晰的遊戲幫會成員列表截圖！')
         }
       } else {
-        // 圖片識別 Fallback (相容範例截圖)
-        ocrPreviewList.value = [
-          { name: '琉璃丶', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-          { name: '嗨小之', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-          { name: '浮雲丶', school: '碎夢', status: '學徒', schools: ['碎夢'] },
-          { name: '一劍星河', school: '碎夢', status: '學徒', schools: ['碎夢'] }
-        ]
+        alert('網路連線或 OCR 模組載入失敗，請稍後重試或使用 Excel 上傳！')
       }
     } catch (err) {
-      console.warn('圖片 OCR 識別微調:', err)
-      ocrPreviewList.value = [
-        { name: '琉璃丶', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-        { name: '嗨小之', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-        { name: '浮雲丶', school: '碎夢', status: '學徒', schools: ['碎夢'] },
-        { name: '一劍星河', school: '碎夢', status: '學徒', schools: ['碎夢'] }
-      ]
+      console.error('圖片 OCR 識別出錯:', err)
+      alert('截圖識別失敗，請確保上傳清晰完整的遊戲成員列表截圖！')
     } finally {
       isParsingImage.value = false
     }
   }
+
+  // 4. 重置 input file 的 value，確保下次選取相同檔名或重新上傳能正確觸發 change 事件
+  e.target.value = ''
 }
 
-// 確定導入至 Supabase 資料庫
 const confirmImport = async () => {
   if (ocrPreviewList.value.length === 0 || isImporting.value) return
 
@@ -1180,7 +1165,6 @@ const confirmImport = async () => {
     const item = toImportList[i]
     importStatusText.value = `正在寫入 [${i + 1}/${total}]: ${item.name}`
 
-    // 同步帶入解析出來的身份狀態（幫眾 / 學徒）
     const { error } = await supabase.from('guild_members').insert([{
       guild_id: targetGuildId,
       name: item.name,
