@@ -45,6 +45,15 @@
             <button class="btn-secondary" @click="openBatchModal" :disabled="selectedMemberIds.length === 0 || !canEditCurrentGuild">
               批量操作 {{ selectedMemberIds.length > 0 ? `(${selectedMemberIds.length})` : '' }}
             </button>
+
+            <!-- 顯示副職開關 -->
+            <div class="inline-switch-group margin-l">
+              <span class="switch-label-text">顯示副職</span>
+              <label class="switch-sm">
+                <input type="checkbox" v-model="showSecondarySchool" />
+                <span class="slider-sm"></span>
+              </label>
+            </div>
           </div>
 
           <div class="right-actions">
@@ -97,7 +106,14 @@
                 <th v-if="columns.rolePref">職能偏好</th>
                 <th v-if="columns.notes">成員備註</th>
                 <th v-if="columns.contact">聯繫方式</th>
-                <th width="100">操作</th>
+
+                <!-- 點擊排序：匯入時間 -->
+                <th v-if="columns.importTime" class="sortable-th" @click="toggleSort('importTime')">
+                  匯入時間
+                  <i :class="['mdi', getSortIcon('importTime'), 'sort-icon', { active: sortField === 'importTime' }]"></i>
+                </th>
+
+                <th width="65">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -161,10 +177,13 @@
                 <td v-if="columns.rolePref">{{ member.rolePref || '未設置' }}</td>
                 <td v-if="columns.notes">{{ member.notes || '—' }}</td>
                 <td v-if="columns.contact">{{ member.contact || '—' }}</td>
+                <td v-if="columns.importTime" class="text-gray-sm">{{ member.importTimeFormatted || '—' }}</td>
                 <td>
                   <template v-if="canEditMember(member)">
-                    <button class="btn-link" @click="openMemberModal(member)">編輯</button>
-                    <button class="btn-link text-red" @click="deleteMember(member.id)">刪除</button>
+                    <div class="action-btn-stacked">
+                      <button class="btn-link" @click="openMemberModal(member)">編輯</button>
+                      <button class="btn-link text-red" @click="deleteMember(member.id)">刪除</button>
+                    </div>
                   </template>
                   <template v-else>
                     <span class="text-gray-hint">僅供查看</span>
@@ -172,7 +191,7 @@
                 </td>
               </tr>
               <tr v-if="filteredMembers.length === 0">
-                <td :colspan="10" class="empty-cell">
+                <td :colspan="11" class="empty-cell">
                   {{ accessibleGuildList.length === 0 ? '請先新增幫會或聯繫管理員指派幫會權限' : '暫無成員資料' }}
                 </td>
               </tr>
@@ -631,8 +650,9 @@ const searchQuery = ref('')
 const selectedMemberIds = ref([])
 
 // 流派快篩與欄位排序 State
+const showSecondarySchool = ref(false)
 const activeSchoolFilter = ref('')
-const sortField = ref('') // 'school' | 'status' | ''
+const sortField = ref('') // 'school' | 'status' | 'importTime' | ''
 const sortOrder = ref('asc') // 'asc' | 'desc'
 
 const toggleSchoolFilter = (schoolName) => {
@@ -665,9 +685,10 @@ const columnList = [
   { key: 'godlyWeapon', label: '神兵' },
   { key: 'rolePref', label: '職能偏好' },
   { key: 'notes', label: '成員備註' },
-  { key: 'contact', label: '聯繫方式' }
+  { key: 'contact', label: '聯繫方式' },
+  { key: 'importTime', label: '匯入時間' }
 ]
-const columns = ref({ school: true, status: true, godlyWeapon: true, rolePref: true, notes: true, contact: true })
+const columns = ref({ school: true, status: true, godlyWeapon: true, rolePref: true, notes: true, contact: true, importTime: true })
 
 const showMemberModal = ref(false)
 const showFormerNamesModal = ref(false)
@@ -703,7 +724,7 @@ const batchGodlyWeapon = ref('no_change')
 const batchStatus = ref('')
 const batchNotes = ref('')
 
-// ★ 核心：可查看幫會清單 (兼容查看權限與編輯權限) ★
+// 可查看幫會清單 (兼容查看權限與編輯權限)
 const accessibleGuildList = computed(() => {
   if (!userProfile.value) return []
   if (userProfile.value.role === 'super_admin') return allGuilds.value
@@ -715,7 +736,7 @@ const accessibleGuildList = computed(() => {
   return allGuilds.value.filter(g => combined.includes(g.id))
 })
 
-// ★ 核心：可編輯與匯入幫會清單 (僅限被指派編輯權限之幫會) ★
+// 可編輯與匯入幫會清單 (僅限被指派編輯權限之幫會)
 const editableGuildList = computed(() => {
   if (!userProfile.value) return []
   if (userProfile.value.role === 'super_admin') return allGuilds.value
@@ -723,7 +744,7 @@ const editableGuildList = computed(() => {
   return allGuilds.value.filter(g => editIds.includes(g.id))
 })
 
-// ★ 核心：當前幫會是否具備【編輯權限】 ★
+// 當前幫會是否具備【編輯權限】
 const canEditCurrentGuild = computed(() => {
   if (!userProfile.value) return false
   if (userProfile.value.role === 'super_admin') return true
@@ -731,13 +752,26 @@ const canEditCurrentGuild = computed(() => {
   return editIds.includes(currentGuildId.value)
 })
 
-// ★ 核心：單一成員編輯權限（具備幫會編輯權 或 為個人親自新增之成員） ★
+// 單一成員編輯權限（具備幫會編輯權 或 為個人親自新增之成員）
 const canEditMember = (member) => {
   if (canEditCurrentGuild.value) return true
   if (member && member.created_by && userProfile.value && member.created_by === userProfile.value.id) {
     return true
   }
   return false
+}
+
+// 格式化日期時間工具函式
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return '—'
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${day} ${hh}:${mm}`
 }
 
 const fetchCloudData = async () => {
@@ -757,7 +791,6 @@ const fetchCloudData = async () => {
       if (!currentGuildId.value || !accessibleGuildList.value.find(g => g.id === currentGuildId.value)) {
         currentGuildId.value = accessibleGuildList.value[0].id
       }
-      // 不自動帶入預設匯入幫會名稱，維持空白強制使用者選擇
       if (!batchTargetGuild.value) batchTargetGuild.value = accessibleGuildList.value[0].name
     }
   }
@@ -780,7 +813,9 @@ const fetchCloudData = async () => {
       tether: m.tether || '',
       rolePref: (m.role_preference && m.role_preference.length > 0) ? m.role_preference.join(', ') : '未設置',
       rolePrefList: m.role_preference || [],
-      created_by: m.created_by || null
+      created_by: m.created_by || null,
+      createdAt: m.created_at || '',
+      importTimeFormatted: formatDateTime(m.created_at)
     }))
   }
 }
@@ -810,7 +845,17 @@ const filteredMembers = computed(() => {
   let list = members.value.filter(m => {
     const matchGuild = m.guild === currentGuildName.value
     const matchSearch = !searchQuery.value || m.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-    const matchSchoolFilter = !activeSchoolFilter.value || (m.schools && m.schools.includes(activeSchoolFilter.value)) || m.currentSchool === activeSchoolFilter.value
+    
+    // 流派快篩：開啟「顯示副職」時比對全流派（含副流派），未開啟時僅比對當前主流派
+    let matchSchoolFilter = true
+    if (activeSchoolFilter.value) {
+      if (showSecondarySchool.value) {
+        matchSchoolFilter = (m.schools && m.schools.includes(activeSchoolFilter.value)) || m.currentSchool === activeSchoolFilter.value
+      } else {
+        matchSchoolFilter = m.currentSchool === activeSchoolFilter.value
+      }
+    }
+    
     return matchGuild && matchSearch && matchSchoolFilter
   })
 
@@ -825,6 +870,13 @@ const filteredMembers = computed(() => {
       const orderA = statusOrder[a.status] || 99
       const orderB = statusOrder[b.status] || 99
       const res = orderA - orderB
+      return sortOrder.value === 'asc' ? res : -res
+    })
+  } else if (sortField.value === 'importTime') {
+    list.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      const res = timeA - timeB
       return sortOrder.value === 'asc' ? res : -res
     })
   }
@@ -1132,7 +1184,7 @@ const parseOcrTextToMembers = (rawText) => {
   return results
 }
 
-// ★ 核心修復：解析 Excel 檔主流派與副流派 ★
+// 解析 Excel 檔主流派與副流派
 const handleFileUpload = async (e) => {
   const file = e.target.files[0]
   if (!file) return
@@ -1162,7 +1214,6 @@ const handleFileUpload = async (e) => {
             const schoolsArr = [sName]
             let subSchoolName = ''
 
-            // 若填有副流派且不與主流派重複，自動寫入流派列表
             if (secondarySchool) {
               const subName = String(secondarySchool).trim()
               if (validSchools.includes(subName) && subName !== sName) {
@@ -1174,10 +1225,10 @@ const handleFileUpload = async (e) => {
             const status = String(positionText).includes('學徒') ? '學徒' : '幫眾'
             parsedMembers.push({
               name: String(roleName).trim(),
-              school: sName,           // 當前流派 (主流派)
-              subSchool: subSchoolName, // 副流派 (供預覽顯示)
+              school: sName,
+              subSchool: subSchoolName,
               status: status,
-              schools: schoolsArr      // [主流派, 副流派]
+              schools: schoolsArr
             })
           }
         }
@@ -1224,7 +1275,6 @@ const handleFileUpload = async (e) => {
 const confirmImport = async () => {
   if (ocrPreviewList.value.length === 0 || isImporting.value) return
 
-  // 檢查是否選擇了匯入幫會
   if (!importTargetGuild.value) return alert('請選擇要匯入的幫會！')
 
   const targetGuildId = getGuildIdByName(importTargetGuild.value)
@@ -1450,6 +1500,16 @@ onMounted(fetchCloudData)
 .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; color: #475569; }
 
+/* 顯示副職開關樣式 */
+.inline-switch-group { display: flex; align-items: center; gap: 6px; }
+.switch-label-text { font-size: 12px; color: #475569; font-weight: bold; }
+.switch-sm { position: relative; display: inline-block; width: 30px; height: 16px; }
+.switch-sm input { opacity: 0; width: 0; height: 0; }
+.slider-sm { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 16px; }
+.slider-sm:before { position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
+input:checked + .slider-sm { background-color: #3b82f6; }
+input:checked + .slider-sm:before { transform: translateX(14px); }
+
 /* 流派快篩列樣式 */
 .school-filter-bar { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
 .filter-label { font-size: 12px; font-weight: bold; color: #475569; white-space: nowrap; }
@@ -1491,10 +1551,12 @@ onMounted(fetchCloudData)
 .popover-status-btn { border: 1px solid transparent; padding: 4px 12px; border-radius: 12px; font-size: 11px; cursor: pointer; }
 .popover-status-btn.active { box-shadow: 0 0 0 2px #3b82f6; font-weight: bold; }
 
-.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
+.btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; padding: 0; }
 .text-red { color: #ef4444; }
 .text-blue { color: #2563eb; }
 .text-gray-hint { color: #94a3b8; font-size: 12px; }
+.text-gray-sm { color: #64748b; font-size: 12px; white-space: nowrap; }
+.action-btn-stacked { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }
 
 /* 批量彈窗卡片樣式 */
