@@ -54,15 +54,45 @@
           </div>
         </div>
 
+        <!-- 流派 Icon 快篩列 -->
+        <div class="school-filter-bar margin-b">
+          <span class="filter-label">流派快篩：</span>
+          <div class="filter-badges-container">
+            <div 
+              v-for="s in availableSchools" 
+              :key="s.name"
+              :class="['school-filter-pill', { active: activeSchoolFilter === s.name }]"
+              :style="{ '--badge-color': s.color, '--badge-bg': s.bg }"
+              @click="toggleSchoolFilter(s.name)"
+            >
+              <img v-if="s.file" :src="getSchoolImg(s.file)" class="filter-pill-img" />
+              <span>{{ s.name }}</span>
+            </div>
+            <button v-if="activeSchoolFilter" class="btn-link-reset" @click="activeSchoolFilter = ''">
+              重置篩選
+            </button>
+          </div>
+        </div>
+
         <div class="table-container">
           <table class="data-table">
             <thead>
               <tr>
                 <th width="40"><input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" /></th>
-                <th width="60">序號</th>
                 <th>角色名</th>
-                <th v-if="columns.school">流派</th>
-                <th v-if="columns.status">幫眾狀態</th>
+
+                <!-- 點擊排序：流派 -->
+                <th v-if="columns.school" class="sortable-th" @click="toggleSort('school')">
+                  流派
+                  <i :class="['mdi', getSortIcon('school'), 'sort-icon', { active: sortField === 'school' }]"></i>
+                </th>
+
+                <!-- 點擊排序：幫眾狀態 -->
+                <th v-if="columns.status" class="sortable-th" @click="toggleSort('status')">
+                  幫眾狀態
+                  <i :class="['mdi', getSortIcon('status'), 'sort-icon', { active: sortField === 'status' }]"></i>
+                </th>
+
                 <th v-if="columns.godlyWeapon">神兵</th>
                 <th v-if="columns.rolePref">職能偏好</th>
                 <th v-if="columns.notes">成員備註</th>
@@ -71,9 +101,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(member, index) in filteredMembers" :key="member.id">
+              <tr v-for="member in filteredMembers" :key="member.id">
                 <td><input type="checkbox" :value="member.id" v-model="selectedMemberIds" /></td>
-                <td>{{ index + 1 }}</td>
                 <td class="font-bold">{{ member.name }}</td>
 
                 <td v-if="columns.school">
@@ -189,7 +218,7 @@
       </div>
     </div>
 
-    <!-- 新增 / 編輯成員彈窗 (職能偏好連動戰備新預設) -->
+    <!-- 新增 / 編輯成員彈窗 -->
     <div v-if="showMemberModal" class="modal-overlay" @click.self="showMemberModal = false">
       <div class="modal-card large-card">
         <div class="modal-header">
@@ -265,7 +294,7 @@
               <input type="text" v-model="memberForm.tether" placeholder="輸入角色名搜尋" />
             </div>
 
-            <!-- 職能偏好：新版 13 項個人職能 -->
+            <!-- 職能偏好：13 項個人職能 -->
             <div class="form-row align-start">
               <label>職能偏好：</label>
               <div class="custom-select-wrapper" @click.stop>
@@ -386,25 +415,64 @@
       </div>
     </div>
 
-    <!-- 批量操作彈窗 -->
+    <!-- 批量操作彈窗 (增加批量編輯: 神兵, 幫眾狀態, 成員備註) -->
     <div v-if="showBatchModal" class="modal-overlay" @click.self="preventCloseDuringBatch">
-      <div class="modal-card small-card">
+      <div class="modal-card medium-card">
         <div class="modal-header">
           <h3>批量操作</h3>
           <span v-if="!isBatchProcessing" class="close-btn" @click="finishBatchModal">&times;</span>
         </div>
         <div class="modal-body">
-          <p class="sub-desc">已勾選 {{ selectedMemberIds.length }} 名成員</p>
+          <p class="sub-desc font-bold text-blue">已勾選 {{ selectedMemberIds.length }} 名成員</p>
 
           <template v-if="!isBatchProcessing && !isBatchComplete">
+            <!-- 1. 批量編輯資訊區 -->
+            <div class="batch-section-card margin-v">
+              <h4 class="batch-section-title">批量編輯成員資訊</h4>
+
+              <div class="form-row margin-t">
+                <label>神兵：</label>
+                <select v-model="batchGodlyWeapon">
+                  <option value="no_change">不修改</option>
+                  <option value="has">設為「有神兵」</option>
+                  <option value="none">設為「無神兵」</option>
+                </select>
+              </div>
+
+              <div class="form-row margin-t">
+                <label>幫眾狀態：</label>
+                <select v-model="batchStatus">
+                  <option value="">不修改</option>
+                  <option value="幫眾">幫眾</option>
+                  <option value="學徒">學徒</option>
+                  <option value="退幫">退幫</option>
+                </select>
+              </div>
+
+              <div class="form-row margin-t">
+                <label>成員備註：</label>
+                <input type="text" v-model="batchNotes" placeholder="留空則不修改，填寫將統一覆蓋" />
+              </div>
+
+              <button class="btn-primary full-width margin-t" @click="handleBatchUpdateAttributes">
+                套用批量編輯資訊
+              </button>
+            </div>
+
+            <hr class="divider-v" />
+
+            <!-- 2. 移動到幫會 -->
             <div class="form-row margin-v">
               <label>移動到幫會：</label>
               <select v-model="batchTargetGuild">
                 <option v-for="g in accessibleGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
               </select>
-              <button class="btn-primary margin-l" @click="handleBatchMove">套用移動</button>
+              <button class="btn-secondary margin-l" @click="handleBatchMove">套用移動</button>
             </div>
-            <hr />
+
+            <hr class="divider-v" />
+
+            <!-- 3. 批量刪除 -->
             <button class="btn-danger full-width margin-t" @click="handleBatchDelete">批量刪除選中成員</button>
           </template>
 
@@ -478,7 +546,7 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-// ★ 新版 13 項個人職能預設 (若資料庫尚無記錄則動態備用) ★
+// 13 項個人職能預設
 const personalRoleOptions = ref([
   '保鑣', '埋頭猛拆', '塔仇御鐵', '潮砲', '奶絕奶',
   '增益奶', '輔潮', '燒屍體', '騰龍合軸', '拆塔指揮',
@@ -544,6 +612,34 @@ const members = ref([])
 const searchQuery = ref('')
 const selectedMemberIds = ref([])
 
+// ★ 新增：流派快篩與欄位排序 State ★
+const activeSchoolFilter = ref('')
+const sortField = ref('') // 'school' | 'status' | ''
+const sortOrder = ref('asc') // 'asc' | 'desc'
+
+const toggleSchoolFilter = (schoolName) => {
+  if (activeSchoolFilter.value === schoolName) {
+    activeSchoolFilter.value = ''
+  } else {
+    activeSchoolFilter.value = schoolName
+  }
+}
+
+const toggleSort = (field) => {
+  if (sortField.value === field) {
+    if (sortOrder.value === 'asc') sortOrder.value = 'desc'
+    else { sortField.value = ''; sortOrder.value = 'asc'; }
+  } else {
+    sortField.value = field
+    sortOrder.value = 'asc'
+  }
+}
+
+const getSortIcon = (field) => {
+  if (sortField.value !== field) return 'mdi-swap-vertical'
+  return sortOrder.value === 'asc' ? 'mdi-arrow-up' : 'mdi-arrow-down'
+}
+
 const showColumnModal = ref(false)
 const columnList = [
   { key: 'school', label: '流派' },
@@ -582,6 +678,11 @@ const batchProgress = ref(0)
 const batchStatusText = ref('')
 const isBatchComplete = ref(false)
 const batchSummaryText = ref('')
+
+// ★ 批量編輯成員屬性 State ★
+const batchGodlyWeapon = ref('no_change')
+const batchStatus = ref('')
+const batchNotes = ref('')
 
 const accessibleGuildList = computed(() => {
   if (!userProfile.value) return []
@@ -653,13 +754,34 @@ const currentGuildName = computed(() => {
   return g ? g.name : ''
 })
 
+// ★ 核心修復：結合「角色名搜尋 + 流派快篩 + 欄位排序 (流派 / 狀態)」 ★
 const filteredMembers = computed(() => {
   if (!currentGuildName.value) return []
-  return members.value.filter(m => {
+  
+  let list = members.value.filter(m => {
     const matchGuild = m.guild === currentGuildName.value
     const matchSearch = !searchQuery.value || m.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-    return matchGuild && matchSearch
+    const matchSchoolFilter = !activeSchoolFilter.value || (m.schools && m.schools.includes(activeSchoolFilter.value)) || m.currentSchool === activeSchoolFilter.value
+    return matchGuild && matchSearch && matchSchoolFilter
   })
+
+  // 排序處理
+  if (sortField.value === 'school') {
+    list.sort((a, b) => {
+      const res = (a.currentSchool || '').localeCompare(b.currentSchool || '', 'zh-TW')
+      return sortOrder.value === 'asc' ? res : -res
+    })
+  } else if (sortField.value === 'status') {
+    const statusOrder = { '幫眾': 1, '學徒': 2, '退幫': 3 }
+    list.sort((a, b) => {
+      const orderA = statusOrder[a.status] || 99
+      const orderB = statusOrder[b.status] || 99
+      const res = orderA - orderB
+      return sortOrder.value === 'asc' ? res : -res
+    })
+  }
+
+  return list
 })
 
 const getGuildMemberCount = (guildName) => members.value.filter(m => m.guild === guildName).length
@@ -970,6 +1092,9 @@ const openBatchModal = () => {
   isBatchProcessing.value = false
   isBatchComplete.value = false
   batchProgress.value = 0
+  batchGodlyWeapon.value = 'no_change'
+  batchStatus.value = ''
+  batchNotes.value = ''
   showBatchModal.value = true
 }
 
@@ -983,6 +1108,50 @@ const finishBatchModal = () => {
   isBatchProcessing.value = false
   isBatchComplete.value = false
   batchProgress.value = 0
+}
+
+// ★ 核心修復：批量修改神兵、幫眾狀態、成員備註 ★
+const handleBatchUpdateAttributes = async () => {
+  if (selectedMemberIds.value.length === 0 || isBatchProcessing.value) return
+
+  if (batchGodlyWeapon.value === 'no_change' && !batchStatus.value && !batchNotes.value.trim()) {
+    return alert('請至少選擇或填寫一項要批量修改的內容！')
+  }
+
+  isBatchProcessing.value = true
+  isBatchComplete.value = false
+  batchProgress.value = 0
+
+  const payload = {}
+  if (batchGodlyWeapon.value !== 'no_change') {
+    payload.has_godly_weapon = batchGodlyWeapon.value === 'has'
+  }
+  if (batchStatus.value) {
+    payload.status = batchStatus.value
+  }
+  if (batchNotes.value.trim()) {
+    payload.notes = batchNotes.value.trim()
+  }
+
+  const total = selectedMemberIds.value.length
+  let updatedCount = 0
+
+  for (let i = 0; i < total; i++) {
+    const id = selectedMemberIds.value[i]
+    batchStatusText.value = `正在更新成員資訊 [${i + 1}/${total}]...`
+
+    const { error } = await supabase.from('guild_members').update(payload).eq('id', id)
+    if (!error) updatedCount++
+
+    batchProgress.value = Math.round(((i + 1) / total) * 100)
+  }
+
+  isBatchProcessing.value = false
+  isBatchComplete.value = true
+  batchSummaryText.value = `批量修改完成！成功更新 ${updatedCount} 名成員資訊。`
+
+  selectedMemberIds.value = []
+  await fetchCloudData()
 }
 
 const handleBatchMove = async () => {
@@ -1066,7 +1235,7 @@ onMounted(fetchCloudData)
 .no-guild-hint { font-size: 12px; color: #94a3b8; line-height: 1.5; padding: 10px 0; }
 
 .content-area { flex: 1; background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.toolbar { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
+.toolbar { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; }
 .left-actions { display: flex; gap: 10px; align-items: center; }
 .search-input { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
@@ -1079,6 +1248,21 @@ onMounted(fetchCloudData)
 .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-icon { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 16px; color: #475569; }
+
+/* 流派快篩列樣式 */
+.school-filter-bar { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
+.filter-label { font-size: 12px; font-weight: bold; color: #475569; white-space: nowrap; }
+.filter-badges-container { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.school-filter-pill { border: 1px solid #cbd5e1; background: #ffffff; padding: 3px 10px; border-radius: 16px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #475569; transition: all 0.2s; }
+.school-filter-pill.active { border-color: var(--badge-color); background: var(--badge-bg); color: var(--badge-color); font-weight: bold; }
+.filter-pill-img { width: 16px; height: 16px; object-fit: contain; }
+.btn-link-reset { background: none; border: none; color: #ef4444; font-size: 11px; cursor: pointer; font-weight: bold; margin-left: 6px; }
+
+/* 排序表頭樣式 */
+.sortable-th { cursor: pointer; user-select: none; }
+.sortable-th:hover { background: #eff6ff !important; color: #2563eb; }
+.sort-icon { font-size: 14px; color: #cbd5e1; margin-left: 2px; }
+.sort-icon.active { color: #2563eb; font-weight: bold; }
 
 .table-container { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
@@ -1107,7 +1291,13 @@ onMounted(fetchCloudData)
 
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 12px; }
 .text-red { color: #ef4444; }
+.text-blue { color: #2563eb; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }
+
+/* 批量彈窗卡片樣式 */
+.batch-section-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
+.batch-section-title { font-size: 13px; font-weight: bold; color: #1e293b; margin: 0 0 10px 0; border-left: 3px solid #3b82f6; padding-left: 8px; }
+.divider-v { border: none; border-top: 1px dashed #cbd5e1; margin: 14px 0; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; }
 .modal-card { background: white; border-radius: 12px; padding: 20px; color: #333; max-height: 85vh; overflow-y: auto; }
@@ -1168,6 +1358,7 @@ onMounted(fetchCloudData)
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .margin-l { margin-left: 10px; }
 .margin-t { margin-top: 10px; }
+.margin-b { margin-bottom: 15px; }
 .margin-v { margin: 10px 0; }
 .full-width { width: 100%; }
 .font-bold { font-weight: bold; }
