@@ -4,14 +4,18 @@
       
       <!-- 團隊標頭列 -->
       <div class="team-header-row">
-        <div class="team-title-edit-group" @click="$emit('open-edit-team', tIdx)" title="編輯團隊名稱與小隊職能">
+        <div 
+          class="team-title-edit-group" 
+          @click="canEdit && $emit('open-edit-team', tIdx)" 
+          :title="canEdit ? '編輯團隊名稱與小隊職能' : team.name"
+        >
           <span v-if="team.color" class="team-color-circle" :style="{ backgroundColor: team.color }"></span>
           <span class="team-row-title">{{ team.name }}</span>
           <span v-if="team.desc" class="team-row-desc">- {{ team.desc }}</span>
-          <i class="mdi mdi-pencil-outline team-pencil-icon"></i>
+          <i v-if="canEdit" class="mdi mdi-pencil-outline team-pencil-icon"></i>
         </div>
         <button 
-          v-if="team.squads.length < 5" 
+          v-if="canEdit && team.squads.length < 5" 
           class="add-squad-btn" 
           @click="$emit('add-squad', team)"
         >
@@ -26,16 +30,16 @@
           :key="squad.id" 
           class="squad-column-box"
           @dragover.prevent
-          @drop="$emit('drop-squad-column', { team, squad })"
+          @drop="canEdit && $emit('drop-squad-column', { team, squad })"
         >
           <div 
             class="squad-column-head draggable-head" 
-            draggable="true"
-            @dragstart="$emit('drag-start-squad', { team, squad })"
-            title="按住可拖拽移動/交換整隊位置"
+            :draggable="canEdit"
+            @dragstart="canEdit && $emit('drag-start-squad', { team, squad })"
+            :title="canEdit ? '按住可拖拽移動/交換整隊位置' : squad.name"
           >
             <div class="squad-head-title">
-              <i class="mdi mdi-drag-vertical drag-handle-icon"></i>
+              <i v-if="canEdit" class="mdi mdi-drag-vertical drag-handle-icon"></i>
               {{ squad.name }} <template v-if="squad.zhineng">- {{ squad.zhineng }}</template>
             </div>
             <div v-if="squad.desc" class="squad-head-desc">{{ squad.desc }}</div>
@@ -54,10 +58,10 @@
                 }
               ]"
               :style="getSlotStyle(slot)"
-              :draggable="!!slot.assignedMember"
-              @dragstart="$emit('drag-start-slot', { team, squad, slot })"
+              :draggable="canEdit && !!slot.assignedMember"
+              @dragstart="canEdit && $emit('drag-start-slot', { team, squad, slot })"
               @dragover.prevent
-              @drop="$emit('drop-slot', { team, squad, slot })"
+              @drop="canEdit && $emit('drop-slot', { team, squad, slot })"
               @click="$emit('click-slot', { team, squad, slot, slotIdx })"
             >
               <!-- 精簡模式 -->
@@ -85,7 +89,7 @@
                 </template>
 
                 <template v-else>
-                  <div class="empty-slot-placeholder">點擊配置席位</div>
+                  <div class="empty-slot-placeholder">{{ canEdit ? '點擊配置席位' : '未配置席位' }}</div>
                 </template>
               </template>
 
@@ -113,7 +117,7 @@
                 </div>
               </template>
 
-              <span v-if="slot.assignedMember" class="slot-clear-x" @click.stop="$emit('remove-member-slot', slot)" title="移除席位">&times;</span>
+              <span v-if="canEdit && slot.assignedMember" class="slot-clear-x" @click.stop="$emit('remove-member-slot', slot)" title="移除席位">&times;</span>
             </div>
           </div>
         </div>
@@ -129,7 +133,8 @@ const props = defineProps({
   availableSchools: { type: Array, default: () => [] },
   schoolColorMap: { type: Object, default: () => ({}) },
   showSecondarySchool: Boolean,
-  showDetails: Boolean
+  showDetails: Boolean,
+  canEdit: { type: Boolean, default: true }
 })
 
 defineEmits([
@@ -173,7 +178,7 @@ const getSlotStyle = (slot) => {
 
 const getSlotRoleSummary = (slot) => {
   if (slot.roles && slot.roles.length > 0) return slot.roles.join('、')
-  return '點擊配置職能'
+  return props.canEdit ? '點擊配置職能' : '—'
 }
 
 const getSlotGuidelineText = (slot) => {

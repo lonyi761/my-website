@@ -7,6 +7,7 @@
         <span class="league-title-tag">{{ leagueInfo.title }}</span>
         <span class="league-type-tag">{{ leagueInfo.type }}</span>
         <span class="league-time-text">{{ leagueInfo.startTime }}</span>
+        <span v-if="!canEditCurrentGuild" class="readonly-badge margin-l">唯讀模式</span>
       </div>
 
       <div class="header-right-actions">
@@ -23,6 +24,7 @@
         :allMembers="allMembers"
         :availableSchools="availableSchools"
         :showSecondarySchool="showSecondarySchool"
+        :canEdit="canEditCurrentGuild"
         @open-add-member="openAddMemberModal"
         @open-edit-member="openFullMemberEditModal"
         @drag-start-member="onDragStartPendingMember"
@@ -34,11 +36,11 @@
         <div class="matrix-toolbar">
           <div class="toolbar-left">
             <span class="toolbar-section-title">團隊配置</span>
-            <button class="btn-secondary-sm margin-l" :disabled="isSaving" @click="saveRosterBoard">
+            <button class="btn-secondary-sm margin-l" :disabled="isSaving || !canEditCurrentGuild" @click="saveRosterBoard">
               {{ isSaving ? '保存中...' : '保存陣容' }}
             </button>
-            <button v-if="matrixTeams.length < 5" class="btn-primary-sm margin-l" @click="addTeam">+ 添加團隊</button>
-            <button class="btn-secondary-sm margin-l" @click="openBatchEditModal">批量編輯</button>
+            <button v-if="canEditCurrentGuild && matrixTeams.length < 5" class="btn-primary-sm margin-l" @click="addTeam">+ 添加團隊</button>
+            <button class="btn-secondary-sm margin-l" :disabled="!canEditCurrentGuild" @click="openBatchEditModal">批量編輯</button>
 
             <!-- 顯示副職開關 -->
             <div class="inline-switch-group margin-l">
@@ -58,17 +60,17 @@
               </label>
             </div>
 
-            <button class="btn-link text-red margin-l font-bold" @click="confirmClearRoster">清空陣容</button>
+            <button v-if="canEditCurrentGuild" class="btn-link text-red margin-l font-bold" @click="confirmClearRoster">清空陣容</button>
           </div>
 
           <div class="toolbar-right">
             <span class="template-select-label">團隊排表</span>
             <div class="custom-select-wrapper" @click.stop>
-              <div class="custom-select-input" @click="showTemplateDropdown = !showTemplateDropdown">
+              <div class="custom-select-input" :class="{ disabled: !canEditCurrentGuild }" @click="canEditCurrentGuild && (showTemplateDropdown = !showTemplateDropdown)">
                 <span>{{ appliedTemplateName || '選擇陣容模板' }}</span>
                 <i class="mdi mdi-chevron-down select-arrow"></i>
               </div>
-              <div v-if="showTemplateDropdown" class="custom-select-dropdown">
+              <div v-if="showTemplateDropdown && canEditCurrentGuild" class="custom-select-dropdown">
                 <div 
                   v-for="tpl in templateOptions" 
                   :key="tpl.id" 
@@ -123,6 +125,7 @@
           :schoolColorMap="schoolColorMap"
           :showSecondarySchool="showSecondarySchool"
           :showDetails="showDetails"
+          :canEdit="canEditCurrentGuild"
           @open-edit-team="openEditTeamModal"
           @add-squad="addSquadToTeam"
           @drag-start-squad="onDragStartSquad"
@@ -140,6 +143,7 @@
           :matrixTeams="matrixTeams"
           :availableSchools="availableSchools"
           :schoolColorMap="schoolColorMap"
+          :canEdit="canEditCurrentGuild"
           @click-slot="handleSlotClick"
           @drag-start-slot="onDragStartSlot"
           @drop-slot="onDropOnSlot"
@@ -216,6 +220,7 @@
                 :schoolColorMap="schoolColorMap"
                 :showSecondarySchool="showSecondarySchool"
                 :showDetails="showDetails"
+                :canEdit="canEditCurrentGuild"
               />
               <RosterTableView 
                 v-else-if="layoutMode === 'table'"
@@ -225,6 +230,7 @@
                 :schoolColorMap="schoolColorMap"
                 :showHeaderTitle="exportHeaderTitleVisible"
                 :showHeaderNote="exportHeaderNoteVisible"
+                :canEdit="canEditCurrentGuild"
               />
             </div>
           </div>
@@ -634,14 +640,16 @@
       </div>
     </div>
 
-    <!-- 4. 排表信息 Modal -->
+    <!-- 4. 排表信息 Modal (含唯讀鎖定) -->
     <div v-if="showSlotInfoModal" class="modal-overlay" @click.self="showSlotInfoModal = false">
       <div class="modal-card slot-info-modal" @click.stop>
         <div class="modal-header">
           <h3>排表信息</h3>
           <div class="modal-header-actions">
-            <button class="btn-link" @click="openFullMemberEditModal(activeSlotForModal?.assignedMember)">修改成員</button>
-            <button class="btn-link text-red margin-l" @click="removeMemberFromSlot(activeSlotForModal)">移除席位</button>
+            <template v-if="canEditCurrentGuild">
+              <button class="btn-link" @click="openFullMemberEditModal(activeSlotForModal?.assignedMember)">修改成員</button>
+              <button class="btn-link text-red margin-l" @click="removeMemberFromSlot(activeSlotForModal)">移除席位</button>
+            </template>
             <span class="close-btn margin-l" @click="showSlotInfoModal = false">&times;</span>
           </div>
         </div>
@@ -673,7 +681,7 @@
                 v-for="r in personalRoleOptions" 
                 :key="r"
                 :class="['role-pill-btn', { active: tempSlotRoles.includes(r) }]"
-                @click="toggleTempSlotRole(r)"
+                @click="canEditCurrentGuild && toggleTempSlotRole(r)"
               >
                 {{ r }}
               </button>
@@ -686,8 +694,8 @@
             <div class="skill-input-row margin-t">
               <label>絕技：</label>
               <div class="custom-dropdown-container">
-                <input type="text" v-model="tempSlotJueji" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
-                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('jueji_info')">
+                <input type="text" v-model="tempSlotJueji" :disabled="!canEditCurrentGuild" placeholder="輸入或選擇絕技" class="skill-field flex-1" />
+                <button v-if="canEditCurrentGuild" type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('jueji_info')">
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'jueji_info' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'jueji_info'" class="skill-dropdown-panel" @click.stop>
@@ -701,8 +709,8 @@
             <div class="skill-input-row margin-t">
               <label>群俠百家：</label>
               <div class="custom-dropdown-container">
-                <input type="text" v-model="tempSlotQunxia" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
-                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('qunxia_info')">
+                <input type="text" v-model="tempSlotQunxia" :disabled="!canEditCurrentGuild" placeholder="輸入或選擇群俠百家" class="skill-field flex-1" />
+                <button v-if="canEditCurrentGuild" type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('qunxia_info')">
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'qunxia_info' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'qunxia_info'" class="skill-dropdown-panel" @click.stop>
@@ -722,8 +730,8 @@
             <div class="skill-input-row margin-t">
               <label>流派技能：</label>
               <div class="custom-dropdown-container">
-                <input type="text" v-model="tempSlotZhuangbei" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
-                <button type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('liupai_info')">
+                <input type="text" v-model="tempSlotZhuangbei" :disabled="!canEditCurrentGuild" placeholder="輸入或選擇流派技能" class="skill-field flex-1" />
+                <button v-if="canEditCurrentGuild" type="button" class="dropdown-toggle-btn" @click.stop="toggleSkillDropdown('liupai_info')">
                   <i :class="['mdi', 'mdi-chevron-down', { rotate: activeSkillDropdown === 'liupai_info' }]"></i>
                 </button>
                 <div v-if="activeSkillDropdown === 'liupai_info'" class="skill-dropdown-panel" @click.stop>
@@ -743,8 +751,8 @@
         </div>
 
         <div class="modal-footer space-between">
-          <button class="btn-primary" @click="saveSlotInfo">保存</button>
-          <button class="btn-secondary" @click="showSlotInfoModal = false">取消</button>
+          <button v-if="canEditCurrentGuild" class="btn-primary" @click="saveSlotInfo">保存</button>
+          <button class="btn-secondary" @click="showSlotInfoModal = false">{{ canEditCurrentGuild ? '取消' : '關閉' }}</button>
         </div>
       </div>
     </div>
@@ -1155,6 +1163,8 @@ const isSaving = ref(false)
 const showSecondarySchool = ref(false)
 const showDetails = ref(false)
 const layoutMode = ref('matrix')
+const currentGuildId = ref(null)
+const localUserProfile = ref(null)
 
 const showOtherOpsDropdown = ref(false)
 const showTemplateDropdown = ref(false)
@@ -1280,6 +1290,18 @@ const leagueInfo = computed(() => {
   return { ...item, guild: gName, participant: gName }
 })
 
+// 整合 Props 與自動撈取的 Profile
+const currentUserProfile = computed(() => props.userProfile || localUserProfile.value)
+
+// ★ 核心：當前使用者是否具備編輯該幫會陣容之權限 ★
+const canEditCurrentGuild = computed(() => {
+  const profile = currentUserProfile.value
+  if (!profile) return false
+  if (profile.role === 'super_admin') return true
+  const editIds = profile.edit_guild_ids || []
+  return currentGuildId.value ? editIds.includes(currentGuildId.value) : false
+})
+
 const assignedMemberIds = computed(() => {
   const set = new Set()
   if (Array.isArray(matrixTeams.value)) {
@@ -1402,6 +1424,15 @@ const closeAllSkillDropdowns = () => {
 }
 
 const fetchRosterDataFromDB = async () => {
+  // 自動補抓 Profile 備用
+  if (!props.userProfile) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle()
+      if (profile) localUserProfile.value = profile
+    }
+  }
+
   const targetGuildName = leagueInfo.value.guild
 
   const { data: guildsData } = await supabase.from('guilds').select('*')
@@ -1411,6 +1442,8 @@ const fetchRosterDataFromDB = async () => {
     const foundG = guildsData.find(g => g.name === targetGuildName)
     if (foundG) targetGuildId = foundG.id
   }
+
+  currentGuildId.value = targetGuildId
 
   await fetchPrepDataFromDB(targetGuildId)
 
@@ -1469,6 +1502,7 @@ const fetchRosterDataFromDB = async () => {
 }
 
 const saveRosterBoard = async () => {
+  if (!canEditCurrentGuild.value) return alert('您目前僅具備該幫會之查看權限，無法保存陣容！')
   isSaving.value = true
   try {
     let error = null
@@ -1540,6 +1574,7 @@ const downloadExportImage = async () => {
 }
 
 const openAddMemberModal = () => {
+  if (!canEditCurrentGuild.value) return
   newMemberForm.value = {
     name: '',
     schools: ['鐵衣'],
@@ -1577,6 +1612,7 @@ const toggleRolePrefInNewMember = (rName) => {
 }
 
 const saveNewMember = async () => {
+  if (!canEditCurrentGuild.value) return
   const cleanName = newMemberForm.value.name.trim()
   if (!cleanName) return alert('請輸入角色名！')
 
@@ -1604,6 +1640,7 @@ const saveNewMember = async () => {
 }
 
 const addTeam = () => {
+  if (!canEditCurrentGuild.value) return
   if (matrixTeams.value.length >= 5) return alert('最多只能創建 5 個團隊！')
   const num = matrixTeams.value.length + 1
   const defaultColor = teamColorOptions[(num - 1) % teamColorOptions.length].color
@@ -1623,6 +1660,7 @@ const addTeam = () => {
 }
 
 const addSquadToTeam = (team) => {
+  if (!canEditCurrentGuild.value) return
   if (team.squads.length >= 5) return alert('每個團隊最多只能創建 5 個小隊！')
   const squadNum = team.squads.length + 1
   team.squads.push({
@@ -1642,22 +1680,25 @@ let draggedSquadRef = null
 let targetSquadRef = null
 
 const onDragStartPendingMember = (member) => {
+  if (!canEditCurrentGuild.value) return
   draggedType = 'pendingMember'
   draggedPendingMember = member
 }
 
 const onDragStartSlot = ({ team, squad, slot }) => {
-  if (!slot.assignedMember) return
+  if (!canEditCurrentGuild.value || !slot.assignedMember) return
   draggedType = 'slotMember'
   draggedSlotRef = slot
 }
 
 const onDragStartSquad = ({ team, squad }) => {
+  if (!canEditCurrentGuild.value) return
   draggedType = 'squad'
   draggedSquadRef = squad
 }
 
 const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
+  if (!canEditCurrentGuild.value) return
   if (draggedType === 'pendingMember' && draggedPendingMember) {
     if (targetSlot.assignedMember) targetSlot.assignedMember.assigned = false
     targetSlot.assignedMember = draggedPendingMember
@@ -1692,6 +1733,7 @@ const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
 }
 
 const onDropOnSquadColumn = ({ team, squad: targetSquad }) => {
+  if (!canEditCurrentGuild.value) return
   if (draggedType === 'squad' && draggedSquadRef && draggedSquadRef !== targetSquad) {
     targetSquadRef = targetSquad
     showSwapSquadModal.value = true
@@ -1699,6 +1741,7 @@ const onDropOnSquadColumn = ({ team, squad: targetSquad }) => {
 }
 
 const executeSwapSquad = () => {
+  if (!canEditCurrentGuild.value) return
   if (draggedSquadRef && targetSquadRef) {
     const tempSlots = draggedSquadRef.slots
     draggedSquadRef.slots = targetSquadRef.slots
@@ -1728,12 +1771,13 @@ const executeSwapSquad = () => {
 }
 
 const openEditTeamModal = (idx) => {
+  if (!canEditCurrentGuild.value) return
   activeEditTeamIndex.value = idx
   showEditTeamModal.value = true
 }
 
 const deleteCurrentEditingTeam = () => {
-  if (!currentEditingTeam.value) return
+  if (!canEditCurrentGuild.value || !currentEditingTeam.value) return
   triggerConfirmModal(
     '移除團隊',
     `確定要移除團隊「${currentEditingTeam.value.name}」嗎？`,
@@ -1756,6 +1800,7 @@ const deleteCurrentEditingTeam = () => {
 }
 
 const deleteSquadFromEditingTeam = (team, index) => {
+  if (!canEditCurrentGuild.value) return
   const squad = team.squads[index]
   if (squad) {
     squad.slots.forEach(slot => {
@@ -1769,6 +1814,7 @@ const deleteSquadFromEditingTeam = (team, index) => {
 }
 
 const removeMemberFromSlot = (slot) => {
+  if (!canEditCurrentGuild.value) return
   if (slot && slot.assignedMember) {
     slot.assignedMember.assigned = false
     slot.assignedMember = null
@@ -1778,6 +1824,7 @@ const removeMemberFromSlot = (slot) => {
 
 const isInfoQunxiaSelected = (qName) => typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value.split(',').map(s => s.trim()).includes(qName)
 const toggleInfoQunxia = (qName) => {
+  if (!canEditCurrentGuild.value) return
   let list = (typeof tempSlotQunxia.value === 'string' && tempSlotQunxia.value) ? tempSlotQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
   if (idx > -1) list.splice(idx, 1)
@@ -1787,6 +1834,7 @@ const toggleInfoQunxia = (qName) => {
 
 const isInfoLiupaiSelected = (lName) => typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
 const toggleInfoLiupai = (lName) => {
+  if (!canEditCurrentGuild.value) return
   let list = (typeof tempSlotZhuangbei.value === 'string' && tempSlotZhuangbei.value) ? tempSlotZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
   if (idx > -1) list.splice(idx, 1)
@@ -1796,6 +1844,7 @@ const toggleInfoLiupai = (lName) => {
 
 const isConfigQunxiaSelected = (qName) => typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value.split(',').map(s => s.trim()).includes(qName)
 const toggleConfigQunxia = (qName) => {
+  if (!canEditCurrentGuild.value) return
   let list = (typeof tempConfigQunxia.value === 'string' && tempConfigQunxia.value) ? tempConfigQunxia.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(qName)
   if (idx > -1) list.splice(idx, 1)
@@ -1805,6 +1854,7 @@ const toggleConfigQunxia = (qName) => {
 
 const isConfigLiupaiSelected = (lName) => typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value.split(',').map(s => s.trim()).includes(lName)
 const toggleConfigLiupai = (lName) => {
+  if (!canEditCurrentGuild.value) return
   let list = (typeof tempConfigZhuangbei.value === 'string' && tempConfigZhuangbei.value) ? tempConfigZhuangbei.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const idx = list.indexOf(lName)
   if (idx > -1) list.splice(idx, 1)
@@ -1825,6 +1875,7 @@ const handleSlotClick = ({ team, squad, slot, slotIdx }) => {
     tempSlotZhuangbei.value = slot.zhuangbei || ''
     showSlotInfoModal.value = true
   } else {
+    if (!canEditCurrentGuild.value) return
     const cfg = slot.templateConfig || {}
     tempConfigSchools.value = [...(cfg.schools || [])]
     tempConfigRoles.value = [...(cfg.roles || [])]
@@ -1837,12 +1888,14 @@ const handleSlotClick = ({ team, squad, slot, slotIdx }) => {
 }
 
 const toggleTempSlotRole = (r) => {
+  if (!canEditCurrentGuild.value) return
   const idx = tempSlotRoles.value.indexOf(r)
   if (idx > -1) tempSlotRoles.value.splice(idx, 1)
   else tempSlotRoles.value.push(r)
 }
 
 const saveSlotInfo = () => {
+  if (!canEditCurrentGuild.value) return
   if (activeSlotForModal.value) {
     activeSlotForModal.value.roles = [...tempSlotRoles.value]
     activeSlotForModal.value.jueji = tempSlotJueji.value.trim()
@@ -1853,18 +1906,21 @@ const saveSlotInfo = () => {
 }
 
 const toggleConfigSchool = (sName) => {
+  if (!canEditCurrentGuild.value) return
   const idx = tempConfigSchools.value.indexOf(sName)
   if (idx > -1) tempConfigSchools.value.splice(idx, 1)
   else tempConfigSchools.value.push(sName)
 }
 
 const toggleConfigRole = (rName) => {
+  if (!canEditCurrentGuild.value) return
   const idx = tempConfigRoles.value.indexOf(rName)
   if (idx > -1) tempConfigRoles.value.splice(idx, 1)
   else tempConfigRoles.value.push(rName)
 }
 
 const saveSlotConfig = () => {
+  if (!canEditCurrentGuild.value) return
   if (activeSlotForModal.value) {
     activeSlotForModal.value.templateConfig = {
       schools: [...tempConfigSchools.value],
@@ -1879,7 +1935,7 @@ const saveSlotConfig = () => {
 }
 
 const openFullMemberEditModal = (member) => {
-  if (!member) return
+  if (!canEditCurrentGuild.value || !member) return
   editingMemberRef.value = member
   memberEditForm.value = {
     name: member.name,
@@ -1919,6 +1975,7 @@ const toggleRolePrefInMemberEdit = (rName) => {
 }
 
 const saveFullMemberEdit = async () => {
+  if (!canEditCurrentGuild.value) return
   const cleanName = memberEditForm.value.name.trim()
   if (!cleanName) return alert('請輸入角色名！')
 
@@ -1983,6 +2040,7 @@ const toggleBatchRowLiupai = (m, lName) => {
 }
 
 const openBatchEditModal = () => {
+  if (!canEditCurrentGuild.value) return
   try {
     const groups = []
     if (Array.isArray(matrixTeams.value)) {
@@ -2132,6 +2190,7 @@ const applyBatchLiupaiSelection = () => {
 }
 
 const saveBatchEdit = () => {
+  if (!canEditCurrentGuild.value) return
   if (Array.isArray(batchMemberGroups.value)) {
     batchMemberGroups.value.forEach(g => {
       if (g && Array.isArray(g.members)) {
@@ -2150,6 +2209,7 @@ const saveBatchEdit = () => {
 }
 
 const confirmClearRoster = () => {
+  if (!canEditCurrentGuild.value) return
   showOtherOpsDropdown.value = false
   confirmTitle.value = '清空陣容'
   confirmMessage.value = '將清空本場全部排表，頁面會刷新；此操作不可撤銷。'
@@ -2164,6 +2224,7 @@ const triggerConfirmModal = (title, message, onConfirm) => {
 }
 
 const executeConfirmAction = () => {
+  if (!canEditCurrentGuild.value) return
   if (confirmActionCallback) {
     confirmActionCallback()
     confirmActionCallback = null
@@ -2188,6 +2249,7 @@ const templateOptions = [
 ]
 
 const applyRosterTemplate = (tpl) => {
+  if (!canEditCurrentGuild.value) return
   appliedTemplateName.value = tpl.name
   showTemplateDropdown.value = false
 
@@ -2215,17 +2277,11 @@ onMounted(fetchRosterDataFromDB)
 .league-title-tag { font-size: 16px; font-weight: bold; color: #1e293b; }
 .league-type-tag { background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
 .league-time-text { font-size: 12px; color: #64748b; }
+.readonly-badge { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
 .btn-export { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 
-/* 主要內容容器：改為 visible 與 flex-start，確保 Sticky 吸頂發揮效果 */
-.roster-main-container {
-  flex: 1;
-  display: flex;
-  gap: 16px;
-  padding: 16px 20px;
-  overflow: visible;
-  align-items: flex-start;
-}
+/* 主要內容容器 */
+.roster-main-container { flex: 1; display: flex; gap: 16px; padding: 16px 20px; overflow: visible; align-items: flex-start; }
 
 /* 右側內容區 */
 .matrix-content-area { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-x: auto; width: 100%; }
@@ -2248,11 +2304,13 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .layout-icon-btn.active { background: #3b82f6; color: white; }
 
 .btn-secondary-sm { background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #334155; }
+.btn-secondary-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary-sm { background: #3b82f6; color: white; border: none; padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .template-select-label { font-size: 12px; color: #64748b; font-weight: bold; }
 
 .custom-select-wrapper { position: relative; width: 160px; }
 .custom-select-input { display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 12px; }
+.custom-select-input.disabled { background: #f8fafc; cursor: not-allowed; opacity: 0.7; }
 .custom-select-dropdown { position: absolute; top: 100%; right: 0; width: 100%; margin-top: 4px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; }
 .dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
 .dropdown-item:hover { background: #f1f5f9; }
@@ -2267,136 +2325,30 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .stats-count-badge.active { color: #2563eb; }
 
 /* 導出圖片預覽 Modal 樣式 */
-.full-screen-overlay {
-  z-index: 200;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
-}
-.export-modal-container {
-  width: 95vw;
-  height: 92vh;
-  background: #f8fafc;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
-}
-.export-modal-topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-}
-.export-modal-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #1e293b;
-}
+.full-screen-overlay { z-index: 200; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+.export-modal-container { width: 95vw; height: 92vh; background: #f8fafc; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+.export-modal-topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #ffffff; border-bottom: 1px solid #e2e8f0; }
+.export-modal-title { font-size: 16px; font-weight: bold; color: #1e293b; }
 
-.export-modal-body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
+.export-modal-body { flex: 1; display: flex; overflow: hidden; }
 
-.export-sidebar-controls.simple-sidebar {
-  width: 260px;
-  background: #ffffff;
-  border-right: 1px solid #e2e8f0;
-  padding: 20px 16px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-.sidebar-info-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 12px;
-  border-radius: 8px;
-}
-.sidebar-card-title {
-  margin: 0 0 6px 0;
-  font-size: 13px;
-  color: #1e293b;
-}
-.sidebar-card-desc {
-  margin: 0;
-  font-size: 11px;
-  color: #64748b;
-  line-height: 1.4;
-}
+.export-sidebar-controls.simple-sidebar { width: 260px; background: #ffffff; border-right: 1px solid #e2e8f0; padding: 20px 16px; display: flex; flex-direction: column; overflow-y: auto; }
+.sidebar-info-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; }
+.sidebar-card-title { margin: 0 0 6px 0; font-size: 13px; color: #1e293b; }
+.sidebar-card-desc { margin: 0; font-size: 11px; color: #64748b; line-height: 1.4; }
 
-.export-control-section {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.export-section-title {
-  font-size: 13px;
-  font-weight: bold;
-  color: #1e293b;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 6px;
-}
-.control-switch-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: #334155;
-  font-weight: 500;
-}
-.team-switch-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.team-color-dot-sm {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
+.export-control-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.export-section-title { font-size: 13px; font-weight: bold; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+.control-switch-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #334155; font-weight: 500; }
+.team-switch-label { display: flex; align-items: center; gap: 6px; }
+.team-color-dot-sm { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
-.export-actions-bottom {
-  display: flex;
-  flex-direction: column;
-  margin-top: auto;
-}
-.btn-lg {
-  padding: 12px;
-  font-size: 14px;
-  font-weight: bold;
-}
-.margin-r {
-  margin-right: 6px;
-}
+.export-actions-bottom { display: flex; flex-direction: column; margin-top: auto; }
+.btn-lg { padding: 12px; font-size: 14px; font-weight: bold; }
+.margin-r { margin-right: 6px; }
 
-.export-preview-stage {
-  flex: 1;
-  background: #e2e8f0;
-  padding: 24px;
-  overflow: auto;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-}
-.preview-canvas-paper {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-  min-width: 800px;
-  max-width: 1200px;
-  width: 100%;
-}
+.export-preview-stage { flex: 1; background: #e2e8f0; padding: 24px; overflow: auto; display: flex; justify-content: center; align-items: flex-start; }
+.preview-canvas-paper { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); min-width: 800px; max-width: 1200px; width: 100%; }
 
 /* 下拉選單組件 */
 .custom-dropdown-container { position: relative; flex: 1; display: flex; align-items: center; }

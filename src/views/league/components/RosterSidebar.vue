@@ -10,7 +10,7 @@
       <div class="pending-title-group">
         <div class="title-left-box">
           <span class="pending-title">待選成員</span>
-          <button class="btn-icon-add" @click="$emit('open-add-member')" title="新增成員">+</button>
+          <button v-if="canEdit" class="btn-icon-add" @click="$emit('open-add-member')" title="新增成員">+</button>
         </div>
 
         <!-- 流派 / 全員 切換按鈕 -->
@@ -73,10 +73,10 @@
             v-for="m in getUnassignedMembersBySchool(s.name)" 
             :key="m.id + '_' + s.name"
             class="member-drag-card"
-            draggable="true"
-            @dragstart="$emit('drag-start-member', m)"
+            :draggable="canEdit"
+            @dragstart="canEdit && $emit('drag-start-member', m)"
             @click="$emit('open-edit-member', m)"
-            title="按住拖拽至排表，或點擊編輯成員資料"
+            :title="canEdit ? '按住拖拽至排表，或點擊查看成員資料' : '點擊查看成員資料'"
           >
             <div class="drag-card-icons-group">
               <img :src="getSchoolImgByName(m.currentSchool)" class="drag-card-icon" />
@@ -103,10 +103,10 @@
         v-for="m in allUnassignedMembersList" 
         :key="m.id"
         class="member-drag-card"
-        draggable="true"
-        @dragstart="$emit('drag-start-member', m)"
+        :draggable="canEdit"
+        @dragstart="canEdit && $emit('drag-start-member', m)"
         @click="$emit('open-edit-member', m)"
-        title="按住拖拽至排表，或點擊編輯成員資料"
+        :title="canEdit ? '按住拖拽至排表，或點擊查看成員資料' : '點擊查看成員資料'"
       >
         <div class="drag-card-icons-group">
           <img :src="getSchoolImgByName(m.currentSchool)" class="drag-card-icon" />
@@ -134,7 +134,8 @@ const props = defineProps({
   guildName: String,
   allMembers: { type: Array, default: () => [] },
   availableSchools: { type: Array, default: () => [] },
-  showSecondarySchool: Boolean
+  showSecondarySchool: Boolean,
+  canEdit: { type: Boolean, default: true }
 })
 
 defineEmits(['open-add-member', 'open-edit-member', 'drag-start-member'])
@@ -143,7 +144,6 @@ const searchMemberQuery = ref('')
 const activeSchoolFilter = ref(null)
 const pendingViewMode = ref('school')
 
-// 預設全部折疊/縮起 (空陣列)
 const expandedSchools = ref([])
 
 const getSchoolImg = (fileName) => {
@@ -226,7 +226,6 @@ const allUnassignedMembersList = computed(() => {
 </script>
 
 <style scoped>
-/* 浮動式 Sticky 懸浮設定 */
 .pending-sidebar {
   width: 230px;
   background: #ffffff;

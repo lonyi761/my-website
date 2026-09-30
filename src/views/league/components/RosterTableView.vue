@@ -9,20 +9,20 @@
     </div>
 
     <!-- 中間可編輯備註橫幅 -->
-    <div v-if="showHeaderNote" class="top-editable-banner-box" @click="startEditTopBanner">
-      <!-- 1. 展示模式 (無雜項按鈕，極致乾淨，適合圖片導出) -->
+    <div v-if="showHeaderNote" class="top-editable-banner-box" @click="canEdit && startEditTopBanner()">
+      <!-- 1. 展示模式 -->
       <div 
         v-if="!isEditingTopBanner" 
         class="banner-display-text" 
         :style="{ fontSize: topBannerFontSize + 'px' }"
       >
         <span class="banner-text-content">
-          {{ topBannerText || '可編輯備註區 (點擊任意處編輯)' }}
+          {{ topBannerText || (canEdit ? '可編輯備註區 (點擊任意處編輯)' : '備註區') }}
         </span>
       </div>
 
       <!-- 2. 編輯模式 -->
-      <div v-else class="banner-edit-container" @click.stop>
+      <div v-else-if="canEdit" class="banner-edit-container" @click.stop>
         <input 
           type="text" 
           v-model="topBannerText" 
@@ -51,13 +51,13 @@
         <!-- 團隊名稱頂部欄位 -->
         <div 
           class="spreadsheet-team-header-bar" 
-          @click="$emit('open-edit-team', tIdx)"
+          @click="canEdit && $emit('open-edit-team', tIdx)"
         >
           <span class="team-header-title">
             <span class="team-color-dot" :style="{ backgroundColor: getTeamColor(team, tIdx) }"></span>
             <span class="team-name-text">{{ team.name }}</span>
           </span>
-          <i class="mdi mdi-pencil-outline header-edit-pencil"></i>
+          <i v-if="canEdit" class="mdi mdi-pencil-outline header-edit-pencil"></i>
         </div>
 
         <!-- 表格內容區塊 -->
@@ -80,16 +80,16 @@
                   :key="slot.id" 
                   class="slot-data-row"
                   @dragover.prevent
-                  @drop="$emit('drop-slot', { team, squad, slot })"
+                  @drop="canEdit && $emit('drop-slot', { team, squad, slot })"
                   @click="$emit('click-slot', { team, squad, slot, slotIdx })"
                 >
-                  <!-- ★ 小隊欄位 ★ -->
+                  <!-- 小隊欄位 -->
                   <td 
                     v-if="slotIdx === 0" 
                     :rowspan="squad.slots.length" 
                     class="squad-info-cell"
-                    @click.stop="$emit('open-edit-team', tIdx)"
-                    title="點擊編輯團隊與小隊名稱/職能"
+                    @click.stop="canEdit && $emit('open-edit-team', tIdx)"
+                    :title="canEdit ? '點擊編輯團隊與小隊名稱/職能' : squad.name"
                   >
                     <div class="squad-info-box">
                       <div class="squad-title-text">{{ squad.name }}</div>
@@ -102,8 +102,8 @@
                   <td 
                     class="member-cell" 
                     :style="getSlotRowStyle(slot)"
-                    :draggable="!!slot.assignedMember" 
-                    @dragstart.stop="$emit('drag-start-slot', { team, squad, slot })"
+                    :draggable="canEdit && !!slot.assignedMember" 
+                    @dragstart.stop="canEdit && $emit('drag-start-slot', { team, squad, slot })"
                   >
                     <template v-if="slot.assignedMember">
                       <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
@@ -121,11 +121,11 @@
                       <span class="slot-placeholder-text">席位配置</span>
                     </template>
                     <template v-else>
-                      <span class="slot-placeholder-text">點擊配置席位</span>
+                      <span class="slot-placeholder-text">{{ canEdit ? '點擊配置席位' : '未配置' }}</span>
                     </template>
                   </td>
 
-                  <!-- 職能 (未配置時預設為空白 '') -->
+                  <!-- 職能 -->
                   <td class="role-cell" :style="getSlotRowStyle(slot)">
                     {{ getSlotRoleSummary(slot) }}
                   </td>
@@ -153,15 +153,15 @@
         <!-- 團隊底部備註 -->
         <div class="spreadsheet-team-footer">
           <!-- 1. 團隊備註區塊 -->
-          <div class="team-note-wrapper" @click="editingTeamDescId = team.id">
+          <div class="team-note-wrapper" @click="canEdit && (editingTeamDescId = team.id)">
             <div 
-              v-if="editingTeamDescId !== team.id" 
+              v-if="editingTeamDescId !== team.id || !canEdit" 
               class="note-display-box" 
               :style="{ fontSize: (team.descFontSize || 14) + 'px' }"
-              title="點擊任意處編輯團隊備註"
+              :title="canEdit ? '點擊任意處編輯團隊備註' : '團隊備註'"
             >
               <span v-if="team.desc" class="note-text-bold">{{ team.desc }}</span>
-              <span v-else class="placeholder-note-text">點擊新增團隊備註</span>
+              <span v-else class="placeholder-note-text">{{ canEdit ? '點擊新增團隊備註' : '—' }}</span>
             </div>
 
             <div v-else class="note-edit-box" @click.stop>
@@ -184,15 +184,15 @@
           </div>
 
           <!-- 2. 下方可編輯備註區 -->
-          <div class="team-note-wrapper" @click="editingTeamBottomNoteId = team.id">
+          <div class="team-note-wrapper" @click="canEdit && (editingTeamBottomNoteId = team.id)">
             <div 
-              v-if="editingTeamBottomNoteId !== team.id" 
+              v-if="editingTeamBottomNoteId !== team.id || !canEdit" 
               class="note-display-box extra-note-box" 
               :style="{ fontSize: (team.bottomNoteFontSize || 14) + 'px' }"
-              title="點擊任意處編輯自訂備註"
+              :title="canEdit ? '點擊任意處編輯自訂備註' : '自訂備註'"
             >
               <span v-if="team.bottomNote" class="note-text-bold">{{ team.bottomNote }}</span>
-              <span v-else class="placeholder-note-text">可編輯備註區</span>
+              <span v-else class="placeholder-note-text">{{ canEdit ? '可編輯備註區' : '—' }}</span>
             </div>
 
             <div v-else class="note-edit-box" @click.stop>
@@ -230,7 +230,8 @@ const props = defineProps({
   availableSchools: { type: Array, default: () => [] },
   schoolColorMap: { type: Object, default: () => ({}) },
   showHeaderTitle: { type: Boolean, default: true },
-  showHeaderNote: { type: Boolean, default: true }
+  showHeaderNote: { type: Boolean, default: true },
+  canEdit: { type: Boolean, default: true }
 })
 
 defineEmits(['click-slot', 'drag-start-slot', 'drop-slot', 'open-edit-team'])
@@ -287,7 +288,6 @@ const getTeamColor = (team, tIdx) => {
   return defaultTeamColors[tIdx % defaultTeamColors.length]
 }
 
-// 支援「成員現有流派底色」與「席位配置推薦流派底色」雙重渲染
 const getSlotRowStyle = (slot) => {
   if (slot.assignedMember) {
     const bg = props.schoolColorMap[slot.assignedMember.currentSchool] || '#eff6ff'
@@ -295,13 +295,12 @@ const getSlotRowStyle = (slot) => {
   }
   if (slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
     const firstSchool = slot.templateConfig.schools[0]
-    const bg = props.schoolColorMap[firstSchool] || '#ffffff'
+    const bg = props.schoolColorMap[firstSchool] || '#fafafa'
     return { backgroundColor: bg }
   }
   return { backgroundColor: '#ffffff' }
 }
 
-// 未配置職能預設回傳空白 ''
 const getSlotRoleSummary = (slot) => {
   if (slot.roles && slot.roles.length > 0) return slot.roles.join('、')
   if (slot.assignedMember && slot.assignedMember.rolePreference && slot.assignedMember.rolePreference.length > 0) {
