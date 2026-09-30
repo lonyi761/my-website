@@ -1358,7 +1358,6 @@ const getRowSchoolBgStyle = (schoolName) => {
   return { backgroundColor: bg }
 }
 
-// ★ 核心修復：雙重映射 (s.content || s.name) 與 .filter(Boolean) 確保選單讀出文字，不呈現空白 ★
 const fetchPrepDataFromDB = async (guildId) => {
   try {
     let rQuery = supabase.from('preparation_roles').select('*')
@@ -2218,11 +2217,18 @@ onMounted(fetchRosterDataFromDB)
 .league-time-text { font-size: 12px; color: #64748b; }
 .btn-export { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 
-/* 主要內容容器 */
-.roster-main-container { flex: 1; display: flex; gap: 16px; padding: 16px 20px; overflow: hidden; }
+/* 主要內容容器：改為 visible 與 flex-start，確保 Sticky 吸頂發揮效果 */
+.roster-main-container {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  overflow: visible;
+  align-items: flex-start;
+}
 
 /* 右側內容區 */
-.matrix-content-area { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-x: auto; }
+.matrix-content-area { flex: 1; display: flex; flex-direction: column; gap: 12px; overflow-x: auto; width: 100%; }
 .matrix-toolbar { display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 10px; }
 .toolbar-section-title { font-size: 14px; font-weight: bold; color: #1e293b; }

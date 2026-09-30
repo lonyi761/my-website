@@ -181,11 +181,10 @@ const filteredSchoolAccordion = computed(() => {
   return props.availableSchools
 })
 
-// ★ 核心修復：精準比對與容錯，過濾上陣成員 (!m.assigned) ★
 const getUnassignedMembersBySchool = (schoolName) => {
   return (props.allMembers || []).filter(m => {
     if (!m) return false
-    const notAssigned = !m.assigned // 自動過濾已上陣角色
+    const notAssigned = !m.assigned
     const matchSearch = !searchMemberQuery.value || (m.name && m.name.toLowerCase().includes(searchMemberQuery.value.trim().toLowerCase()))
 
     let matchSchool = false
@@ -227,7 +226,23 @@ const allUnassignedMembersList = computed(() => {
 </script>
 
 <style scoped>
-.pending-sidebar { width: 230px; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+/* 浮動式 Sticky 懸浮設定 */
+.pending-sidebar {
+  width: 230px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  z-index: 10;
+}
+
 .guild-select-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 13px; color: #1e293b; margin-bottom: 12px; }
 
 .pending-filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
