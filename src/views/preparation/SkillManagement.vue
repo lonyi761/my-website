@@ -209,68 +209,80 @@ const loadSkillsFromDB = async () => {
   const gId = await fetchCurrentGuild()
   currentGuildId.value = gId
 
-  if (!gId) return
+  // 同時查詢當前幫會專屬技能與跨幫會通用技能 (guild_id IS NULL)
+  let query = supabase.from('preparation_skills').select('*')
+  if (gId) {
+    query = query.or(`guild_id.eq.${gId},guild_id.is.null`)
+  } else {
+    query = query.is('guild_id', null)
+  }
 
-  const { data, error } = await supabase
-    .from('preparation_skills')
-    .select('*')
-    .eq('guild_id', gId)
-    .order('sort_order', { ascending: true })
+  const { data, error } = await query.order('sort_order', { ascending: true })
 
   if (error) {
     console.error('查詢 preparation_skills 失敗:', error)
     return
   }
 
-  const dbJueji = (data || []).filter(s => s.category === 'jueji')
-  const dbQunxia = (data || []).filter(s => s.category === 'qunxia')
-  const dbLiupai = (data || []).filter(s => s.category === 'liupai')
+  // 若 DB 完全無記錄，為幫會寫入預設技能
+  if (gId) {
+    const dbJueji = (data || []).filter(s => s.category === 'jueji')
+    const dbQunxia = (data || []).filter(s => s.category === 'qunxia')
+    const dbLiupai = (data || []).filter(s => s.category === 'liupai')
 
-  // 若 DB 無記錄，背景為幫會自動寫入全量預設選項
-  if (dbJueji.length === 0) {
-    const initJ = DEFAULT_JUEJI.map((content, idx) => ({
-      guild_id: gId, category: 'jueji', content, is_enabled: true, sort_order: idx + 1
-    }))
-    await supabase.from('preparation_skills').insert(initJ)
-  }
-  if (dbQunxia.length === 0) {
-    const initQ = DEFAULT_QUNXIA.map((content, idx) => ({
-      guild_id: gId, category: 'qunxia', content, is_enabled: true, sort_order: idx + 1
-    }))
-    await supabase.from('preparation_skills').insert(initQ)
-  }
-  if (dbLiupai.length === 0) {
-    const initL = DEFAULT_LIUPAI.map((content, idx) => ({
-      guild_id: gId, category: 'liupai', content, is_enabled: true, sort_order: idx + 1
-    }))
-    await supabase.from('preparation_skills').insert(initL)
+    if (dbJueji.length === 0) {
+      const initJ = DEFAULT_JUEJI.map((content, idx) => ({
+        guild_id: gId, category: 'jueji', content, is_enabled: true, sort_order: idx + 1
+      }))
+      await supabase.from('preparation_skills').insert(initJ)
+    }
+    if (dbQunxia.length === 0) {
+      const initQ = DEFAULT_QUNXIA.map((content, idx) => ({
+        guild_id: gId, category: 'qunxia', content, is_enabled: true, sort_order: idx + 1
+      }))
+      await supabase.from('preparation_skills').insert(initQ)
+    }
+    if (dbLiupai.length === 0) {
+      const initL = DEFAULT_LIUPAI.map((content, idx) => ({
+        guild_id: gId, category: 'liupai', content, is_enabled: true, sort_order: idx + 1
+      }))
+      await supabase.from('preparation_skills').insert(initL)
+    }
   }
 
-  // 重新從 DB 拉取最新 UUID 資料
-  const { data: latestData } = await supabase
-    .from('preparation_skills')
-    .select('*')
-    .eq('guild_id', gId)
-    .order('sort_order', { ascending: true })
+  // 重新拉取最新資料
+  let fetchQuery = supabase.from('preparation_skills').select('*')
+  if (gId) {
+    fetchQuery = fetchQuery.or(`guild_id.eq.${gId},guild_id.is.null`)
+  } else {
+    fetchQuery = fetchQuery.is('guild_id', null)
+  }
+
+  const { data: latestData } = await fetchQuery.order('sort_order', { ascending: true })
 
   if (latestData && latestData.length > 0) {
     const formatTime = (isoStr) => isoStr ? isoStr.replace('T', ' ').slice(0, 16) : nowTimeStr
 
-    const mapFn = (s) => ({
-      id: s.id,
-      content: s.content,
-      createdAt: formatTime(s.created_at),
-      lastUsed: formatTime(s.updated_at || s.created_at),
-      sortOrder: s.sort_order
+    // 按內容 (content) 去重，確保跨幫會重複技能不重複顯示
+    const uniqueMap = new Map()
+    latestData.forEach(s => {
+      const key = `${s.category}_${s.content}`
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, {
+          id: s.id,
+          content: s.content,
+          category: s.category,
+          createdAt: formatTime(s.created_at),
+          lastUsed: formatTime(s.updated_at || s.created_at),
+          sortOrder: s.sort_order
+        })
+      }
     })
 
-    const jList = latestData.filter(s => s.category === 'jueji').map(mapFn)
-    const qList = latestData.filter(s => s.category === 'qunxia').map(mapFn)
-    const lList = latestData.filter(s => s.category === 'liupai').map(mapFn)
-
-    if (jList.length > 0) juejiSkillList.value = jList
-    if (qList.length > 0) qunxiaSkillList.value = qList
-    if (lList.length > 0) liupaiSkillList.value = lList
+    const allSkills = Array.from(uniqueMap.values())
+    juejiSkillList.value = allSkills.filter(s => s.category === 'jueji')
+    qunxiaSkillList.value = allSkills.filter(s => s.category === 'qunxia')
+    liupaiSkillList.value = allSkills.filter(s => s.category === 'liupai')
   }
 }
 
@@ -326,16 +338,10 @@ const openSkillModal = (item = null) => {
   showSkillModal.value = true
 }
 
-// 確定保存（雙軌寫入本地 State 與 Supabase）
+// 確定保存（寫入本地 State 與 Supabase 全局通用技能）
 const saveSkill = async () => {
   const content = skillForm.value.content.trim()
   if (!content) return alert('請輸入技能內容！')
-
-  const gId = currentGuildId.value || await fetchCurrentGuild()
-  if (!gId) {
-    alert('尚無可用的幫會，請先在「成員」頁面新增或選擇幫會！')
-    return
-  }
 
   const category = skillCategory.value
   const targetList = category === 'jueji' ? juejiSkillList : (category === 'qunxia' ? qunxiaSkillList : liupaiSkillList)
@@ -360,7 +366,7 @@ const saveSkill = async () => {
       }
     }
   } else {
-    // 新增模式
+    // 新增模式：設定 guild_id 為 null（作為跨幫會全局通用技能，所有幫會皆可讀取）
     const newObj = {
       id: Date.now(),
       content,
@@ -372,7 +378,7 @@ const saveSkill = async () => {
     const { data, error } = await supabase
       .from('preparation_skills')
       .insert([{
-        guild_id: gId,
+        guild_id: null, // 全局通用技能
         category,
         content,
         is_enabled: true,
