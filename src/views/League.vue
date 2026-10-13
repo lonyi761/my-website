@@ -26,6 +26,7 @@
               <option value="">聯賽類型</option>
               <option value="幫會聯賽">幫會聯賽</option>
               <option value="俱樂部比賽">俱樂部比賽</option>
+              <option value="寒烽決影">寒烽決影</option>
             </select>
 
             <select v-model="filterParticipant" class="filter-select-sm">
@@ -148,6 +149,7 @@
               <div class="toggle-pill-group">
                 <button type="button" :class="['pill-toggle-btn', { active: leagueForm.type === '幫會聯賽' }]" @click="leagueForm.type = '幫會聯賽'">幫會聯賽</button>
                 <button type="button" :class="['pill-toggle-btn', { active: leagueForm.type === '俱樂部比賽' }]" @click="leagueForm.type = '俱樂部比賽'">俱樂部比賽</button>
+                <button type="button" :class="['pill-toggle-btn', { active: leagueForm.type === '寒烽決影' }]" @click="leagueForm.type = '寒烽決影'">寒烽決影</button>
               </div>
             </div>
 
@@ -165,7 +167,9 @@
               <select v-model="leagueForm.time" class="select-field margin-l">
                 <option value="20:00">20:00</option>
                 <option value="20:30">20:30</option>
+                <option value="20:45">20:45</option>
                 <option value="21:00">21:00</option>
+                <option value="21:30">21:30</option>
               </select>
 
               <label class="margin-l-lg"><span class="req">*</span>場次數：</label>
@@ -295,7 +299,9 @@
             <select v-model="copyTargetTime" class="select-field margin-l">
               <option value="20:00">20:00</option>
               <option value="20:30">20:30</option>
+              <option value="20:45">20:45</option>
               <option value="21:00">21:00</option>
+              <option value="21:30">21:30</option>
             </select>
           </div>
 
@@ -490,10 +496,16 @@ watch(copySourceLeagueId, (newId) => {
   const src = leagueList.value.find(l => l.id === newId)
   if (src) {
     copyTargetTitle.value = src.title
+    if (src.startTime) {
+      const parts = src.startTime.split(' ')
+      if (parts.length >= 2 && ['20:00', '20:30', '20:45', '21:00', '21:30'].includes(parts[1])) {
+        copyTargetTime.value = parts[1]
+      }
+    }
   }
 })
 
-// ★ 核心4：複製源聯賽陣容連同 templateConfig，離幫成員自動清空 ★
+// 複製源聯賽陣容連同 templateConfig，離幫成員自動清空
 const executeCopyLeague = async () => {
   if (!copySourceLeagueId.value) return alert('請選擇源聯賽！')
   if (!copyTargetTitle.value.trim()) return alert('請輸入聯賽名字！')
@@ -525,7 +537,7 @@ const executeCopyLeague = async () => {
                 const mName = slot.assignedMember.name ? slot.assignedMember.name.trim().toLowerCase() : ''
                 const stillInGuild = currentMemberIds.has(mId) || currentMemberNames.has(mName)
 
-                // 若已離幫，清空該席位，但完整保留 templateConfig 席位配置！
+                // 若已離幫，清空該席位，但完整保留 templateConfig 席位配置
                 if (!stillInGuild) {
                   slot.assignedMember = null
                   slot.roles = []
