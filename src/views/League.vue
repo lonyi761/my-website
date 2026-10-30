@@ -108,7 +108,7 @@
                 <td>
                   <div class="action-cell-container">
                     <button class="btn-pill-blue" @click="openRosterBoard(item)">排表</button>
-                    <button class="btn-pill-gray" @click="openStatsModal(item)">數據</button>
+                    <button class="btn-pill-gray" @click="openStatsView(item)">數據</button>
                     <div v-if="canEditGuildId(item.guild_id)" class="right-links">
                       <button class="btn-link" @click="openEditLeagueModal(item)">編輯</button>
                       <button class="btn-link text-red" @click="confirmDeleteLeague(item)">刪除</button>
@@ -218,6 +218,15 @@
         <RosterBoard 
           :leagueItem="activeLeagueForRoster" 
           :userProfile="userProfile"
+          @back="currentView = 'list'; fetchLeaguesFromDB()"
+        />
+      </div>
+
+      <!-- 4. 戰績數據視圖 -->
+      <div v-else-if="currentView === 'stats'">
+        <MatchStats
+          :leagueItem="activeLeagueForStats"
+          :canEdit="canEditGuildId(activeLeagueForStats.guild_id)"
           @back="currentView = 'list'; fetchLeaguesFromDB()"
         />
       </div>
@@ -333,6 +342,7 @@ import { supabase } from '../utils/supabase'
 import { getWriteError } from '../utils/writeResult'
 import Navbar from '../components/layout/Navbar.vue'
 import RosterBoard from './league/RosterBoard.vue'
+import MatchStats from './league/MatchStats.vue'
 import { isBenchEntry } from './league/rosterBench'
 
 const username = ref('VIP')
@@ -341,6 +351,7 @@ const allGuilds = ref([])
 
 const currentView = ref('list')
 const activeLeagueForRoster = ref(null)
+const activeLeagueForStats = ref(null)
 const editingLeagueId = ref(null)
 const isSaving = ref(false)
 
@@ -708,7 +719,10 @@ const confirmDeleteLeague = async (item) => {
   }
 }
 
-const openStatsModal = (item) => alert(`聯賽「${item.title}」之對陣數據面板籌備中...`)
+const openStatsView = (item) => {
+  activeLeagueForStats.value = item
+  currentView.value = 'stats'
+}
 
 onMounted(fetchLeaguesFromDB)
 </script>
