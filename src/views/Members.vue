@@ -10,7 +10,7 @@
       <aside class="guild-sidebar">
         <div class="sidebar-header">
           <h3>授權幫會</h3>
-          <button class="btn-add-guild" @click="openAddGuildModal">+ 新增幫會</button>
+          <button v-if="isSuperAdmin" class="btn-add-guild" @click="openAddGuildModal">+ 新增幫會</button>
         </div>
         <ul class="guild-list">
           <li 
@@ -23,7 +23,7 @@
               <span class="guild-name">{{ guild.name }}</span>
               <span class="guild-count">{{ getGuildMemberCount(guild.name) }} 人</span>
             </div>
-            <div class="guild-actions" @click.stop>
+            <div v-if="canEditGuild(guild.id)" class="guild-actions" @click.stop>
               <button class="btn-icon-sm" @click="openEditGuildModal(guild)" title="幫會設定">
                 <i class="mdi mdi-cog-outline"></i>
               </button>
@@ -31,7 +31,7 @@
           </li>
         </ul>
         <div v-if="accessibleGuildList.length === 0" class="no-guild-hint">
-          尚未擁有任何幫會權限，請先點右上角「+ 新增幫會」或聯繫管理員指派幫會。
+          尚未擁有任何幫會權限，請聯繫總管理員指派幫會。
         </div>
       </aside>
 
@@ -236,7 +236,7 @@
             <label>幫會名稱：</label>
             <input type="text" v-model="editingGuildName" />
           </div>
-          <button class="btn-danger full-width margin-t" @click="deleteGuild">刪除幫會與其成員</button>
+          <button v-if="isSuperAdmin" class="btn-danger full-width margin-t" @click="deleteGuild">刪除幫會與其成員</button>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" @click="showGuildEditModal = false">取消</button>
@@ -744,13 +744,18 @@ const editableGuildList = computed(() => {
   return allGuilds.value.filter(g => editIds.includes(g.id))
 })
 
-// 當前幫會是否具備【編輯權限】
-const canEditCurrentGuild = computed(() => {
+const isSuperAdmin = computed(() => userProfile.value?.role === 'super_admin')
+
+// 指定幫會是否具備【編輯權限】
+const canEditGuild = (guildId) => {
   if (!userProfile.value) return false
-  if (userProfile.value.role === 'super_admin') return true
+  if (isSuperAdmin.value) return true
   const editIds = userProfile.value.edit_guild_ids || []
-  return editIds.includes(currentGuildId.value)
-})
+  return editIds.includes(guildId)
+}
+
+// 當前幫會是否具備【編輯權限】
+const canEditCurrentGuild = computed(() => canEditGuild(currentGuildId.value))
 
 // 單一成員編輯權限（具備幫會編輯權 或 為個人親自新增之成員）
 const canEditMember = (member) => {
@@ -922,14 +927,8 @@ const openAddGuildModal = async () => {
   const name = prompt('請輸入新幫會名稱：')
   if (name && name.trim()) {
     const { data: newGuild, error } = await supabase.from('guilds').insert([{ name: name.trim() }]).select().single()
-    if (!error && newGuild) {
-      if (userProfile.value && userProfile.value.role !== 'super_admin') {
-        const viewIds = userProfile.value.view_guild_ids || []
-        const editIds = userProfile.value.edit_guild_ids || []
-        if (!editIds.includes(newGuild.id)) editIds.push(newGuild.id)
-        if (!viewIds.includes(newGuild.id)) viewIds.push(newGuild.id)
-        await supabase.from('profiles').update({ view_guild_ids: viewIds, edit_guild_ids: editIds }).eq('id', userProfile.value.id)
-      }
+    if (error) return alert('新增幫會失敗：' + error.message)
+    if (newGuild) {
       await fetchCloudData()
       currentGuildId.value = newGuild.id
     }
@@ -944,7 +943,8 @@ const openEditGuildModal = (guild) => {
 
 const saveGuildName = async () => {
   if (targetEditGuild.value && editingGuildName.value.trim()) {
-    await supabase.from('guilds').update({ name: editingGuildName.value.trim() }).eq('id', targetEditGuild.value.id)
+    const { error } = await supabase.from('guilds').update({ name: editingGuildName.value.trim() }).eq('id', targetEditGuild.value.id)
+    if (error) return alert('修改幫會名稱失敗：' + error.message)
     await fetchCloudData()
     showGuildEditModal.value = false
   }
@@ -952,7 +952,8 @@ const saveGuildName = async () => {
 
 const deleteGuild = () => {
   triggerConfirmModal('刪除幫會', `確定要刪除幫會【${targetEditGuild.value.name}】嗎？`, async () => {
-    await supabase.from('guilds').delete().eq('id', targetEditGuild.value.id)
+    const { error } = await supabase.from('guilds').delete().eq('id', targetEditGuild.value.id)
+    if (error) return alert('刪除幫會失敗：' + error.message)
     await fetchCloudData()
     showGuildEditModal.value = false
   })
@@ -1127,26 +1128,6 @@ const preprocessImageToCanvas = (file) => {
 const parseOcrTextToMembers = (rawText) => {
   const validSchools = ['鐵衣', '血河', '九靈', '神相', '碎夢', '素問', '龍吟', '玄機', '潮光', '滄瀾']
   const globalSchool = validSchools.find(s => rawText.includes(s))
-
-  if (rawText.includes('璃玥') || rawText.includes('曉玖') || rawText.includes('588323') || rawText.includes('621153') || rawText.includes('529545') || rawText.includes('636989') || rawText.includes('655026') || rawText.includes('646611')) {
-    return [
-      { name: '璃玥丶', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '曉玖', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '亣小姐', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '啵啵魚', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '鬼判', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '小狗寶寶', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] }
-    ]
-  }
-
-  if (rawText.includes('琉璃') || rawText.includes('嗨小之') || rawText.includes('浮雲') || rawText.includes('一劍星河')) {
-    return [
-      { name: '琉璃丶', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-      { name: '嗨小之', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-      { name: '浮雲丶', school: '碎夢', status: '學徒', schools: ['碎夢'] },
-      { name: '一劍星河', school: '碎夢', status: '學徒', schools: ['碎夢'] }
-    ]
-  }
 
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
   const results = []
