@@ -9,7 +9,7 @@
     </div>
 
     <!-- 中間可編輯備註橫幅 -->
-    <div v-if="showHeaderNote" class="top-editable-banner-box" @click="canEdit && startEditTopBanner()">
+    <div v-if="showHeaderNote && (canEdit || topBannerText)" class="top-editable-banner-box" @click="canEdit && startEditTopBanner()">
       <!-- 1. 展示模式 -->
       <div 
         v-if="!isEditingTopBanner" 
@@ -151,9 +151,9 @@
         </div>
 
         <!-- 團隊底部備註 -->
-        <div class="spreadsheet-team-footer">
+        <div v-if="canEdit || team.desc || team.bottomNote" class="spreadsheet-team-footer">
           <!-- 1. 團隊備註區塊 -->
-          <div class="team-note-wrapper" @click="canEdit && (editingTeamDescId = team.id)">
+          <div v-if="canEdit || team.desc" class="team-note-wrapper" @click="canEdit && (editingTeamDescId = team.id)">
             <div 
               v-if="editingTeamDescId !== team.id || !canEdit" 
               class="note-display-box" 
@@ -184,7 +184,7 @@
           </div>
 
           <!-- 2. 下方可編輯備註區 -->
-          <div class="team-note-wrapper" @click="canEdit && (editingTeamBottomNoteId = team.id)">
+          <div v-if="canEdit || team.bottomNote" class="team-note-wrapper" @click="canEdit && (editingTeamBottomNoteId = team.id)">
             <div 
               v-if="editingTeamBottomNoteId !== team.id || !canEdit" 
               class="note-display-box extra-note-box" 
@@ -222,7 +222,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   leagueInfo: { type: Object, default: () => ({}) },
@@ -231,18 +231,27 @@ const props = defineProps({
   schoolColorMap: { type: Object, default: () => ({}) },
   showHeaderTitle: { type: Boolean, default: true },
   showHeaderNote: { type: Boolean, default: true },
+  topNote: { type: String, default: '' },
+  topNoteFontSize: { type: Number, default: 15 },
   canEdit: { type: Boolean, default: true }
 })
 
-defineEmits(['click-slot', 'drag-start-slot', 'drop-slot', 'open-edit-team'])
+const emit = defineEmits(['click-slot', 'drag-start-slot', 'drop-slot', 'open-edit-team', 'update:topNote', 'update:topNoteFontSize'])
 
 const vFocus = {
   mounted: (el) => el.focus()
 }
 
+// 頂部備註由父層 (RosterBoard) 保管，排表與導出預覽共用同一份並隨陣容保存
 const isEditingTopBanner = ref(false)
-const topBannerText = ref('我是團隊備註會顯示的地方')
-const topBannerFontSize = ref(15)
+const topBannerText = computed({
+  get: () => props.topNote,
+  set: (val) => emit('update:topNote', val)
+})
+const topBannerFontSize = computed({
+  get: () => props.topNoteFontSize,
+  set: (val) => emit('update:topNoteFontSize', val)
+})
 
 const startEditTopBanner = () => {
   isEditingTopBanner.value = true

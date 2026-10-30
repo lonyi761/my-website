@@ -219,7 +219,7 @@
         <RosterBoard 
           :leagueItem="activeLeagueForRoster" 
           :userProfile="userProfile"
-          @back="currentView = 'list'" 
+          @back="currentView = 'list'; fetchLeaguesFromDB()"
         />
       </div>
     </div>
@@ -333,6 +333,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../utils/supabase'
 import Navbar from '../components/layout/Navbar.vue'
 import RosterBoard from './league/RosterBoard.vue'
+import { isBenchEntry } from './league/rosterBench'
 
 const username = ref('VIP')
 const userProfile = ref(null)
@@ -526,6 +527,15 @@ const executeCopyLeague = async () => {
     const cleanMatrixTeams = JSON.parse(JSON.stringify(srcLeague.matrixTeams || []))
 
     cleanMatrixTeams.forEach(team => {
+      // 候補 / 不出席席位區：候補保留 (離幫者剔除)，不出席屬單場狀態故不帶入新聯賽
+      if (isBenchEntry(team)) {
+        team.substitutes = (team.substitutes || []).filter(m => {
+          const mName = m?.name ? m.name.trim().toLowerCase() : ''
+          return currentMemberIds.has(m?.id) || currentMemberNames.has(mName)
+        })
+        team.absentees = []
+        return
+      }
       if (team && Array.isArray(team.squads)) {
         team.squads.forEach(squad => {
           if (squad && Array.isArray(squad.slots)) {

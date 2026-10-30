@@ -115,7 +115,21 @@
               </span>
             </div>
           </div>
+          <span class="stats-bar-note">不含候補／不出席</span>
         </div>
+
+        <!-- 候補 / 不出席 席位區 (不計入上陣職業統計) -->
+        <RosterBenchZone
+          :substitutes="benchSeats.substitutes"
+          :absentees="benchSeats.absentees"
+          :availableSchools="availableSchools"
+          :schoolColorMap="schoolColorMap"
+          :showSecondarySchool="showSecondarySchool"
+          :canEdit="canEditCurrentGuild"
+          @drag-start-bench="onDragStartBench"
+          @drop-bench="onDropOnBench"
+          @remove-bench="removeMemberFromBench"
+        />
 
         <!-- 2. 右側矩陣視圖 -->
         <RosterMatrixView 
@@ -143,6 +157,8 @@
           :matrixTeams="matrixTeams"
           :availableSchools="availableSchools"
           :schoolColorMap="schoolColorMap"
+          v-model:topNote="topNoteText"
+          v-model:topNoteFontSize="topNoteFontSize"
           :canEdit="canEditCurrentGuild"
           @click-slot="handleSlotClick"
           @drag-start-slot="onDragStartSlot"
@@ -203,6 +219,18 @@
               </div>
             </div>
 
+            <div class="export-control-section margin-b">
+              <div class="export-section-title">候補席位</div>
+              <div class="control-switch-item">
+                <span>顯示候補名單 ({{ benchSeats.substitutes.length }})</span>
+                <label class="switch-sm">
+                  <input type="checkbox" v-model="exportSubstitutesVisible" :disabled="benchSeats.substitutes.length === 0" />
+                  <span class="slider-sm"></span>
+                </label>
+              </div>
+              <p class="sidebar-card-desc">不出席名單不會出現在導出圖片中。</p>
+            </div>
+
             <div class="export-actions-bottom margin-t">
               <button class="btn-primary full-w btn-lg" :disabled="isExporting" @click="downloadExportImage">
                 <i class="mdi mdi-download margin-r"></i> {{ isExporting ? '正在生成圖片...' : '導出 PNG 圖片' }}
@@ -220,9 +248,9 @@
                 :schoolColorMap="schoolColorMap"
                 :showSecondarySchool="showSecondarySchool"
                 :showDetails="showDetails"
-                :canEdit="canEditCurrentGuild"
+                :canEdit="false"
               />
-              <RosterTableView 
+              <RosterTableView
                 v-else-if="layoutMode === 'table'"
                 :leagueInfo="leagueInfo"
                 :matrixTeams="exportFilteredTeams"
@@ -230,7 +258,18 @@
                 :schoolColorMap="schoolColorMap"
                 :showHeaderTitle="exportHeaderTitleVisible"
                 :showHeaderNote="exportHeaderNoteVisible"
-                :canEdit="canEditCurrentGuild"
+                :topNote="topNoteText"
+                :topNoteFontSize="topNoteFontSize"
+                :canEdit="false"
+              />
+              <RosterBenchZone
+                v-if="exportSubstitutesVisible && benchSeats.substitutes.length > 0"
+                exportMode
+                :substitutes="benchSeats.substitutes"
+                :availableSchools="availableSchools"
+                :schoolColorMap="schoolColorMap"
+                :showSecondarySchool="showSecondarySchool"
+                :canEdit="false"
               />
             </div>
           </div>
@@ -1109,6 +1148,8 @@ import { supabase } from '../../utils/supabase'
 import RosterSidebar from './components/RosterSidebar.vue'
 import RosterMatrixView from './components/RosterMatrixView.vue'
 import RosterTableView from './components/RosterTableView.vue'
+import RosterBenchZone from './components/RosterBenchZone.vue'
+import { createEmptyBench, splitBenchFromTeams, mergeBenchIntoTeams } from './rosterBench'
 
 const props = defineProps({
   leagueItem: {
@@ -1194,6 +1235,7 @@ const isExporting = ref(false)
 const exportHeaderTitleVisible = ref(true)
 const exportHeaderNoteVisible = ref(true)
 const exportVisibleTeamIds = ref([])
+const exportSubstitutesVisible = ref(true)
 
 const showSwapSquadModal = ref(false)
 const swapOptions = ref({ name: true, zhineng: true, desc: true, template: true })
@@ -1261,7 +1303,7 @@ const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
-    desc: '我是團隊備註會顯示的地方',
+    desc: '',
     color: '#84cc16',
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: 10 + i,
@@ -1272,6 +1314,13 @@ const matrixTeams = ref([
     }))
   }
 ])
+
+// 候補 / 不出席席位區 (不屬於任何團隊，不計入上陣職業統計)
+const benchSeats = ref(createEmptyBench())
+
+// 試算表頂部備註：與聯賽備註 (guild_rosters.notes) 共用，隨保存陣容寫回
+const topNoteText = ref(props.leagueItem?.notes || '')
+const topNoteFontSize = ref(15)
 
 function createDefaultSlots() {
   return Array.from({ length: 6 }, () => ({
@@ -1315,6 +1364,9 @@ const assignedMemberIds = computed(() => {
       })
     })
   }
+  // 席位區成員同樣視為已安排，不再出現在待選清單
+  benchSeats.value.substitutes.forEach(m => m?.id && set.add(m.id))
+  benchSeats.value.absentees.forEach(m => m?.id && set.add(m.id))
   return set
 })
 
@@ -1495,8 +1547,12 @@ const fetchRosterDataFromDB = async () => {
     rosterData = data
   }
 
+  if (rosterData) topNoteText.value = rosterData.notes || ''
+
   if (rosterData && rosterData.matrix_teams && rosterData.matrix_teams.length > 0) {
-    matrixTeams.value = rosterData.matrix_teams
+    const { teams, bench } = splitBenchFromTeams(rosterData.matrix_teams)
+    if (teams.length > 0) matrixTeams.value = teams
+    benchSeats.value = bench
     updateMembersAssignedStatus()
   }
 }
@@ -1510,7 +1566,8 @@ const saveRosterBoard = async () => {
       const res = await supabase
         .from('guild_rosters')
         .update({
-          matrix_teams: matrixTeams.value,
+          matrix_teams: mergeBenchIntoTeams(matrixTeams.value, benchSeats.value),
+          notes: topNoteText.value.trim(),
           updated_at: new Date().toISOString()
         })
         .eq('id', props.leagueItem.id)
@@ -1531,6 +1588,7 @@ const openExportPreviewModal = () => {
   exportVisibleTeamIds.value = matrixTeams.value.map(t => t.id)
   exportHeaderTitleVisible.value = true
   exportHeaderNoteVisible.value = true
+  exportSubstitutesVisible.value = benchSeats.value.substitutes.length > 0
   showExportModal.value = true
 }
 
@@ -1678,6 +1736,7 @@ let draggedPendingMember = null
 let draggedSlotRef = null
 let draggedSquadRef = null
 let targetSquadRef = null
+let draggedBenchRef = null
 
 const onDragStartPendingMember = (member) => {
   if (!canEditCurrentGuild.value) return
@@ -1697,6 +1756,19 @@ const onDragStartSquad = ({ team, squad }) => {
   draggedSquadRef = squad
 }
 
+const onDragStartBench = ({ zone, index }) => {
+  if (!canEditCurrentGuild.value) return
+  draggedType = 'benchMember'
+  draggedBenchRef = { zone, index }
+}
+
+const resetDragState = () => {
+  draggedType = null
+  draggedPendingMember = null
+  draggedSlotRef = null
+  draggedBenchRef = null
+}
+
 const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
   if (!canEditCurrentGuild.value) return
   if (draggedType === 'pendingMember' && draggedPendingMember) {
@@ -1705,6 +1777,20 @@ const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
     draggedPendingMember.assigned = true
     if (draggedPendingMember.rolePreference) {
       targetSlot.roles = [...draggedPendingMember.rolePreference]
+    }
+  } else if (draggedType === 'benchMember' && draggedBenchRef) {
+    // 席位區 → 排表：原席位上的成員與之互換，回到同一個席位區的相同位置
+    const { zone, index } = draggedBenchRef
+    const list = benchSeats.value[zone]
+    const benchMember = list[index]
+    if (benchMember) {
+      const displaced = targetSlot.assignedMember
+      if (displaced) list.splice(index, 1, displaced)
+      else list.splice(index, 1)
+      targetSlot.assignedMember = benchMember
+      if (benchMember.rolePreference) {
+        targetSlot.roles = [...benchMember.rolePreference]
+      }
     }
   } else if (draggedType === 'slotMember' && draggedSlotRef) {
     if (draggedSlotRef === targetSlot) return
@@ -1727,9 +1813,33 @@ const onDropOnSlot = ({ team, squad, slot: targetSlot }) => {
     draggedSlotRef.zhuangbei = tempZhuangbei
   }
 
-  draggedType = null
-  draggedPendingMember = null
-  draggedSlotRef = null
+  resetDragState()
+}
+
+// 拖入候補 / 不出席席位區：可來自待選成員、排表席位或另一個席位區
+const onDropOnBench = ({ zone }) => {
+  if (!canEditCurrentGuild.value) return
+  const targetList = benchSeats.value[zone]
+  if (!targetList) return resetDragState()
+
+  if (draggedType === 'pendingMember' && draggedPendingMember) {
+    targetList.push(draggedPendingMember)
+    draggedPendingMember.assigned = true
+  } else if (draggedType === 'slotMember' && draggedSlotRef?.assignedMember) {
+    targetList.push(draggedSlotRef.assignedMember)
+    draggedSlotRef.assignedMember = null
+  } else if (draggedType === 'benchMember' && draggedBenchRef && draggedBenchRef.zone !== zone) {
+    const [moved] = benchSeats.value[draggedBenchRef.zone].splice(draggedBenchRef.index, 1)
+    if (moved) targetList.push(moved)
+  }
+
+  resetDragState()
+}
+
+const removeMemberFromBench = ({ zone, index }) => {
+  if (!canEditCurrentGuild.value) return
+  const [removed] = benchSeats.value[zone]?.splice(index, 1) || []
+  if (removed) removed.assigned = false
 }
 
 const onDropOnSquadColumn = ({ team, squad: targetSquad }) => {
@@ -2239,6 +2349,7 @@ const executeConfirmAction = () => {
         })
       })
     })
+    benchSeats.value = createEmptyBench()
   }
   showConfirmModal.value = false
 }
@@ -2318,6 +2429,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 /* 上陣職業數量統計欄 */
 .onboard-stats-bar { display: flex; align-items: center; gap: 12px; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
 .stats-bar-title { font-size: 12px; font-weight: bold; color: #475569; }
+.stats-bar-note { margin-left: auto; font-size: 11px; color: #94a3b8; white-space: nowrap; }
 .stats-icons-list { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .stats-icon-item { display: flex; align-items: center; gap: 4px; }
 .stats-school-img { width: 18px; height: 18px; object-fit: contain; }
