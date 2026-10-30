@@ -3,7 +3,7 @@
     <div class="prep-header">
       <div class="header-with-btn">
         <h2>報名問題</h2>
-        <button class="btn-primary" @click="openQuestionModal()">+ 新增報名問題</button>
+        <button v-if="canEdit" class="btn-primary" @click="openQuestionModal()">+ 新增報名問題</button>
       </div>
       <p class="sub-notice">
         維護本戶組供成員報名的表格問題，拖動左側圖標調整順序，成員報名頁面將看到這些題目。
@@ -26,7 +26,7 @@
           <tr 
             v-for="(q, idx) in questionList" 
             :key="q.id"
-            draggable="true"
+            :draggable="canEdit"
             @dragstart="onQuestionDragStart(idx)"
             @dragover.prevent
             @drop="onQuestionDrop(idx)"
@@ -47,12 +47,15 @@
             </td>
             <td>{{ q.is_required ? '是' : '否' }}</td>
             <td>
-              <button class="btn-link" @click="openQuestionModal(q)">編輯</button>
-              <button class="btn-link text-red margin-l" @click="deleteQuestion(q.id)">刪除</button>
+              <template v-if="canEdit">
+                <button class="btn-link" @click="openQuestionModal(q)">編輯</button>
+                <button class="btn-link text-red margin-l" @click="deleteQuestion(q.id)">刪除</button>
+              </template>
+              <span v-else class="text-gray">—</span>
             </td>
           </tr>
           <tr v-if="questionList.length === 0">
-            <td colspan="6" class="empty-cell">暫無報名問題數據，可點右上角「新增報名問題」添加</td>
+            <td colspan="6" class="empty-cell">{{ isLoading ? '載入中...' : (canEdit ? '暫無報名問題數據，可點右上角「新增報名問題」添加' : '暫無報名問題數據') }}</td>
           </tr>
         </tbody>
       </table>
@@ -158,12 +161,41 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { supabase } from '../../utils/supabase'
+import { getWriteError } from '../../utils/writeResult'
 
-// 預設僅保留 1 條「聯賽是否開MIC」問卷題目
-const questionList = ref([
-  { id: 1, title: '聯賽是否開MIC', type: 'radio', options: ['能', '不能'], placeholder: '', is_required: true, sort_order: 1 }
-])
+// 報名問題依幫會存在 signup_questions 資料表
+const props = defineProps({
+  guildId: { type: String, required: true },
+  canEdit: { type: Boolean, default: false }
+})
+
+const questionList = ref([])
+const isLoading = ref(true)
+
+const toQuestion = (row) => ({
+  id: row.id,
+  title: row.title,
+  type: row.type,
+  options: Array.isArray(row.options) ? row.options : [],
+  placeholder: row.placeholder || '',
+  is_required: row.is_required,
+  sort_order: row.sort_order
+})
+
+const loadQuestions = async () => {
+  isLoading.value = true
+  const { data, error } = await supabase
+    .from('signup_questions')
+    .select('*')
+    .eq('guild_id', props.guildId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+  isLoading.value = false
+  if (error) return alert('讀取報名問題失敗：' + error.message)
+  questionList.value = (data || []).map(toQuestion)
+}
 
 // 美化置中刪除確認 Modal 狀態
 const showConfirmModal = ref(false)
@@ -180,20 +212,34 @@ const triggerConfirmModal = (title, message, onConfirm) => {
 
 const executeConfirmAction = () => {
   if (confirmActionCallback) confirmActionCallback()
+  confirmActionCallback = null
   showConfirmModal.value = false
 }
 
 const questionDragIndex = ref(null)
 const onQuestionDragStart = (index) => { questionDragIndex.value = index }
-const onQuestionDrop = (targetIndex) => {
+const onQuestionDrop = async (targetIndex) => {
+  if (!props.canEdit) return
   if (questionDragIndex.value === null || questionDragIndex.value === targetIndex) return
   const movedItem = questionList.value.splice(questionDragIndex.value, 1)[0]
   questionList.value.splice(targetIndex, 0, movedItem)
   questionDragIndex.value = null
+
+  // 依新順序寫回 sort_order
+  const results = await Promise.all(questionList.value.map((q, i) => {
+    q.sort_order = i + 1
+    return supabase.from('signup_questions').update({ sort_order: i + 1 }).eq('id', q.id).select('id')
+  }))
+  const failed = results.map(getWriteError).find(Boolean)
+  if (failed) {
+    alert('保存排序失敗：' + failed)
+    await loadQuestions()
+  }
 }
 
 const showQuestionModal = ref(false)
 const editingQuestionId = ref(null)
+const isSavingQuestion = ref(false)
 const questionForm = ref({
   title: '',
   type: 'radio',
@@ -234,38 +280,33 @@ const openQuestionModal = (q = null) => {
   showQuestionModal.value = true
 }
 
-const saveQuestion = () => {
+const saveQuestion = async () => {
   const title = questionForm.value.title.trim()
   if (!title) return alert('請輸入題幹！')
 
-  if (questionForm.value.type !== 'text' && questionForm.value.options.length === 0) {
+  const cleanOptions = questionForm.value.options.map(s => s.trim()).filter(Boolean)
+  if (questionForm.value.type !== 'text' && cleanOptions.length === 0) {
     return alert('請至少新增一個選項！')
   }
+  if (isSavingQuestion.value) return
 
-  const cleanOptions = questionForm.value.options.map(s => s.trim()).filter(Boolean)
-
-  if (editingQuestionId.value) {
-    const idx = questionList.value.findIndex(q => q.id === editingQuestionId.value)
-    if (idx > -1) {
-      questionList.value[idx] = {
-        ...questionForm.value,
-        title,
-        options: cleanOptions,
-        id: editingQuestionId.value
-      }
-    }
-  } else {
-    questionList.value.unshift({
-      id: Date.now(),
-      title,
-      type: questionForm.value.type,
-      options: cleanOptions,
-      placeholder: questionForm.value.placeholder.trim(),
-      is_required: questionForm.value.is_required,
-      sort_order: questionForm.value.sort_order
-    })
+  const payload = {
+    title,
+    type: questionForm.value.type,
+    options: questionForm.value.type === 'text' ? [] : cleanOptions,
+    placeholder: questionForm.value.placeholder.trim(),
+    is_required: questionForm.value.is_required
   }
+
+  isSavingQuestion.value = true
+  const error = editingQuestionId.value
+    ? getWriteError(await supabase.from('signup_questions').update(payload).eq('id', editingQuestionId.value).select('id'))
+    : getWriteError(await supabase.from('signup_questions').insert([{ ...payload, guild_id: props.guildId, sort_order: questionList.value.length + 1 }]).select('id'))
+  isSavingQuestion.value = false
+
+  if (error) return alert('保存報名問題失敗：' + error)
   showQuestionModal.value = false
+  await loadQuestions()
 }
 
 const deleteQuestion = (id) => {
@@ -274,11 +315,15 @@ const deleteQuestion = (id) => {
   triggerConfirmModal(
     '刪除報名問題',
     `確定要刪除問題「${qTitle}」嗎？刪除後無法恢復。`,
-    () => {
-      questionList.value = questionList.value.filter(q => q.id !== id)
+    async () => {
+      const error = getWriteError(await supabase.from('signup_questions').delete().eq('id', id).select('id'))
+      if (error) return alert('刪除報名問題失敗：' + error)
+      await loadQuestions()
     }
   )
 }
+
+onMounted(loadQuestions)
 </script>
 
 <style scoped>
