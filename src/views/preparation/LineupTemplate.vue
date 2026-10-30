@@ -6,7 +6,7 @@
       <div class="prep-header">
         <div class="header-with-btn">
           <h2>排表模板管理</h2>
-          <button class="btn-primary" @click="openTemplateModal()">+ 新建模板</button>
+          <button v-if="canEdit" class="btn-primary" @click="openTemplateModal()">+ 新建模板</button>
         </div>
         <p class="sub-notice"></p>
       </div>
@@ -37,13 +37,15 @@
               <td class="text-gray">{{ tpl.desc || '—' }}</td>
               <td class="text-gray">{{ tpl.updatedAt }}</td>
               <td>
-                <button class="btn-link" @click="enterEditor(tpl)">編輯排表</button>
-                <button class="btn-link margin-l" @click="openTemplateModal(tpl)">修改</button>
-                <button class="btn-link text-red margin-l" @click="confirmDeleteTemplate(tpl)">刪除</button>
+                <button class="btn-link" @click="enterEditor(tpl)">{{ canEdit ? '編輯排表' : '查看排表' }}</button>
+                <template v-if="canEdit">
+                  <button class="btn-link margin-l" @click="openTemplateModal(tpl)">修改</button>
+                  <button class="btn-link text-red margin-l" @click="confirmDeleteTemplate(tpl)">刪除</button>
+                </template>
               </td>
             </tr>
             <tr v-if="filteredTemplates.length === 0">
-              <td colspan="5" class="empty-cell">暫無模板數據，可點右上角「新建模板」添加</td>
+              <td colspan="5" class="empty-cell">{{ isLoading ? '載入中...' : (canEdit ? '暫無模板數據，可點右上角「新建模板」添加' : '暫無模板數據') }}</td>
             </tr>
           </tbody>
         </table>
@@ -54,8 +56,10 @@
     <div v-else-if="currentView === 'editor'" class="editor-container">
       <div class="editor-header-bar">
         <div class="back-title-group">
-          <button class="btn-back" @click="currentView = 'list'">&lt; 返回列表</button>
+          <button class="btn-back" @click="leaveEditor">&lt; 返回列表</button>
           <span class="editing-tpl-name">{{ activeTemplate.name }}</span>
+          <span v-if="!canEdit" class="readonly-tag">僅可查看</span>
+          <span v-else-if="isEditorDirty" class="unsaved-tag">尚未保存</span>
         </div>
 
         <div class="editor-top-actions">
@@ -68,7 +72,12 @@
             </label>
           </div>
 
-          <button class="btn-primary margin-l" @click="addTeam">+ 添加團隊</button>
+          <template v-if="canEdit">
+            <button class="btn-secondary margin-l" @click="addTeam">+ 添加團隊</button>
+            <button class="btn-primary margin-l" :disabled="isSavingTeams || !isEditorDirty" @click="saveTemplateTeams">
+              {{ isSavingTeams ? '保存中...' : '保存排表' }}
+            </button>
+          </template>
         </div>
       </div>
 
@@ -465,6 +474,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { supabase } from '../../utils/supabase'
+import { getWriteError } from '../../utils/writeResult'
+
+// 排表模板依幫會存在 lineup_templates 資料表；排表頁可直接套用
+const props = defineProps({
+  guildId: { type: String, required: true },
+  canEdit: { type: Boolean, default: false }
+})
 
 const currentView = ref('list')
 const searchQuery = ref('')
@@ -494,19 +511,30 @@ const getSchoolImgByName = (schoolName) => {
   return found ? getSchoolImg(found.file) : ''
 }
 
-const personalRoleOptions = [
-  '保鑣', '埋頭猛拆', '塔仇御鐵', '潮砲', '奶絕奶',
-  '增益奶', '輔潮', '燒屍體', '騰龍合軸', '拆塔指揮',
-  '保鑣指揮', '防守指揮', '點殺'
-]
+// 職能、技能選項讀取戰備頁「職能管理」「技能管理」的設定（含跨幫會共用項目）
+const personalRoleOptions = ref([])
+const squadRoleOptions = ref([])
+const juejiOptions = ref([])
+const qunxiaOptions = ref([])
+const liupaiSkillOptions = ref([])
 
-const squadRoleOptions = [
-  '保鑣隊', '拆塔隊', '塔前隊', '塔後隊', '防守隊'
-]
+const uniqueList = (list) => Array.from(new Set(list.filter(Boolean)))
 
-const juejiOptions = ['狂發一怒', '太極圖']
-const qunxiaOptions = ['咚咚跳台', '雲影濁香']
-const liupaiSkillOptions = ['約定', '清泉']
+const loadOptions = async () => {
+  const [{ data: roles }, { data: skills }] = await Promise.all([
+    supabase.from('preparation_roles').select('name, type, is_enabled, sort_order')
+      .or(`guild_id.eq.${props.guildId},guild_id.is.null`).order('sort_order', { ascending: true }),
+    supabase.from('preparation_skills').select('content, category, is_enabled, sort_order')
+      .or(`guild_id.eq.${props.guildId},guild_id.is.null`).order('sort_order', { ascending: true })
+  ])
+  const enabledRoles = (roles || []).filter(r => r.is_enabled !== false)
+  const enabledSkills = (skills || []).filter(k => k.is_enabled !== false)
+  personalRoleOptions.value = uniqueList(enabledRoles.filter(r => r.type === 'personal').map(r => r.name))
+  squadRoleOptions.value = uniqueList(enabledRoles.filter(r => r.type === 'squad').map(r => r.name))
+  juejiOptions.value = uniqueList(enabledSkills.filter(k => k.category === 'jueji').map(k => k.content))
+  qunxiaOptions.value = uniqueList(enabledSkills.filter(k => k.category === 'qunxia').map(k => k.content))
+  liupaiSkillOptions.value = uniqueList(enabledSkills.filter(k => k.category === 'liupai').map(k => k.content))
+}
 
 const schoolColorMap = {
   '鐵衣': '#fef3c7',
@@ -537,26 +565,37 @@ const triggerConfirmModal = (title, message, onConfirm) => {
 
 const executeConfirmAction = () => {
   if (confirmActionCallback) confirmActionCallback()
+  confirmActionCallback = null
   showConfirmModal.value = false
 }
 
-// 預設範本列表
-const templateList = ref([
-  { 
-    id: 1, 
-    name: '甲組通用排表', 
-    desc: '', 
-    updatedAt: '2026-09-28 02:52',
-    teams: createSampleTeams()
-  },
-  { 
-    id: 2, 
-    name: '乙組攻防陣型', 
-    desc: '', 
-    updatedAt: '2026-09-28 01:15',
-    teams: createSampleTeams()
-  }
-])
+const templateList = ref([])
+const isLoading = ref(true)
+
+const formatTime = (iso) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const loadTemplates = async () => {
+  isLoading.value = true
+  const { data, error } = await supabase
+    .from('lineup_templates')
+    .select('id, name, description, teams, updated_at')
+    .eq('guild_id', props.guildId)
+    .order('updated_at', { ascending: false })
+  isLoading.value = false
+  if (error) return alert('讀取排表模板失敗：' + error.message)
+  templateList.value = (data || []).map(t => ({
+    id: t.id,
+    name: t.name,
+    desc: t.description || '',
+    updatedAt: formatTime(t.updated_at),
+    teams: Array.isArray(t.teams) ? t.teams : []
+  }))
+}
 
 const filteredTemplates = computed(() => {
   if (!searchQuery.value.trim()) return templateList.value
@@ -603,10 +642,36 @@ function createSampleTeams() {
 }
 
 const activeTemplate = ref(null)
+const savedTeamsSnapshot = ref('')
+const isSavingTeams = ref(false)
 
+// 編輯器使用複本，按「保存排表」才寫回；返回列表時若有未保存修改會先確認
 const enterEditor = (tpl) => {
-  activeTemplate.value = tpl
+  activeTemplate.value = JSON.parse(JSON.stringify(tpl))
+  savedTeamsSnapshot.value = JSON.stringify(activeTemplate.value.teams)
   currentView.value = 'editor'
+}
+
+const isEditorDirty = computed(() => !!activeTemplate.value && JSON.stringify(activeTemplate.value.teams) !== savedTeamsSnapshot.value)
+
+const leaveEditor = () => {
+  if (props.canEdit && isEditorDirty.value && !confirm('排表有尚未保存的修改，確定要放棄並返回列表嗎？')) return
+  currentView.value = 'list'
+  activeTemplate.value = null
+}
+
+const saveTemplateTeams = async () => {
+  if (!props.canEdit || !activeTemplate.value || isSavingTeams.value) return
+  isSavingTeams.value = true
+  const error = getWriteError(await supabase
+    .from('lineup_templates')
+    .update({ teams: activeTemplate.value.teams, updated_at: new Date().toISOString() })
+    .eq('id', activeTemplate.value.id)
+    .select('id'))
+  isSavingTeams.value = false
+  if (error) return alert('保存排表失敗：' + error)
+  savedTeamsSnapshot.value = JSON.stringify(activeTemplate.value.teams)
+  await loadTemplates()
 }
 
 // 模板 Modal
@@ -625,36 +690,28 @@ const openTemplateModal = (tpl = null) => {
   showTemplateModal.value = true
 }
 
-const saveTemplate = () => {
+const saveTemplate = async () => {
   const name = templateForm.value.name.trim()
   if (!name) return alert('請輸入模板名稱！')
 
-  const nowStr = '2026-09-28 03:00'
-  if (editingTemplateId.value) {
-    const idx = templateList.value.findIndex(t => t.id === editingTemplateId.value)
-    if (idx > -1) {
-      templateList.value[idx].name = name
-      templateList.value[idx].desc = templateForm.value.desc.trim()
-      templateList.value[idx].updatedAt = nowStr
-    }
-  } else {
-    templateList.value.unshift({
-      id: Date.now(),
-      name,
-      desc: templateForm.value.desc.trim(),
-      updatedAt: nowStr,
-      teams: createSampleTeams()
-    })
-  }
+  const meta = { name, description: templateForm.value.desc.trim(), updated_at: new Date().toISOString() }
+  const error = editingTemplateId.value
+    ? getWriteError(await supabase.from('lineup_templates').update(meta).eq('id', editingTemplateId.value).select('id'))
+    : getWriteError(await supabase.from('lineup_templates').insert([{ ...meta, guild_id: props.guildId, teams: createSampleTeams() }]).select('id'))
+  if (error) return alert('保存模板失敗：' + error)
+
   showTemplateModal.value = false
+  await loadTemplates()
 }
 
 const confirmDeleteTemplate = (tpl) => {
   triggerConfirmModal(
     '刪除模板',
     `確定要刪除模板「${tpl.name}」嗎？`,
-    () => {
-      templateList.value = templateList.value.filter(t => t.id !== tpl.id)
+    async () => {
+      const error = getWriteError(await supabase.from('lineup_templates').delete().eq('id', tpl.id).select('id'))
+      if (error) return alert('刪除模板失敗：' + error)
+      await loadTemplates()
     }
   )
 }
@@ -876,6 +933,8 @@ const getSlotCardStyle = (slot) => {
 
 onMounted(() => {
   window.addEventListener('click', closeAllSkillDropdowns)
+  loadTemplates()
+  loadOptions()
 })
 
 onUnmounted(() => {
@@ -1033,4 +1092,6 @@ input:checked + .slider:before { transform: translateX(16px); }
 .margin-b { margin-bottom: 15px; }
 .margin-t { margin-top: 10px; }
 .empty-cell { text-align: center; color: #94a3b8; padding: 30px; }
+.readonly-tag { margin-left: 10px; font-size: 12px; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 4px; }
+.unsaved-tag { margin-left: 10px; font-size: 12px; color: #dc2626; background: #fee2e2; padding: 2px 8px; border-radius: 4px; }
 </style>

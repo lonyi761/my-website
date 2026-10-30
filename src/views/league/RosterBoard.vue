@@ -79,6 +79,9 @@
                 >
                   {{ tpl.name }}
                 </div>
+                <div v-if="templateOptions.length === 0" class="dropdown-item dropdown-empty">
+                  尚無模板，請到「戰備 → 排表模板」建立
+                </div>
               </div>
             </div>
 
@@ -1459,6 +1462,10 @@ const fetchPrepDataFromDB = async (guildId) => {
       if (qList.length > 0) qunxiaOptions.value = qList
       if (lList.length > 0) liupaiSkillOptions.value = lList
     }
+    const { data: tplData } = guildId
+      ? await supabase.from('lineup_templates').select('id, name, teams').eq('guild_id', guildId).order('updated_at', { ascending: false })
+      : { data: [] }
+    templateOptions.value = tplData || []
   } catch (err) {
     console.warn('載入戰備資料備用:', err)
   }
@@ -2360,20 +2367,62 @@ const executeConfirmAction = () => {
   showConfirmModal.value = false
 }
 
-const templateOptions = [
-  { id: 1, name: '甲組通用模板' },
-  { id: 2, name: '乙組防守模板' }
-]
+// 戰備頁「排表模板」(lineup_templates) 中本幫會的模板
+const templateOptions = ref([])
 
+// 戰備頁模板的席位格式 → 排表席位的 templateConfig 格式
+const toTemplateConfig = (tplSlot = {}) => ({
+  schools: [...(tplSlot.liupai_list || [])],
+  roles: [...(tplSlot.zhineng_list || [])],
+  jueji: tplSlot.jueji_pz || '',
+  qunxia: tplSlot.qunxia_pz || '',
+  zhuangbei: tplSlot.zhuangbei_pz || '',
+  desc: tplSlot.desc || ''
+})
+
+// 依位置套用模板：團隊／小隊名稱與各席位設定以模板為準，缺少的團隊、小隊、席位會補上；
+// 已排入的成員、候補與不出席區不變，多出來的團隊與小隊保留不刪
 const applyRosterTemplate = (tpl) => {
   if (!canEditCurrentGuild.value) return
-  appliedTemplateName.value = tpl.name
   showTemplateDropdown.value = false
+  const tplTeams = Array.isArray(tpl.teams) ? tpl.teams : []
+  if (tplTeams.length === 0) return alert(`模板「${tpl.name}」還沒有任何團隊設定。`)
+  if (!confirm(`確定套用模板「${tpl.name}」嗎？\n團隊、小隊名稱與各席位的模板設定會被取代，已排入的成員不會變動。`)) return
 
-  matrixTeams.value[0].squads[0].slots.forEach((s, idx) => {
-    if (idx === 0) s.templateConfig.roles = ['拆塔指揮', '保鑣指揮']
-    if (idx === 1) s.templateConfig.roles = ['保鑣', '埋頭猛拆']
+  tplTeams.forEach((tplTeam, tIdx) => {
+    let team = matrixTeams.value[tIdx]
+    if (!team) {
+      team = {
+        id: Date.now() + tIdx,
+        name: tplTeam.name,
+        desc: '',
+        color: teamColorOptions[tIdx % teamColorOptions.length].color,
+        squads: []
+      }
+      matrixTeams.value.push(team)
+    }
+    team.name = tplTeam.name || team.name
+    if (tplTeam.desc) team.desc = tplTeam.desc
+
+    ;(tplTeam.squads || []).forEach((tplSquad, sIdx) => {
+      let squad = team.squads[sIdx]
+      if (!squad) {
+        squad = { id: Date.now() + tIdx * 100 + sIdx, name: tplSquad.name, zhineng: '', desc: '', slots: createDefaultSlots() }
+        team.squads.push(squad)
+      }
+      squad.name = tplSquad.name || squad.name
+      if (tplSquad.zhineng) squad.zhineng = tplSquad.zhineng
+      if (tplSquad.desc) squad.desc = tplSquad.desc
+
+      ;(tplSquad.slots || []).forEach((tplSlot, slotIdx) => {
+        if (!squad.slots[slotIdx]) squad.slots.push(createDefaultSlots()[0])
+        squad.slots[slotIdx].templateConfig = toTemplateConfig(tplSlot)
+      })
+    })
   })
+
+  appliedTemplateName.value = tpl.name
+  updateMembersAssignedStatus()
 }
 
 const formatArrayText = (arr) => {
@@ -2596,4 +2645,5 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 .margin-l { margin-left: 10px; }
 .margin-b { margin-bottom: 10px; }
 .margin-t { margin-top: 12px; }
+.dropdown-empty { color: #94a3b8; cursor: default; font-size: 12px; }
 </style>

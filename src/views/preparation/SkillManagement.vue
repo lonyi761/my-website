@@ -169,42 +169,9 @@ const liupaiSkillList = ref(
   }))
 )
 
-// 美化置中刪除確認 Modal 狀態
-const showConfirmModal = ref(false)
-const confirmTitle = ref('')
-const confirmMessage = ref('')
-let confirmActionCallback = null
-
-const triggerConfirmModal = (title, message, onConfirm) => {
-  confirmTitle.value = title
-  confirmMessage.value = message
-  confirmActionCallback = onConfirm
-  showConfirmModal.value = true
-}
-
-const executeConfirmAction = () => {
-  if (confirmActionCallback) confirmActionCallback()
-  showConfirmModal.value = false
-}
-
-const fetchCurrentGuild = async () => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return null
-
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
-    if (profile) {
-      if (profile.guild_id) return profile.guild_id
-      if (profile.guild_ids && profile.guild_ids.length > 0) return profile.guild_ids[0]
-    }
-
-    const { data: guilds } = await supabase.from('guilds').select('id').limit(1)
-    if (guilds && guilds.length > 0) return guilds[0].id
-  } catch (e) {
-    console.warn('獲取幫會資訊失敗:', e)
-  }
-  return null
-}
+// 目前幫會由戰備頁左上角的幫會切換決定
+const props = defineProps({ guildId: { type: String, default: null } })
+const fetchCurrentGuild = async () => props.guildId
 
 const loadSkillsFromDB = async () => {
   const gId = await fetchCurrentGuild()
