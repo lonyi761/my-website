@@ -13,7 +13,7 @@
         <div class="league-header-bar">
           <h2 class="page-title">聯賽列表</h2>
           <div class="header-right-tools">
-            <button class="btn-primary" :disabled="accessibleGuildList.length === 0" @click="openCreateView()">+ 創建聯賽</button>
+            <button class="btn-primary" :disabled="editableGuildList.length === 0" @click="openCreateView()">+ 創建聯賽</button>
           </div>
         </div>
 
@@ -73,9 +73,9 @@
                     <span 
                       v-for="(opp, idx) in item.opponents" 
                       :key="'opp_'+idx" 
-                      class="opponent-item clickable"
-                      @click="openEditOpponentModal(item)"
-                      title="點擊修改對陣幫會"
+                      :class="['opponent-item', { clickable: canEditGuildId(item.guild_id) }]"
+                      @click="canEditGuildId(item.guild_id) && openEditOpponentModal(item)"
+                      :title="canEditGuildId(item.guild_id) ? '點擊修改對陣幫會' : ''"
                     >
                       <template v-if="item.matchesCount > 1">第{{ idx + 1 }}場: </template>{{ opp || '未填選' }}
                     </span>
@@ -92,9 +92,9 @@
                     >
                       <span v-if="item.matchesCount > 1" class="match-label">第{{ idx + 1 }}場:</span>
                       <span 
-                        :class="['result-badge', 'clickable', getResultBadgeClass(res)]"
-                        @click="openEditResultModal(item)"
-                        title="點擊修改比賽結果"
+                        :class="['result-badge', { clickable: canEditGuildId(item.guild_id) }, getResultBadgeClass(res)]"
+                        @click="canEditGuildId(item.guild_id) && openEditResultModal(item)"
+                        :title="canEditGuildId(item.guild_id) ? '點擊修改比賽結果' : ''"
                       >
                         {{ res || '還沒出' }}
                       </span>
@@ -109,7 +109,7 @@
                   <div class="action-cell-container">
                     <button class="btn-pill-blue" @click="openRosterBoard(item)">排表</button>
                     <button class="btn-pill-gray" @click="openStatsModal(item)">數據</button>
-                    <div class="right-links">
+                    <div v-if="canEditGuildId(item.guild_id)" class="right-links">
                       <button class="btn-link" @click="openEditLeagueModal(item)">編輯</button>
                       <button class="btn-link text-red" @click="confirmDeleteLeague(item)">刪除</button>
                     </div>
@@ -182,7 +182,7 @@
             <div class="form-row margin-v">
               <label><span class="req">*</span>授權幫會：</label>
               <select v-model="leagueForm.participant" class="select-field flex-1">
-                <option v-for="g in accessibleGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
+                <option v-for="g in editableGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
               </select>
             </div>
 
@@ -287,7 +287,7 @@
           <div class="form-row margin-v">
             <label><span class="req">*</span>源聯賽：</label>
             <select v-model="copySourceLeagueId" class="select-field flex-1">
-              <option v-for="l in filteredLeagueList" :key="l.id" :value="l.id">
+              <option v-for="l in copyableLeagueList" :key="l.id" :value="l.id">
                 {{ l.title }} ({{ l.participant }} - {{ l.startTime }})
               </option>
             </select>
@@ -331,6 +331,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../utils/supabase'
+import { getWriteError } from '../utils/writeResult'
 import Navbar from '../components/layout/Navbar.vue'
 import RosterBoard from './league/RosterBoard.vue'
 import { isBenchEntry } from './league/rosterBench'
@@ -380,9 +381,21 @@ const accessibleGuildList = computed(() => {
   if (!userProfile.value) return []
   if (userProfile.value.role === 'super_admin') return allGuilds.value
   
-  const userGuildIds = userProfile.value.guild_ids || (userProfile.value.guild_id ? [userProfile.value.guild_id] : [])
-  return allGuilds.value.filter(g => userGuildIds.includes(g.id))
+  // 與成員頁一致：可查看＋可編輯的幫會
+  const viewIds = userProfile.value.view_guild_ids || userProfile.value.guild_ids || (userProfile.value.guild_id ? [userProfile.value.guild_id] : [])
+  const editIds = userProfile.value.edit_guild_ids || []
+  const userGuildIds = new Set([...viewIds, ...editIds])
+  return allGuilds.value.filter(g => userGuildIds.has(g.id))
 })
+
+// 指定幫會是否具備【編輯權限】（資料庫也會擋，這裡負責隱藏按鈕）
+const canEditGuildId = (guildId) => {
+  if (!userProfile.value) return false
+  if (userProfile.value.role === 'super_admin') return true
+  return (userProfile.value.edit_guild_ids || []).includes(guildId)
+}
+
+const editableGuildList = computed(() => allGuilds.value.filter(g => canEditGuildId(g.id)))
 
 const getNormalizedArray = (arr, targetLen, defaultValue) => {
   if (!Array.isArray(arr) || arr.length === 0) {
@@ -407,8 +420,8 @@ const fetchLeaguesFromDB = async () => {
   const { data: guildsData } = await supabase.from('guilds').select('*')
   if (guildsData) {
     allGuilds.value = guildsData
-    if (accessibleGuildList.value.length > 0 && !leagueForm.value.participant) {
-      leagueForm.value.participant = accessibleGuildList.value[0].name
+    if (editableGuildList.value.length > 0 && !leagueForm.value.participant) {
+      leagueForm.value.participant = editableGuildList.value[0].name
     }
   }
 
@@ -449,6 +462,9 @@ const filteredLeagueList = computed(() => {
   })
 })
 
+// 可作為複製來源的聯賽（新聯賽建在同一幫會，需有編輯權）
+const copyableLeagueList = computed(() => filteredLeagueList.value.filter(l => canEditGuildId(l.guild_id)))
+
 const getResultBadgeClass = (res) => {
   if (res === '我方贏') return 'badge-win'
   if (res === '對方贏') return 'badge-loss'
@@ -463,7 +479,8 @@ const openEditResultModal = (item) => {
 
 const saveMatchResults = async () => {
   if (!activeEditingLeague.value) return
-  await supabase.from('guild_rosters').update({ results: editingResults.value }).eq('id', activeEditingLeague.value.id)
+  const error = getWriteError(await supabase.from('guild_rosters').update({ results: editingResults.value }).eq('id', activeEditingLeague.value.id).select('id'))
+  if (error) return alert('保存比賽結果失敗：' + error)
   await fetchLeaguesFromDB()
   showResultModal.value = false
 }
@@ -477,17 +494,18 @@ const openEditOpponentModal = (item) => {
 const saveMatchOpponents = async () => {
   if (!activeEditingLeague.value) return
   const safeOpponents = editingOpponents.value.map(o => o.trim() || '未填選')
-  await supabase.from('guild_rosters').update({ opponents: safeOpponents }).eq('id', activeEditingLeague.value.id)
+  const error = getWriteError(await supabase.from('guild_rosters').update({ opponents: safeOpponents }).eq('id', activeEditingLeague.value.id).select('id'))
+  if (error) return alert('保存對陣幫會失敗：' + error)
   await fetchLeaguesFromDB()
   showOpponentModal.value = false
 }
 
 const openCopyModal = () => {
-  if (filteredLeagueList.value.length === 0) {
+  if (copyableLeagueList.value.length === 0) {
     return alert('暫無可複製的已有聯賽！')
   }
-  copySourceLeagueId.value = filteredLeagueList.value[0].id
-  copyTargetTitle.value = filteredLeagueList.value[0].title
+  copySourceLeagueId.value = copyableLeagueList.value[0].id
+  copyTargetTitle.value = copyableLeagueList.value[0].title
   copyTargetDate.value = new Date().toISOString().split('T')[0]
   copyTargetTime.value = '20:00'
   showCopyModal.value = true
@@ -594,7 +612,7 @@ const executeCopyLeague = async () => {
 }
 
 const openCreateView = () => {
-  if (accessibleGuildList.value.length === 0) return alert('您尚未獲得任何幫會權限，無法創建聯賽！')
+  if (editableGuildList.value.length === 0) return alert('您沒有任何幫會的編輯權限，無法創建聯賽！')
   editingLeagueId.value = null
   leagueForm.value = {
     type: '幫會聯賽',
@@ -602,7 +620,7 @@ const openCreateView = () => {
     date: new Date().toISOString().split('T')[0],
     time: '20:00',
     matchesCount: 2,
-    participant: accessibleGuildList.value[0].name,
+    participant: editableGuildList.value[0].name,
     notes: '',
     saveAsDefault: false
   }
@@ -654,11 +672,10 @@ const saveLeagueForm = async () => {
   }
 
   try {
-    if (editingLeagueId.value) {
-      await supabase.from('guild_rosters').update(payload).eq('id', editingLeagueId.value)
-    } else {
-      await supabase.from('guild_rosters').insert([payload])
-    }
+    const error = editingLeagueId.value
+      ? getWriteError(await supabase.from('guild_rosters').update(payload).eq('id', editingLeagueId.value).select('id'))
+      : getWriteError(await supabase.from('guild_rosters').insert([payload]))
+    if (error) throw new Error(error)
 
     await fetchLeaguesFromDB()
     currentView.value = 'list'
@@ -676,7 +693,8 @@ const openRosterBoard = (item) => {
 
 const confirmDeleteLeague = async (item) => {
   if (confirm(`確定要刪除聯賽「${item.title}」嗎？`)) {
-    await supabase.from('guild_rosters').delete().eq('id', item.id)
+    const error = getWriteError(await supabase.from('guild_rosters').delete().eq('id', item.id).select('id'))
+    if (error) return alert('刪除聯賽失敗：' + error)
     await fetchLeaguesFromDB()
   }
 }

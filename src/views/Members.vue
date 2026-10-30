@@ -10,7 +10,7 @@
       <aside class="guild-sidebar">
         <div class="sidebar-header">
           <h3>授權幫會</h3>
-          <button class="btn-add-guild" @click="openAddGuildModal">+ 新增幫會</button>
+          <button v-if="isSuperAdmin" class="btn-add-guild" @click="openAddGuildModal">+ 新增幫會</button>
         </div>
         <ul class="guild-list">
           <li 
@@ -23,7 +23,7 @@
               <span class="guild-name">{{ guild.name }}</span>
               <span class="guild-count">{{ getGuildMemberCount(guild.name) }} 人</span>
             </div>
-            <div class="guild-actions" @click.stop>
+            <div v-if="canEditGuild(guild.id)" class="guild-actions" @click.stop>
               <button class="btn-icon-sm" @click="openEditGuildModal(guild)" title="幫會設定">
                 <i class="mdi mdi-cog-outline"></i>
               </button>
@@ -31,7 +31,7 @@
           </li>
         </ul>
         <div v-if="accessibleGuildList.length === 0" class="no-guild-hint">
-          尚未擁有任何幫會權限，請先點右上角「+ 新增幫會」或聯繫管理員指派幫會。
+          尚未擁有任何幫會權限，請聯繫總管理員指派幫會。
         </div>
       </aside>
 
@@ -236,7 +236,7 @@
             <label>幫會名稱：</label>
             <input type="text" v-model="editingGuildName" />
           </div>
-          <button class="btn-danger full-width margin-t" @click="deleteGuild">刪除幫會與其成員</button>
+          <button v-if="isSuperAdmin" class="btn-danger full-width margin-t" @click="deleteGuild">刪除幫會與其成員</button>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" @click="showGuildEditModal = false">取消</button>
@@ -557,6 +557,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../utils/supabase'
+import { getWriteError } from '../utils/writeResult'
 import Navbar from '../components/layout/Navbar.vue'
 
 const router = useRouter()
@@ -744,13 +745,18 @@ const editableGuildList = computed(() => {
   return allGuilds.value.filter(g => editIds.includes(g.id))
 })
 
-// 當前幫會是否具備【編輯權限】
-const canEditCurrentGuild = computed(() => {
+const isSuperAdmin = computed(() => userProfile.value?.role === 'super_admin')
+
+// 指定幫會是否具備【編輯權限】
+const canEditGuild = (guildId) => {
   if (!userProfile.value) return false
-  if (userProfile.value.role === 'super_admin') return true
+  if (isSuperAdmin.value) return true
   const editIds = userProfile.value.edit_guild_ids || []
-  return editIds.includes(currentGuildId.value)
-})
+  return editIds.includes(guildId)
+}
+
+// 當前幫會是否具備【編輯權限】
+const canEditCurrentGuild = computed(() => canEditGuild(currentGuildId.value))
 
 // 單一成員編輯權限（具備幫會編輯權 或 為個人親自新增之成員）
 const canEditMember = (member) => {
@@ -898,6 +904,14 @@ const toggleSelectAll = (e) => {
   else selectedMemberIds.value = []
 }
 
+// 切換幫會、搜尋或篩選後，移除畫面上已看不到的勾選，避免批量操作動到隱藏的成員
+watch(filteredMembers, (list) => {
+  const visibleIds = new Set(list.map(m => m.id))
+  if (selectedMemberIds.value.some(id => !visibleIds.has(id))) {
+    selectedMemberIds.value = selectedMemberIds.value.filter(id => visibleIds.has(id))
+  }
+})
+
 const getStatusClass = (status) => {
   if (status === '幫眾') return 'status-green'
   if (status === '學徒') return 'status-blue'
@@ -906,30 +920,34 @@ const getStatusClass = (status) => {
 
 const quickSwitchSchool = async (member, schoolName) => {
   if (!canEditMember(member)) return
+  const previous = member.currentSchool
   member.currentSchool = schoolName
   activePopoverMemberId.value = null
-  await supabase.from('guild_members').update({ current_school: schoolName }).eq('id', member.id)
+  const error = getWriteError(await supabase.from('guild_members').update({ current_school: schoolName }).eq('id', member.id).select('id'))
+  if (error) {
+    member.currentSchool = previous
+    alert('切換流派失敗：' + error)
+  }
 }
 
 const quickSwitchStatus = async (member, status) => {
   if (!canEditMember(member)) return
+  const previous = member.status
   member.status = status
   activeStatusPopoverMemberId.value = null
-  await supabase.from('guild_members').update({ status: status }).eq('id', member.id)
+  const error = getWriteError(await supabase.from('guild_members').update({ status: status }).eq('id', member.id).select('id'))
+  if (error) {
+    member.status = previous
+    alert('切換狀態失敗：' + error)
+  }
 }
 
 const openAddGuildModal = async () => {
   const name = prompt('請輸入新幫會名稱：')
   if (name && name.trim()) {
     const { data: newGuild, error } = await supabase.from('guilds').insert([{ name: name.trim() }]).select().single()
-    if (!error && newGuild) {
-      if (userProfile.value && userProfile.value.role !== 'super_admin') {
-        const viewIds = userProfile.value.view_guild_ids || []
-        const editIds = userProfile.value.edit_guild_ids || []
-        if (!editIds.includes(newGuild.id)) editIds.push(newGuild.id)
-        if (!viewIds.includes(newGuild.id)) viewIds.push(newGuild.id)
-        await supabase.from('profiles').update({ view_guild_ids: viewIds, edit_guild_ids: editIds }).eq('id', userProfile.value.id)
-      }
+    if (error) return alert('新增幫會失敗：' + error.message)
+    if (newGuild) {
       await fetchCloudData()
       currentGuildId.value = newGuild.id
     }
@@ -944,7 +962,8 @@ const openEditGuildModal = (guild) => {
 
 const saveGuildName = async () => {
   if (targetEditGuild.value && editingGuildName.value.trim()) {
-    await supabase.from('guilds').update({ name: editingGuildName.value.trim() }).eq('id', targetEditGuild.value.id)
+    const error = getWriteError(await supabase.from('guilds').update({ name: editingGuildName.value.trim() }).eq('id', targetEditGuild.value.id).select('id'))
+    if (error) return alert('修改幫會名稱失敗：' + error)
     await fetchCloudData()
     showGuildEditModal.value = false
   }
@@ -952,7 +971,8 @@ const saveGuildName = async () => {
 
 const deleteGuild = () => {
   triggerConfirmModal('刪除幫會', `確定要刪除幫會【${targetEditGuild.value.name}】嗎？`, async () => {
-    await supabase.from('guilds').delete().eq('id', targetEditGuild.value.id)
+    const error = getWriteError(await supabase.from('guilds').delete().eq('id', targetEditGuild.value.id).select('id'))
+    if (error) return alert('刪除幫會失敗：' + error)
     await fetchCloudData()
     showGuildEditModal.value = false
   })
@@ -1036,12 +1056,14 @@ const saveMember = async () => {
     role_preference: memberForm.value.rolePrefList
   }
 
+  let error
   if (editingMemberId.value) {
-    await supabase.from('guild_members').update(payload).eq('id', editingMemberId.value)
+    error = getWriteError(await supabase.from('guild_members').update(payload).eq('id', editingMemberId.value).select('id'))
   } else {
     if (session) payload.created_by = session.user.id
-    await supabase.from('guild_members').insert([payload])
+    error = getWriteError(await supabase.from('guild_members').insert([payload]))
   }
+  if (error) return alert('儲存成員失敗：' + error)
 
   await fetchCloudData()
   showMemberModal.value = false
@@ -1050,7 +1072,8 @@ const saveMember = async () => {
 const deleteMember = (id) => {
   const m = members.value.find(item => item.id === id)
   triggerConfirmModal('刪除成員', `確定要刪除成員【${m?.name || ''}】嗎？`, async () => {
-    await supabase.from('guild_members').delete().eq('id', id)
+    const error = getWriteError(await supabase.from('guild_members').delete().eq('id', id).select('id'))
+    if (error) return alert('刪除成員失敗：' + error)
     await fetchCloudData()
   })
 }
@@ -1127,26 +1150,6 @@ const preprocessImageToCanvas = (file) => {
 const parseOcrTextToMembers = (rawText) => {
   const validSchools = ['鐵衣', '血河', '九靈', '神相', '碎夢', '素問', '龍吟', '玄機', '潮光', '滄瀾']
   const globalSchool = validSchools.find(s => rawText.includes(s))
-
-  if (rawText.includes('璃玥') || rawText.includes('曉玖') || rawText.includes('588323') || rawText.includes('621153') || rawText.includes('529545') || rawText.includes('636989') || rawText.includes('655026') || rawText.includes('646611')) {
-    return [
-      { name: '璃玥丶', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '曉玖', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '亣小姐', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '啵啵魚', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '鬼判', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] },
-      { name: '小狗寶寶', school: '鐵衣', status: '幫眾', schools: ['鐵衣'] }
-    ]
-  }
-
-  if (rawText.includes('琉璃') || rawText.includes('嗨小之') || rawText.includes('浮雲') || rawText.includes('一劍星河')) {
-    return [
-      { name: '琉璃丶', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-      { name: '嗨小之', school: '碎夢', status: '幫眾', schools: ['碎夢'] },
-      { name: '浮雲丶', school: '碎夢', status: '學徒', schools: ['碎夢'] },
-      { name: '一劍星河', school: '碎夢', status: '學徒', schools: ['碎夢'] }
-    ]
-  }
 
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
   const results = []
@@ -1335,7 +1338,7 @@ const confirmImport = async () => {
 
   isImporting.value = false
   isImportComplete.value = true
-  importSummaryText.value = `導入完成！成功新增 ${successCount} 人至【${importTargetGuild.value}】${skippedCount > 0 ? ` (自動跳過幫會內重複 ${skippedCount} 人)` : ''}。`
+  importSummaryText.value = `導入完成！成功新增 ${successCount} 人至【${importTargetGuild.value}】${skippedCount > 0 ? ` (自動跳過幫會內重複 ${skippedCount} 人)` : ''}。${successCount < total ? ` 另有 ${total - successCount} 人失敗（可能沒有權限）。` : ''}`
 
   await fetchCloudData()
 }
@@ -1391,15 +1394,14 @@ const handleBatchUpdateAttributes = async () => {
     const id = selectedMemberIds.value[i]
     batchStatusText.value = `正在更新成員資訊 [${i + 1}/${total}]...`
 
-    const { error } = await supabase.from('guild_members').update(payload).eq('id', id)
-    if (!error) updatedCount++
+    if (!getWriteError(await supabase.from('guild_members').update(payload).eq('id', id).select('id'))) updatedCount++
 
     batchProgress.value = Math.round(((i + 1) / total) * 100)
   }
 
   isBatchProcessing.value = false
   isBatchComplete.value = true
-  batchSummaryText.value = `批量修改完成！成功更新 ${updatedCount} 名成員資訊。`
+  batchSummaryText.value = `批量修改完成！成功更新 ${updatedCount} 名成員資訊。${updatedCount < total ? ` 另有 ${total - updatedCount} 人失敗（可能沒有權限）。` : ''}`
 
   selectedMemberIds.value = []
   await fetchCloudData()
@@ -1420,15 +1422,14 @@ const handleBatchMove = async () => {
     const id = selectedMemberIds.value[i]
     batchStatusText.value = `正在移動成員 [${i + 1}/${total}]...`
 
-    const { error } = await supabase.from('guild_members').update({ guild_id: targetGuildId }).eq('id', id)
-    if (!error) moveCount++
+    if (!getWriteError(await supabase.from('guild_members').update({ guild_id: targetGuildId }).eq('id', id).select('id'))) moveCount++
 
     batchProgress.value = Math.round(((i + 1) / total) * 100)
   }
 
   isBatchProcessing.value = false
   isBatchComplete.value = true
-  batchSummaryText.value = `批量移動完成！成功轉移 ${moveCount} 名成員至【${batchTargetGuild.value}】。`
+  batchSummaryText.value = `批量移動完成！成功轉移 ${moveCount} 名成員至【${batchTargetGuild.value}】。${moveCount < total ? ` 另有 ${total - moveCount} 人失敗（可能沒有權限）。` : ''}`
 
   selectedMemberIds.value = []
   await fetchCloudData()
@@ -1449,15 +1450,14 @@ const handleBatchDelete = () => {
       const id = selectedMemberIds.value[i]
       batchStatusText.value = `正在刪除成員 [${i + 1}/${total}]...`
 
-      const { error } = await supabase.from('guild_members').delete().eq('id', id)
-      if (!error) deleteCount++
+      if (!getWriteError(await supabase.from('guild_members').delete().eq('id', id).select('id'))) deleteCount++
 
       batchProgress.value = Math.round(((i + 1) / total) * 100)
     }
 
     isBatchProcessing.value = false
     isBatchComplete.value = true
-    batchSummaryText.value = `批量刪除完成！成功刪除 ${deleteCount} 名成員。`
+    batchSummaryText.value = `批量刪除完成！成功刪除 ${deleteCount} 名成員。${deleteCount < total ? ` 另有 ${total - deleteCount} 人失敗（可能沒有權限）。` : ''}`
 
     selectedMemberIds.value = []
     await fetchCloudData()

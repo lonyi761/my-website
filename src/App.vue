@@ -42,6 +42,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from './utils/supabase'
 import AdminDashboard from './views/admin/AdminDashboard.vue'
+import { getAccountBlockReason } from './utils/accountStatus'
 
 const router = useRouter()
 const route = useRoute()
@@ -67,13 +68,27 @@ const assignedGuildNamesDisplay = computed(() => {
   return names.length > 0 ? names.join('、') : '尚未綁定幫會'
 })
 
+// 停權、到期或帳號已刪除時強制登出（資料庫也會拒絕讀取，這裡負責顯示原因）
+const signOutBlocked = async (reason) => {
+  await supabase.auth.signOut()
+  currentUser.value = null
+  userProfile.value = null
+  isAdminView.value = false
+  router.push({ path: '/login', query: { reason } })
+}
+
 const checkSession = async () => {
+  // 等初始路由解析完成，否則 route.path 仍是 '/'，會誤導向並遺失網址參數
+  await router.isReady()
   const { data: { session } } = await supabase.auth.getSession()
   if (session) {
     currentUser.value = session.user
+    const profileError = await fetchProfile(session.user.id)
+    // 讀取失敗（例如網路問題）時不登出，避免誤判
+    const blockReason = profileError ? null : getAccountBlockReason(userProfile.value)
+    if (blockReason) return signOutBlocked(blockReason)
     await fetchAllGuilds()
-    await fetchProfile(session.user.id)
-    
+
     if (route.path === '/login' || route.path === '/' || route.path === '/home') {
       router.push('/members')
     }
@@ -92,15 +107,14 @@ const fetchAllGuilds = async () => {
 }
 
 const fetchProfile = async (userId) => {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', userId)
     .maybeSingle()
 
-  if (data) {
-    userProfile.value = data
-  }
+  if (!error) userProfile.value = data
+  return error
 }
 
 const handleLoginSuccess = async ({ user, profile }) => {
