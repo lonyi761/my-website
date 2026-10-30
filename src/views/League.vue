@@ -425,7 +425,11 @@ const fetchLeaguesFromDB = async () => {
     }
   }
 
-  const { data: rostersData } = await supabase.from('guild_rosters').select('*').order('updated_at', { ascending: filterSort.value === 'asc' })
+  // 列表不需要整份排表（matrix_teams 很大），打開排表或複製時才另外讀取
+  const { data: rostersData } = await supabase
+    .from('guild_rosters')
+    .select('id, guild_id, title, type, start_time, matches_count, opponents, results, notes, updated_at')
+    .order('updated_at', { ascending: filterSort.value === 'asc' })
 
   if (rostersData) {
     leagueList.value = rostersData.map(r => {
@@ -443,8 +447,7 @@ const fetchLeaguesFromDB = async () => {
         matchesCount: count,
         opponents: getNormalizedArray(r.opponents, count, '未填選'),
         results: getNormalizedArray(r.results, count, '還沒出'),
-        notes: r.notes || '',
-        matrixTeams: r.matrix_teams
+        notes: r.notes || ''
       }
     })
   }
@@ -534,6 +537,13 @@ const executeCopyLeague = async () => {
 
   isCopying.value = true
   try {
+    const { data: srcRoster, error: srcError } = await supabase
+      .from('guild_rosters')
+      .select('matrix_teams')
+      .eq('id', srcLeague.id)
+      .maybeSingle()
+    if (srcError || !srcRoster) throw new Error(srcError?.message || '讀取源聯賽排表失敗')
+
     const { data: currentMembers } = await supabase
       .from('guild_members')
       .select('id, name')
@@ -542,7 +552,7 @@ const executeCopyLeague = async () => {
     const currentMemberIds = new Set((currentMembers || []).map(m => m.id))
     const currentMemberNames = new Set((currentMembers || []).map(m => m.name ? m.name.trim().toLowerCase() : ''))
 
-    const cleanMatrixTeams = JSON.parse(JSON.stringify(srcLeague.matrixTeams || []))
+    const cleanMatrixTeams = JSON.parse(JSON.stringify(srcRoster.matrix_teams || []))
 
     cleanMatrixTeams.forEach(team => {
       // 候補 / 不出席席位區：候補保留 (離幫者剔除)，不出席屬單場狀態故不帶入新聯賽

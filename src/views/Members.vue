@@ -502,7 +502,7 @@
             <div class="form-row margin-v">
               <label>移動到幫會：</label>
               <select v-model="batchTargetGuild">
-                <option v-for="g in accessibleGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
+                <option v-for="g in editableGuildList" :key="g.id" :value="g.name">{{ g.name }}</option>
               </select>
               <button class="btn-secondary margin-l" @click="handleBatchMove">套用移動</button>
             </div>
@@ -797,7 +797,7 @@ const fetchCloudData = async () => {
       if (!currentGuildId.value || !accessibleGuildList.value.find(g => g.id === currentGuildId.value)) {
         currentGuildId.value = accessibleGuildList.value[0].id
       }
-      if (!batchTargetGuild.value) batchTargetGuild.value = accessibleGuildList.value[0].name
+      if (!batchTargetGuild.value && editableGuildList.value.length > 0) batchTargetGuild.value = editableGuildList.value[0].name
     }
   }
 
@@ -1314,27 +1314,22 @@ const confirmImport = async () => {
   importProgress.value = 0
   importStatusText.value = `準備寫入【${importTargetGuild.value}】(共 ${toImportList.length} 人)...`
 
-  let successCount = 0
   const total = toImportList.length
   const { data: { session } } = await supabase.auth.getSession()
 
-  for (let i = 0; i < total; i++) {
-    const item = toImportList[i]
-    importStatusText.value = `正在寫入 [${i + 1}/${total}]: ${item.name}`
-
-    const { error } = await supabase.from('guild_members').insert([{
-      guild_id: targetGuildId,
-      name: item.name,
-      schools: item.schools || [item.school],
-      current_school: item.school,
-      status: item.status || '幫眾',
-      notes: '批次截圖/檔案導入',
-      created_by: session ? session.user.id : null
-    }])
-
-    if (!error) successCount++
-    importProgress.value = Math.round(((i + 1) / total) * 100)
-  }
+  // 一次寫入全部成員：要嘛全部成功、要嘛全部失敗，不會只匯入一半
+  importStatusText.value = `正在寫入 ${total} 人...`
+  const importResult = await supabase.from('guild_members').insert(toImportList.map(item => ({
+    guild_id: targetGuildId,
+    name: item.name,
+    schools: item.schools || [item.school],
+    current_school: item.school,
+    status: item.status || '幫眾',
+    notes: '批次截圖/檔案導入',
+    created_by: session ? session.user.id : null
+  }))).select('id')
+  const successCount = countAffected(importResult)
+  importProgress.value = 100
 
   isImporting.value = false
   isImportComplete.value = true
@@ -1365,6 +1360,15 @@ const finishBatchModal = () => {
   batchProgress.value = 0
 }
 
+// 一次送出的批量寫入：回傳實際影響的筆數（被權限擋下的資料列不會計入），失敗時提示原因
+const countAffected = ({ data, error }) => {
+  if (error) {
+    alert('操作失敗：' + error.message)
+    return 0
+  }
+  return data?.length || 0
+}
+
 const handleBatchUpdateAttributes = async () => {
   if (selectedMemberIds.value.length === 0 || isBatchProcessing.value) return
 
@@ -1388,16 +1392,9 @@ const handleBatchUpdateAttributes = async () => {
   }
 
   const total = selectedMemberIds.value.length
-  let updatedCount = 0
-
-  for (let i = 0; i < total; i++) {
-    const id = selectedMemberIds.value[i]
-    batchStatusText.value = `正在更新成員資訊 [${i + 1}/${total}]...`
-
-    if (!getWriteError(await supabase.from('guild_members').update(payload).eq('id', id).select('id'))) updatedCount++
-
-    batchProgress.value = Math.round(((i + 1) / total) * 100)
-  }
+  batchStatusText.value = `正在更新 ${total} 名成員資訊...`
+  const updatedCount = countAffected(await supabase.from('guild_members').update(payload).in('id', selectedMemberIds.value).select('id'))
+  batchProgress.value = 100
 
   isBatchProcessing.value = false
   isBatchComplete.value = true
@@ -1416,16 +1413,9 @@ const handleBatchMove = async () => {
   batchProgress.value = 0
 
   const total = selectedMemberIds.value.length
-  let moveCount = 0
-
-  for (let i = 0; i < total; i++) {
-    const id = selectedMemberIds.value[i]
-    batchStatusText.value = `正在移動成員 [${i + 1}/${total}]...`
-
-    if (!getWriteError(await supabase.from('guild_members').update({ guild_id: targetGuildId }).eq('id', id).select('id'))) moveCount++
-
-    batchProgress.value = Math.round(((i + 1) / total) * 100)
-  }
+  batchStatusText.value = `正在移動 ${total} 名成員...`
+  const moveCount = countAffected(await supabase.from('guild_members').update({ guild_id: targetGuildId }).in('id', selectedMemberIds.value).select('id'))
+  batchProgress.value = 100
 
   isBatchProcessing.value = false
   isBatchComplete.value = true
@@ -1444,16 +1434,9 @@ const handleBatchDelete = () => {
     batchProgress.value = 0
 
     const total = selectedMemberIds.value.length
-    let deleteCount = 0
-
-    for (let i = 0; i < total; i++) {
-      const id = selectedMemberIds.value[i]
-      batchStatusText.value = `正在刪除成員 [${i + 1}/${total}]...`
-
-      if (!getWriteError(await supabase.from('guild_members').delete().eq('id', id).select('id'))) deleteCount++
-
-      batchProgress.value = Math.round(((i + 1) / total) * 100)
-    }
+    batchStatusText.value = `正在刪除 ${total} 名成員...`
+    const deleteCount = countAffected(await supabase.from('guild_members').delete().in('id', selectedMemberIds.value).select('id'))
+    batchProgress.value = 100
 
     isBatchProcessing.value = false
     isBatchComplete.value = true

@@ -123,6 +123,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
+import { getWriteError } from '../../utils/writeResult'
 
 const skillCategory = ref('jueji')
 const searchSkillQuery = ref('')
@@ -355,13 +356,14 @@ const saveSkill = async () => {
     }
 
     if (!String(editingSkillId.value).startsWith('def_')) {
-      const { error } = await supabase
+      const error = getWriteError(await supabase
         .from('preparation_skills')
         .update({ content, updated_at: new Date().toISOString() })
         .eq('id', editingSkillId.value)
+        .select('id'))
 
       if (error) {
-        alert('更新失敗！請確認 Supabase 中是否已關閉 RLS：' + error.message)
+        alert('更新失敗：' + error)
         return
       }
     }
@@ -388,7 +390,7 @@ const saveSkill = async () => {
       .single()
 
     if (error) {
-      alert('新增失敗！請確認 Supabase 中已建立 preparation_skills 資料表並解除 RLS：\n' + error.message)
+      alert('新增失敗：' + error.message)
       return
     }
 
@@ -410,9 +412,9 @@ const deleteSkill = (id) => {
     `確定要刪除${skillCategoryLabel.value}「${targetName}」嗎？刪除後無法恢復。`,
     async () => {
       if (id && !String(id).startsWith('def_')) {
-        const { error } = await supabase.from('preparation_skills').delete().eq('id', id)
+        const error = getWriteError(await supabase.from('preparation_skills').delete().eq('id', id).select('id'))
         if (error) {
-          alert('刪除失敗：' + error.message)
+          alert('刪除失敗：' + error)
           return
         }
       }
