@@ -13,6 +13,7 @@
         <div class="league-header-bar">
           <h2 class="page-title">聯賽列表</h2>
           <div class="header-right-tools">
+            <button class="btn-secondary" :disabled="accessibleGuildList.length === 0" @click="currentView = 'overview'"><i class="mdi mdi-chart-bar"></i> 戰績總覽</button>
             <button class="btn-primary" :disabled="editableGuildList.length === 0" @click="openCreateView()">+ 創建聯賽</button>
           </div>
         </div>
@@ -230,6 +231,15 @@
           @back="currentView = 'list'; fetchLeaguesFromDB()"
         />
       </div>
+
+      <!-- 5. 戰績總覽（全幫排行與個人紀錄） -->
+      <div v-else-if="currentView === 'overview'">
+        <GuildStatsOverview
+          :guilds="accessibleGuildList"
+          :defaultGuildId="overviewDefaultGuildId"
+          @back="currentView = 'list'"
+        />
+      </div>
     </div>
 
     <!-- 比賽結果修改彈窗 -->
@@ -343,6 +353,7 @@ import { getWriteError } from '../utils/writeResult'
 import Navbar from '../components/layout/Navbar.vue'
 import RosterBoard from './league/RosterBoard.vue'
 import MatchStats from './league/MatchStats.vue'
+import GuildStatsOverview from './league/GuildStatsOverview.vue'
 import { isBenchEntry } from './league/rosterBench'
 
 const username = ref('VIP')
@@ -719,6 +730,9 @@ const confirmDeleteLeague = async (item) => {
   }
 }
 
+// 戰績總覽預設顯示列表上篩選中的幫會
+const overviewDefaultGuildId = computed(() => accessibleGuildList.value.find(g => g.name === filterParticipant.value)?.id || accessibleGuildList.value[0]?.id || '')
+
 const openStatsView = (item) => {
   activeLeagueForStats.value = item
   currentView.value = 'stats'
@@ -733,7 +747,7 @@ onMounted(fetchLeaguesFromDB)
 
 .league-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .page-title { margin: 0; font-size: 18px; font-weight: bold; color: #1e293b; }
-.header-right-tools { display: flex; align-items: center; }
+.header-right-tools { display: flex; align-items: center; gap: 8px; }
 
 .filter-card { background: #ffffff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
