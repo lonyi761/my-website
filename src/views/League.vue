@@ -35,8 +35,8 @@
             </select>
 
             <select v-model="filterSort" class="filter-select-sm">
-              <option value="desc">創建時間倒序</option>
-              <option value="asc">創建時間正序</option>
+              <option value="desc">最近更新（新→舊）</option>
+              <option value="asc">最近更新（舊→新）</option>
             </select>
 
             <button class="btn-query" @click="fetchLeaguesFromDB">查詢</button>
@@ -197,7 +197,6 @@
             <div class="form-row margin-v">
               <label>排表展示：</label>
               <span class="display-config-tags">全部團隊、職能、職能標籤、橙武、一線牽、錄屏</span>
-              <button type="button" class="btn-link margin-l" @click="showDisplaySettingModal = true">設置</button>
             </div>
           </div>
 

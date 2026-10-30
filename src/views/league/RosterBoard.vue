@@ -1602,16 +1602,8 @@ const openExportPreviewModal = () => {
   showExportModal.value = true
 }
 
-const loadHtml2CanvasScript = () => {
-  return new Promise((resolve, reject) => {
-    if (window.html2canvas) return resolve(window.html2canvas)
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
-    script.onload = () => resolve(window.html2canvas)
-    script.onerror = (err) => reject(err)
-    document.head.appendChild(script)
-  })
-}
+// 導出圖片套件改用已安裝的 html2canvas（不依賴外部 CDN）；用到時才載入
+const loadHtml2CanvasScript = async () => (await import('html2canvas')).default
 
 const downloadExportImage = async () => {
   const targetEl = document.querySelector('.preview-canvas-paper')
