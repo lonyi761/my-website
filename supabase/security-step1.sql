@@ -175,16 +175,21 @@ create policy rosters_update on public.guild_rosters for update to authenticated
 create policy rosters_delete on public.guild_rosters for delete to authenticated
   using (public.can_edit_guild(guild_id::text));
 
--- preparation_roles：依幫會
+-- preparation_roles：guild_id 為空＝共用職能（成員頁、排表頁會一併讀取），
+-- 規則同技能；有 guild_id 者依該幫會權限
 create policy prep_roles_select on public.preparation_roles for select to authenticated
-  using (public.can_view_guild(guild_id::text));
+  using (guild_id is null or public.can_view_guild(guild_id::text));
 create policy prep_roles_insert on public.preparation_roles for insert to authenticated
-  with check (public.can_edit_guild(guild_id::text));
+  with check (case when guild_id is null then public.has_any_edit_guild()
+                   else public.can_edit_guild(guild_id::text) end);
 create policy prep_roles_update on public.preparation_roles for update to authenticated
-  using (public.can_edit_guild(guild_id::text))
-  with check (public.can_edit_guild(guild_id::text));
+  using (case when guild_id is null then public.has_any_edit_guild()
+              else public.can_edit_guild(guild_id::text) end)
+  with check (case when guild_id is null then public.has_any_edit_guild()
+                   else public.can_edit_guild(guild_id::text) end);
 create policy prep_roles_delete on public.preparation_roles for delete to authenticated
-  using (public.can_edit_guild(guild_id::text));
+  using (case when guild_id is null then public.has_any_edit_guild()
+              else public.can_edit_guild(guild_id::text) end);
 
 -- preparation_skills：guild_id 為空＝跨幫會共用技能，登入者皆可讀，
 -- 任何幫會的編輯者都可維護；有 guild_id 者依該幫會權限
