@@ -77,6 +77,73 @@
         </div>
       </div>
 
+      <!-- 出勤對照（只看我方） -->
+      <div class="card">
+        <h3 class="card-title">出勤對照（{{ current.my_name }}）</h3>
+        <p v-if="!attendance.hasRoster" class="hint left">這場聯賽還沒有排表，只能比對成員；排好表後就會顯示誰沒上場、誰沒排卻上場。</p>
+
+        <div class="att-summary">
+          <span v-if="attendance.hasRoster" class="att-chip">排表上場 {{ attendance.seatedPlayed.length + attendance.seatedMissing.length }} 人，有出賽 {{ attendance.seatedPlayed.length }} 人</span>
+          <span v-if="attendance.hasRoster" :class="['att-chip', { warn: attendance.seatedMissing.length }]">排了沒上場 {{ attendance.seatedMissing.length }}</span>
+          <span v-if="attendance.hasRoster" class="att-chip">候補上場 {{ attendance.subsPlayed.length }}</span>
+          <span :class="['att-chip', { warn: attendance.hasRoster && attendance.unplanned.length }]">{{ attendance.hasRoster ? '沒排卻上場' : '已對應成員' }} {{ attendance.hasRoster ? attendance.unplanned.length : linkedCount }}</span>
+          <span v-if="attendance.hasRoster" :class="['att-chip', { warn: attendance.absentPlayed.length }]">登記不出席卻上場 {{ attendance.absentPlayed.length }}</span>
+          <span v-if="attendance.hasRoster" class="att-chip">不出席（確實沒上） {{ attendance.absentConfirmed }}</span>
+          <span :class="['att-chip', { warn: attendance.unlinked.length }]">未對應成員 {{ attendance.unlinked.length }}</span>
+        </div>
+
+        <div class="att-groups">
+          <div v-if="attendance.seatedMissing.length" class="att-group">
+            <div class="att-group-title warn">排了沒上場</div>
+            <span v-for="p in attendance.seatedMissing" :key="'miss_' + p.memberId" class="att-name">{{ p.name }}<small v-if="p.place">{{ p.place }}</small></span>
+          </div>
+          <div v-if="attendance.absentPlayed.length" class="att-group">
+            <div class="att-group-title warn">登記不出席卻上場</div>
+            <span v-for="p in attendance.absentPlayed" :key="'abs_' + p.memberId" class="att-name">{{ p.name }}<small v-if="p.csvName !== p.name">遊戲內：{{ p.csvName }}</small></span>
+          </div>
+          <div v-if="attendance.hasRoster && attendance.unplanned.length" class="att-group">
+            <div class="att-group-title warn">沒排卻上場</div>
+            <span v-for="p in attendance.unplanned" :key="'unp_' + p.memberId" class="att-name">
+              {{ p.name }}<small v-if="p.otherGuild">{{ guildName(p.otherGuild) }}</small><small v-if="p.csvName !== p.name">遊戲內：{{ p.csvName }}</small>
+            </span>
+          </div>
+          <div v-if="attendance.subsPlayed.length" class="att-group">
+            <div class="att-group-title">候補上場</div>
+            <span v-for="p in attendance.subsPlayed" :key="'sub_' + p.memberId" class="att-name">{{ p.name }}</span>
+          </div>
+        </div>
+
+        <!-- 對應不到成員的玩家 -->
+        <div v-if="attendance.unlinked.length || manualLinkRows.length" class="link-box">
+          <div class="link-head">
+            <div class="att-group-title">成員對應</div>
+            <label v-if="canEdit" class="check-line small">
+              <input type="checkbox" v-model="rememberLink" />
+              指定後把遊戲名稱加入該成員的曾用名，下次自動對應
+            </label>
+          </div>
+          <p v-if="attendance.unlinked.length && !canEdit" class="hint left">以下玩家對應不到成員，需要編輯權限才能手動指定。</p>
+
+          <div v-for="p in attendance.unlinked" :key="'ul_' + p.name" class="link-row">
+            <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
+            <span class="link-reason">{{ p.how === 'ambiguous' ? '有多位同名成員' : '找不到成員' }}</span>
+            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="setLink(p.name, $event.target.value)">
+              <option value="">選擇成員…</option>
+              <option :value="NOT_MEMBER">非幫會成員（外援）</option>
+              <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
+                <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div v-for="row in manualLinkRows" :key="'ml_' + row.csvName" class="link-row done">
+            <span class="link-csv">{{ row.csvName }}</span>
+            <span class="link-reason">{{ row.label }}</span>
+            <button v-if="canEdit" class="btn-link" :disabled="isLinking" @click="setLink(row.csvName, '')">取消對應</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 各項最高 -->
       <div class="card">
         <h3 class="card-title">各項最高</h3>
@@ -127,7 +194,14 @@
             <tbody>
               <tr v-for="(p, i) in tableRows" :key="p.name + '_' + i">
                 <td class="col-rank">{{ i + 1 }}</td>
-                <td class="col-name">{{ p.name }}</td>
+                <td class="col-name">
+                  {{ p.name }}
+                  <template v-if="tableSide === 'my'">
+                    <span v-if="linkByName[p.name]?.how === 'notMember'" class="name-tag">外援</span>
+                    <span v-else-if="!linkByName[p.name]?.memberId" class="name-tag warn">未對應</span>
+                    <span v-else-if="memberById.get(linkByName[p.name].memberId)?.name !== p.name" class="name-tag">成員：{{ memberById.get(linkByName[p.name].memberId)?.name }}</span>
+                  </template>
+                </td>
                 <td>{{ p.job }}</td>
                 <td v-for="f in STAT_FIELDS" :key="f.key" :class="{ zero: !p[f.key] }">{{ p[f.key] ? formatStat(p[f.key]) : '—' }}</td>
               </tr>
@@ -189,6 +263,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
 import { parseMatchCsv, formatStat, STAT_FIELDS } from '../../utils/matchStatsCsv'
+import { linkPlayers, readRosterPlacement, buildAttendance, NOT_MEMBER } from '../../utils/matchAttendance'
 
 const props = defineProps({
   leagueItem: { type: Object, required: true },
@@ -213,6 +288,13 @@ const searchName = ref('')
 const sortKey = ref('pvp')
 const sortDesc = ref(true)
 
+// 成員對應與出勤
+const members = ref([])
+const guilds = ref([])
+const rosterTeams = ref([])
+const rememberLink = ref(true)
+const isLinking = ref(false)
+
 const statsByIndex = computed(() => Object.fromEntries(statsRows.value.map(r => [r.match_index, r])))
 const current = computed(() => statsByIndex.value[activeIndex.value] || null)
 
@@ -222,6 +304,40 @@ const resultBadgeClass = computed(() => {
   if (res === '對方贏') return 'badge-loss'
   return 'badge-gray'
 })
+
+const memberById = computed(() => new Map(members.value.map(m => [m.id, m])))
+const guildName = (id) => guilds.value.find(g => g.id === id)?.name || '其他幫會'
+
+const linkedPlayers = computed(() => current.value
+  ? linkPlayers(current.value.my_players, members.value, props.leagueItem.guild_id, current.value.member_links || {})
+  : [])
+const linkByName = computed(() => Object.fromEntries(linkedPlayers.value.map(p => [p.name, p])))
+const linkedCount = computed(() => linkedPlayers.value.filter(p => p.memberId).length)
+const attendance = computed(() => buildAttendance(linkedPlayers.value, readRosterPlacement(rosterTeams.value), memberById.value, props.leagueItem.guild_id))
+
+const manualLinkRows = computed(() => Object.entries(current.value?.member_links || {}).map(([csvName, id]) => ({
+  csvName,
+  label: id === NOT_MEMBER ? '已標記為外援' : `已指定為 ${memberById.value.get(id)?.name || '（已刪除的成員）'}`
+})))
+
+// 手動指定的選單：同名候選、本幫同職業、本幫其他、其他幫會；已對應的成員不再列出
+const linkOptions = (player) => {
+  const ownGuild = props.leagueItem.guild_id
+  const taken = new Set(linkedPlayers.value.filter(p => p.memberId).map(p => p.memberId))
+  const withLabel = (m) => ({
+    ...m,
+    label: m.guild_id === ownGuild ? `${m.name}${m.current_school ? '（' + m.current_school + '）' : ''}` : `${m.name}・${guildName(m.guild_id)}`
+  })
+  const free = members.value.filter(m => !taken.has(m.id)).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'))
+  const own = free.filter(m => m.guild_id === ownGuild)
+  const sameJob = own.filter(m => m.current_school === player.job || (m.schools || []).includes(player.job))
+  return [
+    { label: '可能是', members: (player.candidates || []).map(id => memberById.value.get(id)).filter(Boolean) },
+    { label: `本幫・${player.job}`, members: sameJob },
+    { label: '本幫其他成員', members: own.filter(m => !sameJob.includes(m)) },
+    { label: '其他幫會', members: free.filter(m => m.guild_id !== ownGuild) }
+  ].filter(g => g.members.length).map(g => ({ ...g, members: g.members.map(withLabel) }))
+}
 
 const sumOf = (players, key) => players.reduce((s, p) => s + (Number(p[key]) || 0), 0)
 
@@ -297,6 +413,45 @@ const fetchStats = async () => {
   if (error) alert('讀取戰績數據失敗：' + error.message)
   statsRows.value = data || []
   isLoading.value = false
+}
+
+// 成員（所有看得到的幫會，供跨幫對應）與本聯賽排表
+const fetchContext = async () => {
+  const [membersRes, guildsRes, rosterRes] = await Promise.all([
+    supabase.from('guild_members').select('id, name, former_names, guild_id, current_school, schools'),
+    supabase.from('guilds').select('id, name'),
+    supabase.from('guild_rosters').select('matrix_teams').eq('id', props.leagueItem.id).maybeSingle()
+  ])
+  if (membersRes.error) alert('讀取成員失敗：' + membersRes.error.message)
+  members.value = membersRes.data || []
+  guilds.value = guildsRes.data || []
+  rosterTeams.value = rosterRes.data?.matrix_teams || []
+}
+
+// value：成員 id、NOT_MEMBER，或空字串（取消手動對應）
+const setLink = async (csvName, value) => {
+  const row = current.value
+  if (!row || isLinking.value) return
+  isLinking.value = true
+  const links = { ...(row.member_links || {}) }
+  if (value) links[csvName] = value
+  else delete links[csvName]
+
+  const error = getWriteError(await supabase.from('match_stats').update({ member_links: links }).eq('id', row.id).select('id'))
+  if (error) {
+    isLinking.value = false
+    return alert('保存對應失敗：' + error)
+  }
+  row.member_links = links
+
+  const member = value && value !== NOT_MEMBER ? memberById.value.get(value) : null
+  if (member && rememberLink.value && member.name !== csvName && !(member.former_names || []).includes(csvName)) {
+    const formerNames = [...(member.former_names || []), csvName]
+    const nameError = getWriteError(await supabase.from('guild_members').update({ former_names: formerNames }).eq('id', member.id).select('id'))
+    if (nameError) alert('對應已保存，但加入曾用名失敗：' + nameError)
+    else member.former_names = formerNames
+  }
+  isLinking.value = false
 }
 
 const pickFile = () => {
@@ -375,7 +530,10 @@ const deleteStats = async () => {
   await fetchStats()
 }
 
-onMounted(fetchStats)
+onMounted(() => {
+  fetchStats()
+  fetchContext()
+})
 </script>
 
 <style scoped>
@@ -421,6 +579,31 @@ onMounted(fetchStats)
 .job-side.my { color: #2563eb; }
 .job-side.opp { color: #dc2626; }
 .job-chip { background: #f1f5f9; color: #334155; padding: 2px 8px; border-radius: 10px; }
+
+.hint.left { text-align: left; margin: 0 0 10px; }
+.att-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.att-chip { background: #f1f5f9; color: #334155; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+.att-chip.warn { background: #fef3c7; color: #b45309; font-weight: bold; }
+.att-groups { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.att-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.att-group-title { font-size: 12px; font-weight: bold; color: #475569; width: 100%; }
+.att-group-title.warn { color: #b45309; }
+.att-name { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 8px; font-size: 12px; color: #1e293b; display: inline-flex; gap: 6px; align-items: baseline; }
+.att-name small { color: #94a3b8; font-size: 11px; }
+.link-box { margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 8px; }
+.link-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.link-head .att-group-title { width: auto; }
+.check-line.small { margin-top: 0; font-size: 12px; color: #64748b; }
+.link-row { display: grid; grid-template-columns: minmax(120px, 1fr) 110px minmax(160px, 1.4fr); gap: 10px; align-items: center; font-size: 13px; }
+.link-row.done { color: #64748b; }
+.link-csv { font-weight: bold; color: #1e293b; }
+.link-csv small { color: #94a3b8; font-weight: normal; }
+.link-reason { font-size: 12px; color: #b45309; }
+.link-row.done .link-reason { color: #64748b; }
+.link-row .btn-link { justify-self: start; color: #2563eb; }
+.link-select { border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; font-size: 13px; max-width: 100%; }
+.name-tag { margin-left: 6px; font-size: 10px; font-weight: normal; color: #64748b; background: #f1f5f9; padding: 1px 6px; border-radius: 8px; }
+.name-tag.warn { color: #b45309; background: #fef3c7; }
 
 .mvp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .mvp-item { display: grid; grid-template-columns: 76px 1fr auto; grid-template-rows: auto auto; column-gap: 8px; padding: 8px 10px; border: 1px solid #f1f5f9; border-radius: 8px; font-size: 12px; align-items: center; }
@@ -485,5 +668,6 @@ onMounted(fetchStats)
   .vs-row { grid-template-columns: 64px 1fr 64px; }
   .info-actions { margin-left: 0; }
   .search-input { width: 100%; }
+  .link-row { grid-template-columns: 1fr; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid #f1f5f9; }
 }
 </style>
