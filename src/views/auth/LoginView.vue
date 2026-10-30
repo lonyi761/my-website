@@ -16,7 +16,7 @@
             type="text" 
             v-model="username" 
             required 
-            placeholder="請輸入帳號 ID" 
+            :placeholder="isRegister ? '英文字母、數字、底線（_）' : '請輸入帳號 ID'" 
             class="auth-input" 
           />
         </div>
@@ -71,15 +71,19 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { supabase } from '../../utils/supabase'
+import { getAccountBlockReason, getAccountBlockMessage, ACCOUNT_ID_PATTERN } from '../../utils/accountStatus'
 
 const emit = defineEmits(['login-success'])
+const route = useRoute()
 
 const isRegister = ref(false)
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
-const errorMessage = ref('')
+// 由 App.vue 因停權／到期強制登出時，帶入原因
+const errorMessage = ref(route.query.reason ? getAccountBlockMessage(String(route.query.reason)) : '')
 const showSuccessModal = ref(false)
 
 const toggleMode = () => {
@@ -96,6 +100,12 @@ const handleSubmit = async () => {
   const accountId = username.value.trim()
   if (!accountId) {
     errorMessage.value = '請輸入帳號 ID！'
+    return
+  }
+
+  // 註冊時嚴格檢查；登入不檢查，以相容過去含其他字元註冊的帳號
+  if (isRegister.value && !ACCOUNT_ID_PATTERN.test(accountId)) {
+    errorMessage.value = '帳號 ID 只能使用英文字母、數字與底線（_），不分大小寫。'
     return
   }
 
@@ -123,40 +133,17 @@ const handleSubmit = async () => {
       })
       if (authError) throw authError
 
-      let { data: profile } = await supabase
+      // 帳號資料由註冊時的資料庫觸發器建立；找不到代表已被總管理員刪除，不再自動重建
+      const { data: profile } = await supabase
         .from('profiles')
         .select('*, guilds(*)')
         .eq('id', authData.user.id)
         .maybeSingle()
 
-      if (!profile) {
-        const defaultExpire = new Date()
-        defaultExpire.setDate(defaultExpire.getDate() + 7)
-
-        const defaultProfile = {
-          id: authData.user.id,
-          email: internalEmail,
-          username: accountId,
-          role: 'member',
-          expire_at: defaultExpire.toISOString()
-        }
-
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .upsert([defaultProfile])
-          .select('*, guilds(*)')
-          .maybeSingle()
-
-        profile = newProfile || defaultProfile
-      }
-
-      const expireAtStr = profile?.expire_at || new Date(Date.now() + 7 * 86400000).toISOString()
-      const now = new Date()
-      const expireDate = new Date(expireAtStr)
-
-      if (profile?.role !== 'super_admin' && expireDate < now) {
+      const blockReason = getAccountBlockReason(profile)
+      if (blockReason) {
         await supabase.auth.signOut()
-        throw new Error(`您的 7 天免費試用已於 ${expireAtStr.split('T')[0]} 到期，請聯繫總管理員開通續期！`)
+        throw new Error(getAccountBlockMessage(blockReason, profile))
       }
 
       emit('login-success', { user: authData.user, profile })
