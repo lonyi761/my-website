@@ -1145,6 +1145,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../../utils/supabase'
+import { getWriteError } from '../../utils/writeResult'
 import RosterSidebar from './components/RosterSidebar.vue'
 import RosterMatrixView from './components/RosterMatrixView.vue'
 import RosterTableView from './components/RosterTableView.vue'
@@ -1499,21 +1500,44 @@ const fetchRosterDataFromDB = async () => {
 
   await fetchPrepDataFromDB(targetGuildId)
 
-  const { data: membersData, error: memberErr } = await supabase.from('guild_members').select('*')
+  await fetchGuildMembersFromDB()
+
+  let rosterData = null
+  if (props.leagueItem?.id) {
+    const { data } = await supabase
+      .from('guild_rosters')
+      .select('*')
+      .eq('id', props.leagueItem.id)
+      .maybeSingle()
+    rosterData = data
+  }
+
+  if (rosterData) topNoteText.value = rosterData.notes || ''
+
+  if (rosterData && rosterData.matrix_teams && rosterData.matrix_teams.length > 0) {
+    const { teams, bench } = splitBenchFromTeams(rosterData.matrix_teams)
+    if (teams.length > 0) matrixTeams.value = teams
+    benchSeats.value = bench
+    updateMembersAssignedStatus()
+  }
+}
+
+// 只重新載入本幫會成員（新增／編輯成員後使用），不覆蓋尚未保存的排表
+const fetchGuildMembersFromDB = async () => {
+  const targetGuildId = currentGuildId.value
+  const targetGuildName = leagueInfo.value.guild
+  if (!targetGuildId) {
+    allMembers.value = []
+    return
+  }
+
+  const { data: membersData, error: memberErr } = await supabase
+    .from('guild_members')
+    .select('*')
+    .eq('guild_id', targetGuildId)
 
   if (!memberErr && membersData) {
-    let matchedMembers = membersData.filter(m => {
-      if (targetGuildId && m.guild_id === targetGuildId) return true
-      const mGuildName = guildsData?.find(g => g.id === m.guild_id)?.name
-      if (targetGuildName && mGuildName === targetGuildName) return true
-      return false
-    })
-
-    if (matchedMembers.length === 0 && membersData.length > 0) {
-      matchedMembers = membersData
-    }
-
-    allMembers.value = matchedMembers.map(m => {
+    allMembers.value = membersData.map(m => {
       const currSch = (m.current_school || m.currentSchool || (m.schools && m.schools[0]) || '鐵衣').trim()
       const schList = (m.schools && m.schools.length > 0) ? m.schools : [currSch]
       return {
@@ -1536,45 +1560,24 @@ const fetchRosterDataFromDB = async () => {
 
     updateMembersAssignedStatus()
   }
-
-  let rosterData = null
-  if (props.leagueItem?.id) {
-    const { data } = await supabase
-      .from('guild_rosters')
-      .select('*')
-      .eq('id', props.leagueItem.id)
-      .maybeSingle()
-    rosterData = data
-  }
-
-  if (rosterData) topNoteText.value = rosterData.notes || ''
-
-  if (rosterData && rosterData.matrix_teams && rosterData.matrix_teams.length > 0) {
-    const { teams, bench } = splitBenchFromTeams(rosterData.matrix_teams)
-    if (teams.length > 0) matrixTeams.value = teams
-    benchSeats.value = bench
-    updateMembersAssignedStatus()
-  }
 }
 
 const saveRosterBoard = async () => {
   if (!canEditCurrentGuild.value) return alert('您目前僅具備該幫會之查看權限，無法保存陣容！')
+  if (!props.leagueItem?.id) return alert('找不到對應的聯賽，無法保存陣容！')
   isSaving.value = true
   try {
-    let error = null
-    if (props.leagueItem?.id) {
-      const res = await supabase
-        .from('guild_rosters')
-        .update({
-          matrix_teams: mergeBenchIntoTeams(matrixTeams.value, benchSeats.value),
-          notes: topNoteText.value.trim(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', props.leagueItem.id)
-      error = res.error
-    }
+    const error = getWriteError(await supabase
+      .from('guild_rosters')
+      .update({
+        matrix_teams: mergeBenchIntoTeams(matrixTeams.value, benchSeats.value),
+        notes: topNoteText.value.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', props.leagueItem.id)
+      .select('id'))
 
-    if (error) throw error
+    if (error) throw new Error(error)
     alert('陣容成功儲存至雲端資料庫！同幫會成員登入即可看到最新排表。')
   } catch (err) {
     console.error('儲存失敗:', err)
@@ -1693,7 +1696,7 @@ const saveNewMember = async () => {
     if (error) return alert('新增成員失敗：' + error.message)
   }
 
-  await fetchRosterDataFromDB()
+  await fetchGuildMembersFromDB()
   showAddMemberModal.value = false
 }
 
@@ -2102,17 +2105,18 @@ const saveFullMemberEdit = async () => {
   }
 
   if (editingMemberRef.value?.id) {
-    const { error } = await supabase
+    const error = getWriteError(await supabase
       .from('guild_members')
       .update(payload)
       .eq('id', editingMemberRef.value.id)
+      .select('id'))
 
     if (error) {
-      return alert('編輯成員同步至資料庫失敗：' + error.message)
+      return alert('編輯成員同步至資料庫失敗：' + error)
     }
   }
 
-  await fetchRosterDataFromDB()
+  await fetchGuildMembersFromDB()
   showMemberEditModal.value = false
 }
 
@@ -2321,8 +2325,10 @@ const saveBatchEdit = () => {
 const confirmClearRoster = () => {
   if (!canEditCurrentGuild.value) return
   showOtherOpsDropdown.value = false
+  // 清除先前被取消的動作（例如移除團隊），避免按確定時執行到錯誤的動作
+  confirmActionCallback = null
   confirmTitle.value = '清空陣容'
-  confirmMessage.value = '將清空本場全部排表，頁面會刷新；此操作不可撤銷。'
+  confirmMessage.value = '將清空本場全部席位與候補／不出席區；按「保存陣容」後才會寫入資料庫。'
   showConfirmModal.value = true
 }
 

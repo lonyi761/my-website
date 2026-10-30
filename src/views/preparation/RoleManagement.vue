@@ -113,6 +113,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
+import { getWriteError } from '../../utils/writeResult'
 
 const roleCategory = ref('personal')
 const currentGuildId = ref(null)
@@ -285,7 +286,11 @@ const onDrop = async (targetIndex) => {
 
 const toggleTagSwitch = async (role) => {
   if (role.id && !String(role.id).startsWith('def_')) {
-    await supabase.from('preparation_roles').update({ is_enabled: role.tagSwitch }).eq('id', role.id)
+    const error = getWriteError(await supabase.from('preparation_roles').update({ is_enabled: role.tagSwitch }).eq('id', role.id).select('id'))
+    if (error) {
+      role.tagSwitch = !role.tagSwitch
+      alert('切換失敗：' + error)
+    }
   }
 }
 
@@ -319,13 +324,14 @@ const saveRole = async () => {
 
   if (editingRoleId.value && !String(editingRoleId.value).startsWith('def_')) {
     // 編輯已有資料
-    const { error } = await supabase
+    const error = getWriteError(await supabase
       .from('preparation_roles')
       .update({ name, description: desc })
       .eq('id', editingRoleId.value)
+      .select('id'))
 
     if (error) {
-      alert('更新失敗，請確認 SQL 資料庫是否正確建立：' + error.message)
+      alert('更新失敗：' + error)
       return
     }
   } else {
@@ -343,7 +349,7 @@ const saveRole = async () => {
       }])
 
     if (error) {
-      alert('新增失敗！請確認 Supabase 中已建立 preparation_roles 資料表：\n' + error.message)
+      alert('新增失敗：' + error.message)
       return
     }
   }
@@ -363,9 +369,9 @@ const deleteRole = (id) => {
     `確定要刪除${categoryName}「${targetName}」嗎？刪除後無法恢復。`,
     async () => {
       if (id && !String(id).startsWith('def_')) {
-        const { error } = await supabase.from('preparation_roles').delete().eq('id', id)
+        const error = getWriteError(await supabase.from('preparation_roles').delete().eq('id', id).select('id'))
         if (error) {
-          alert('刪除失敗：' + error.message)
+          alert('刪除失敗：' + error)
           return
         }
       }
