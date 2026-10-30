@@ -11,12 +11,23 @@
       <router-link to="/preparation" :class="['nav-item', { active: activeNav === 'preparation' }]">戰備</router-link>
     </nav>
 
-    <!-- 右上角用戶選單 -->
+    <!-- 右上角：控制台入口＋用戶選單（原本的深色帳號列已整合到這裡） -->
+    <div class="nav-right">
+      <button v-if="isSuperAdmin" class="btn-admin-nav" @click="account.openAdminView()">
+        <i class="mdi mdi-cog-outline"></i> 總管理員控制台
+      </button>
+
     <div class="user-menu-wrapper" @click.stop="showDropdown = !showDropdown">
-      <span class="user-name">{{ username || 'VIP' }}</span>
+      <span v-if="roleName" :class="['user-role-badge', profile?.role]">{{ roleName }}</span>
+      <span class="user-name">{{ displayName }}</span>
       <i :class="['mdi', 'mdi-chevron-down', 'arrow-icon', { rotate: showDropdown }]"></i>
 
       <div v-if="showDropdown" class="user-dropdown-menu" @click.stop>
+        <div class="account-info">
+          <div class="account-info-row"><span>登入帳號</span><b>{{ username || '—' }}</b></div>
+          <div class="account-info-row"><span>授權幫會</span><b>{{ guildNames || '—' }}</b></div>
+          <div class="account-info-row"><span>到期日</span><b>{{ expireDate }}</b></div>
+        </div>
         <button class="dropdown-item-btn" @click="openProfileModal">
           <i class="mdi mdi-account-outline margin-r"></i> 個人資料
         </button>
@@ -24,6 +35,7 @@
           <i class="mdi mdi-logout margin-r"></i> 登出
         </button>
       </div>
+    </div>
     </div>
 
     <!-- 個人資料 / 修改密碼 Modal -->
@@ -36,9 +48,10 @@
 
         <div class="modal-body">
           <div class="form-row">
-            <label>帳號名稱：</label>
-            <input type="text" v-model="profileForm.username" placeholder="請輸入帳號名稱" class="input-field" />
+            <label>顯示名稱：</label>
+            <input type="text" v-model="profileForm.username" placeholder="請輸入顯示名稱" class="input-field" />
           </div>
+          <p class="field-hint">只會改變顯示的名稱，登入時仍使用原本的帳號 ID（{{ username }}）。</p>
 
           <hr class="divider-line" />
           <div class="section-sub-title">修改密碼 (若無須修改可留空)</div>
@@ -72,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../utils/supabase'
 
@@ -82,6 +95,18 @@ const props = defineProps({
 })
 
 const router = useRouter()
+
+// 由 App.vue 提供的帳號資訊（登入頁以外的頁面都有）
+const account = inject('account', null)
+const profile = computed(() => account?.profile.value || null)
+const guildNames = computed(() => account?.guildNames.value || '')
+const roleName = computed(() => (profile.value ? account.roleName.value : ''))
+const isSuperAdmin = computed(() => profile.value?.role === 'super_admin')
+const displayName = computed(() => profile.value?.username || props.username || '')
+const expireDate = computed(() => {
+  if (profile.value?.role === 'super_admin') return '永久'
+  return profile.value?.expire_at ? profile.value.expire_at.split('T')[0] : '—'
+})
 const showDropdown = ref(false)
 const showProfileModal = ref(false)
 const isSaving = ref(false)
@@ -99,7 +124,7 @@ const closeDropdown = () => { showDropdown.value = false }
 const openProfileModal = () => {
   showDropdown.value = false
   profileForm.value = {
-    username: props.username || '',
+    username: displayName.value,
     oldPassword: '',
     newPassword: '',
     confirmPassword: ''
@@ -108,8 +133,9 @@ const openProfileModal = () => {
 }
 
 const handleLogout = async () => {
+  showDropdown.value = false
+  if (account) return account.logout()
   await supabase.auth.signOut()
-  localStorage.removeItem('user')
   router.push('/login')
 }
 
@@ -121,7 +147,7 @@ const saveProfile = async () => {
   const newName = profileForm.value.username.trim()
   const { oldPassword, newPassword, confirmPassword } = profileForm.value
 
-  if (!newName) return alert('請輸入帳號名稱！')
+  if (!newName) return alert('請輸入顯示名稱！')
 
   // 若使用者填寫了新密碼，進行舊密碼驗證流程
   if (newPassword || oldPassword) {
@@ -279,6 +305,18 @@ onMounted(() => {
 }
 .margin-r { margin-right: 6px; }
 .text-red { color: #ef4444; }
+
+.nav-right { display: flex; align-items: center; gap: 10px; }
+.btn-admin-nav { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.btn-admin-nav:hover { background: #fde68a; }
+.user-role-badge { font-size: 10px; color: #fff; background: #64748b; padding: 1px 6px; border-radius: 4px; }
+.user-role-badge.super_admin { background: #ef4444; }
+.user-role-badge.guild_admin { background: #3b82f6; }
+.account-info { padding: 8px 16px 10px; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; min-width: 260px; }
+.account-info-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: #94a3b8; padding: 2px 0; }
+.account-info-row span { white-space: nowrap; }
+.account-info-row b { color: #334155; font-weight: 600; text-align: right; }
+.field-hint { margin: -6px 0 10px; font-size: 11px; color: #94a3b8; }
 
 /* Modal 通用 */
 .modal-overlay {

@@ -1105,21 +1105,15 @@ const finishImportModal = () => {
 
 const triggerFileUpload = () => { fileInput.value.click() }
 
-const loadXLSXScript = () => {
-  return new Promise((resolve) => {
-    if (window.XLSX) return resolve(window.XLSX)
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-    script.onload = () => resolve(window.XLSX)
-    document.head.appendChild(script)
-  })
-}
+// Excel 解析套件（SheetJS 0.20.3，修正 0.18.5 的安全漏洞）；用到時才載入
+const loadXLSXScript = () => import('xlsx')
 
 const loadTesseractScript = () => {
   return new Promise((resolve) => {
     if (window.Tesseract) return resolve(window.Tesseract)
     const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
+    // 鎖定完整版本，避免 CDN 更新時行為突然改變
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'
     script.onload = () => resolve(window.Tesseract)
     script.onerror = () => resolve(null)
     document.head.appendChild(script)

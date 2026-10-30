@@ -1,30 +1,6 @@
 <template>
   <div id="app">
-    <!-- 全局頂部用戶狀態列 (登入頁不顯示) -->
-    <header v-if="currentUser && $route.path !== '/login'" class="global-user-bar">
-      <div class="user-info">
-        <span class="user-email">帳號：{{ userProfile?.username || userProfile?.email?.split('@')[0] }}</span>
-        <span class="user-guild">授權幫會：{{ assignedGuildNamesDisplay }}</span>
-        <span class="user-role-badge" :class="userProfile?.role">
-          {{ getRoleName(userProfile?.role) }}
-        </span>
-        <span class="expire-tag">
-          到期日：{{ userProfile?.expire_at ? userProfile.expire_at.split('T')[0] : '—' }}
-        </span>
-      </div>
-
-      <div class="user-actions">
-        <button 
-          v-if="userProfile?.role === 'super_admin'" 
-          class="btn-admin-nav"
-          @click="isAdminView = !isAdminView"
-        >
-          {{ isAdminView ? '返回系統' : '⚙️ 總管理員控制台' }}
-        </button>
-        <button class="btn-logout" @click="handleLogout">登出</button>
-      </div>
-    </header>
-
+    <!-- 帳號資訊、控制台入口與登出已整合到各頁頂部的 Navbar（透過 provide 提供） -->
     <AdminDashboard 
       v-if="isAdminView && userProfile?.role === 'super_admin'" 
       @back="isAdminView = false" 
@@ -38,7 +14,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from './utils/supabase'
 import AdminDashboard from './views/admin/AdminDashboard.vue'
@@ -133,17 +109,18 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
+// 提供給 Navbar：同一條頂部列顯示帳號、角色、授權幫會、到期日、控制台入口與登出
+provide('account', {
+  profile: userProfile,
+  guildNames: assignedGuildNamesDisplay,
+  roleName: computed(() => getRoleName(userProfile.value?.role)),
+  openAdminView: () => { isAdminView.value = true },
+  logout: handleLogout
+})
+
 onMounted(checkSession)
 </script>
 
 <style>
 #app { min-height: 100vh; background-color: #f4f6f9; }
-.global-user-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #1e293b; color: white; font-size: 12px; }
-.user-info { display: flex; align-items: center; gap: 12px; }
-.user-role-badge { background: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
-.user-role-badge.super_admin { background: #ef4444; }
-.user-role-badge.guild_admin { background: #3b82f6; }
-.expire-tag { color: #cbd5e1; }
-.btn-admin-nav { background: #eab308; color: #1e293b; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 8px; }
-.btn-logout { background: #475569; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
 </style>
