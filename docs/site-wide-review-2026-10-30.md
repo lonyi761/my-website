@@ -164,7 +164,7 @@ supabase-js 失敗時不會丟出例外，但多數地方只 `await` 不看 `err
 
 | 順序 | 內容 | 說明 |
 |---|---|---|
-| **1（盡快）** | S1、S2、S4、D1 | 🛠 程式已處理；RLS 的 SQL 需在 Supabase 執行，見 [`security-step1-guide.md`](security-step1-guide.md) |
+| **1（盡快）** | S1、S2、S4、D1 | ✅ 資料庫權限已於 2026-10-30 在 Supabase 套用並驗證；S4、D1 隨 PR #2 合併生效。見 [`security-step1-guide.md`](security-step1-guide.md) |
 | 2 | S3、D2、D3、M4、M5、M7 | 停權／到期／刪除真正生效、批量勾選、帳號規則、錯誤提示、權限按鈕 |
 | 3 | M1、M2、M3、排表 #1 #2 #3 | 效能與排表資料遺失 |
 | 4 | D4、模板／報名問題接資料庫 | 中型功能 |
