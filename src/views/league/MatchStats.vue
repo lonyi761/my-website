@@ -114,7 +114,7 @@
         </div>
 
         <!-- 對應不到成員的玩家 -->
-        <div v-if="attendance.unlinked.length || manualLinkRows.length" class="link-box">
+        <div v-if="attendance.unlinked.length || manualLinkRows.length || pastLinkRows.length" class="link-box">
           <div class="link-head">
             <div class="att-group-title">成員對應</div>
             <label v-if="canEdit" class="check-line small">
@@ -130,6 +130,19 @@
             <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="setLink(p.name, $event.target.value)">
               <option value="">選擇成員…</option>
               <option :value="NOT_MEMBER">非幫會成員（外援）</option>
+              <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
+                <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- 沿用其他場次的手動指定；這一場要改可直接另選，只影響這一場 -->
+          <div v-for="p in pastLinkRows" :key="'pl_' + p.name" class="link-row done">
+            <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
+            <span class="link-reason">{{ p.label }}</span>
+            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="setLink(p.name, $event.target.value)">
+              <option value="">這一場改為…</option>
+              <option v-if="p.how !== 'pastNotMember'" :value="NOT_MEMBER">非幫會成員（外援）</option>
               <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
                 <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
               </optgroup>
@@ -197,7 +210,7 @@
                 <td class="col-name">
                   {{ p.name }}
                   <template v-if="tableSide === 'my'">
-                    <span v-if="linkByName[p.name]?.how === 'notMember'" class="name-tag">外援</span>
+                    <span v-if="isNotMemberLink(linkByName[p.name]?.how)" class="name-tag">外援</span>
                     <span v-else-if="!linkByName[p.name]?.memberId" class="name-tag warn">未對應</span>
                     <span v-else-if="memberById.get(linkByName[p.name].memberId)?.name !== p.name" class="name-tag">成員：{{ memberById.get(linkByName[p.name].memberId)?.name }}</span>
                   </template>
@@ -263,7 +276,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
 import { parseMatchCsv, formatStat, STAT_FIELDS } from '../../utils/matchStatsCsv'
-import { linkPlayers, readRosterPlacement, buildAttendance, NOT_MEMBER } from '../../utils/matchAttendance'
+import { linkPlayers, readRosterPlacement, buildAttendance, collectPastLinks, isNotMemberLink, NOT_MEMBER } from '../../utils/matchAttendance'
 
 const props = defineProps({
   leagueItem: { type: Object, required: true },
@@ -292,6 +305,7 @@ const sortDesc = ref(true)
 const members = ref([])
 const guilds = ref([])
 const rosterTeams = ref([])
+const guildLinkRows = ref([])
 const rememberLink = ref(true)
 const isLinking = ref(false)
 
@@ -309,7 +323,7 @@ const memberById = computed(() => new Map(members.value.map(m => [m.id, m])))
 const guildName = (id) => guilds.value.find(g => g.id === id)?.name || '其他幫會'
 
 const linkedPlayers = computed(() => current.value
-  ? linkPlayers(current.value.my_players, members.value, props.leagueItem.guild_id, current.value.member_links || {})
+  ? linkPlayers(current.value.my_players, members.value, props.leagueItem.guild_id, current.value.member_links || {}, collectPastLinks(guildLinkRows.value, current.value.id))
   : [])
 const linkByName = computed(() => Object.fromEntries(linkedPlayers.value.map(p => [p.name, p])))
 const linkedCount = computed(() => linkedPlayers.value.filter(p => p.memberId).length)
@@ -317,8 +331,19 @@ const attendance = computed(() => buildAttendance(linkedPlayers.value, readRoste
 
 const manualLinkRows = computed(() => Object.entries(current.value?.member_links || {}).map(([csvName, id]) => ({
   csvName,
-  label: id === NOT_MEMBER ? '已標記為外援' : `已指定為 ${memberById.value.get(id)?.name || '（已刪除的成員）'}`
+  label: id === NOT_MEMBER ? '已標記為外援' : `已指定為 ${memberLabel(id)}`
 })))
+
+// 他幫成員附上幫會名，同名時才分得出是哪一位
+function memberLabel (id) {
+  const m = memberById.value.get(id)
+  if (!m) return '（已刪除的成員）'
+  return m.guild_id === props.leagueItem.guild_id ? m.name : `${m.name}・${guildName(m.guild_id)}`
+}
+
+const pastLinkRows = computed(() => linkedPlayers.value
+  .filter(p => p.how === 'past' || p.how === 'pastNotMember')
+  .map(p => ({ ...p, label: p.how === 'past' ? `沿用先前指定：${memberLabel(p.memberId)}` : '沿用先前標記：外援' })))
 
 // 手動指定的選單：同名候選、本幫同職業、本幫其他、其他幫會；已對應的成員不再列出
 const linkOptions = (player) => {
@@ -426,6 +451,13 @@ const fetchContext = async () => {
   members.value = membersRes.data || []
   guilds.value = guildsRes.data || []
   rosterTeams.value = rosterRes.data?.matrix_teams || []
+  await fetchGuildLinks()
+}
+
+// 同幫會所有場次的手動指定（含本聯賽其他場），用來沿用先前的選擇
+const fetchGuildLinks = async () => {
+  const { data } = await supabase.from('match_stats').select('id, member_links, updated_at').eq('guild_id', props.leagueItem.guild_id)
+  guildLinkRows.value = data || []
 }
 
 // value：成員 id、NOT_MEMBER，或空字串（取消手動對應）
@@ -437,12 +469,14 @@ const setLink = async (csvName, value) => {
   if (value) links[csvName] = value
   else delete links[csvName]
 
-  const error = getWriteError(await supabase.from('match_stats').update({ member_links: links }).eq('id', row.id).select('id'))
+  const updatedAt = new Date().toISOString()
+  const error = getWriteError(await supabase.from('match_stats').update({ member_links: links, updated_at: updatedAt }).eq('id', row.id).select('id'))
   if (error) {
     isLinking.value = false
     return alert('保存對應失敗：' + error)
   }
   row.member_links = links
+  row.updated_at = updatedAt
 
   const member = value && value !== NOT_MEMBER ? memberById.value.get(value) : null
   if (member && rememberLink.value && member.name !== csvName && !(member.former_names || []).includes(csvName)) {
@@ -451,6 +485,7 @@ const setLink = async (csvName, value) => {
     if (nameError) alert('對應已保存，但加入曾用名失敗：' + nameError)
     else member.former_names = formerNames
   }
+  await fetchGuildLinks()
   isLinking.value = false
 }
 
@@ -520,6 +555,7 @@ const savePending = async () => {
   tableSide.value = 'my'
   jobFilter.value = ''
   await fetchStats()
+  await fetchGuildLinks()
 }
 
 const deleteStats = async () => {
@@ -528,6 +564,7 @@ const deleteStats = async () => {
   const error = getWriteError(await supabase.from('match_stats').delete().eq('id', current.value.id).select('id'))
   if (error) return alert('刪除失敗：' + error)
   await fetchStats()
+  await fetchGuildLinks()
 }
 
 onMounted(() => {

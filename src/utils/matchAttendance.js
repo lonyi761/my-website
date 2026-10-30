@@ -7,11 +7,15 @@ export const NOT_MEMBER = '__none__'
 // 比對用：去掉空白並統一全形半形
 const normalizeName = (name) => String(name || '').normalize('NFKC').replace(/\s+/g, '')
 
+export const isNotMemberLink = (how) => how === 'notMember' || how === 'pastNotMember'
+
 // CSV 玩家 → { name, job, memberId, how }
 // how：manual（手動指定）、name（名字相同）、former（曾用名相同）、
-//      notMember（手動標記非成員）、ambiguous（多位成員同名）、none（找不到）
+//      notMember（手動標記非成員）、ambiguous（多位成員同名）、none（找不到）、
+//      past／pastNotMember（沿用同幫會其他場次的手動指定）
 // 先找本聯賽幫會，再找其他幫會；同一層有多位符合時不自動對應
-export const linkPlayers = (players, members, guildId, manualLinks = {}) => {
+// pastLinks 只在自動對應失敗（同名多位或找不到）時才使用，名字唯一相符的仍以名字為準
+export const linkPlayers = (players, members, guildId, manualLinks = {}, pastLinks = {}) => {
   const tiers = [
     { how: 'name', own: true }, { how: 'former', own: true },
     { how: 'name', own: false }, { how: 'former', own: false }
@@ -37,14 +41,30 @@ export const linkPlayers = (players, members, guildId, manualLinks = {}) => {
     if (manual && memberIds.has(manual)) return { name: p.name, job: p.job, memberId: manual, how: 'manual' }
 
     const key = normalizeName(p.name)
+    let unresolved = { name: p.name, job: p.job, memberId: null, how: 'none' }
     for (let i = 0; i < tiers.length; i++) {
       const hits = index[i].get(key)
       if (!hits) continue
-      if (hits.length > 1) return { name: p.name, job: p.job, memberId: null, how: 'ambiguous', candidates: hits }
-      return { name: p.name, job: p.job, memberId: hits[0], how: tiers[i].how }
+      if (hits.length === 1) return { name: p.name, job: p.job, memberId: hits[0], how: tiers[i].how }
+      unresolved = { ...unresolved, how: 'ambiguous', candidates: hits }
+      break
     }
-    return { name: p.name, job: p.job, memberId: null, how: 'none' }
+
+    const past = pastLinks[p.name]
+    if (past === NOT_MEMBER) return { name: p.name, job: p.job, memberId: null, how: 'pastNotMember' }
+    if (past && memberIds.has(past)) return { name: p.name, job: p.job, memberId: past, how: 'past', candidates: unresolved.candidates }
+    return unresolved
   })
+}
+
+// 同幫會其他場次的手動指定 → { CSV 玩家名: 成員 id 或 NOT_MEMBER }，同一名字以最近更新的場次為準
+export const collectPastLinks = (rows, excludeId) => {
+  const links = {}
+  ;[...rows]
+    .filter(r => r.id !== excludeId)
+    .sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')))
+    .forEach(r => Object.assign(links, r.member_links || {}))
+  return links
 }
 
 // 排表 matrix_teams → 每位成員的位置
@@ -94,8 +114,8 @@ export const buildAttendance = (linkedPlayers, placement, membersById, guildId) 
     unplanned.push({ memberId: id, name: memberName(id), csvName: p.name, otherGuild: m && m.guild_id !== guildId ? m.guild_id : null })
   })
 
-  const unlinked = linkedPlayers.filter(p => !p.memberId && p.how !== 'notMember')
-  const notMembers = linkedPlayers.filter(p => p.how === 'notMember')
+  const unlinked = linkedPlayers.filter(p => !p.memberId && !isNotMemberLink(p.how))
+  const notMembers = linkedPlayers.filter(p => isNotMemberLink(p.how))
 
   return { hasRoster, seatedPlayed, seatedMissing, subsPlayed, absentPlayed, absentConfirmed, unplanned, unlinked, notMembers }
 }
