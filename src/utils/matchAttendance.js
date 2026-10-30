@@ -13,16 +13,14 @@ export const isNotMemberLink = (how) => how === 'notMember' || how === 'pastNotM
 // how：manual（手動指定）、name（名字相同）、former（曾用名相同）、
 //      notMember（手動標記非成員）、ambiguous（多位成員同名）、none（找不到）、
 //      past／pastNotMember（沿用同幫會其他場次的手動指定）
-// 先找本聯賽幫會，再找其他幫會；同一層有多位符合時不自動對應
+// 自動對應只找本聯賽所屬的幫會（幫會聯賽用幫會名單、俱樂部比賽用俱樂部名單），
+// 因為同一人可能同時在幫會與俱樂部各有一筆成員資料；其他幫會的人只能手動指定
+// 先比名字、再比曾用名；同一層有多位符合時不自動對應
 // pastLinks 只在自動對應失敗（同名多位或找不到）時才使用，名字唯一相符的仍以名字為準
 export const linkPlayers = (players, members, guildId, manualLinks = {}, pastLinks = {}) => {
-  const tiers = [
-    { how: 'name', own: true }, { how: 'former', own: true },
-    { how: 'name', own: false }, { how: 'former', own: false }
-  ]
+  const tiers = [{ how: 'name' }, { how: 'former' }]
   const index = tiers.map(() => new Map())
-  members.forEach(m => {
-    const own = m.guild_id === guildId
+  members.filter(m => m.guild_id === guildId).forEach(m => {
     const add = (tierIdx, key) => {
       if (!key) return
       const map = index[tierIdx]
@@ -30,8 +28,8 @@ export const linkPlayers = (players, members, guildId, manualLinks = {}, pastLin
       if (!list.includes(m.id)) list.push(m.id)
       map.set(key, list)
     }
-    add(own ? 0 : 2, normalizeName(m.name))
-    ;(m.former_names || []).forEach(n => add(own ? 1 : 3, normalizeName(n)))
+    add(0, normalizeName(m.name))
+    ;(m.former_names || []).forEach(n => add(1, normalizeName(n)))
   })
   const memberIds = new Set(members.map(m => m.id))
 
