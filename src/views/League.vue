@@ -219,7 +219,7 @@
         <RosterBoard 
           :leagueItem="activeLeagueForRoster" 
           :userProfile="userProfile"
-          @back="currentView = 'list'" 
+          @back="currentView = 'list'; fetchLeaguesFromDB()"
         />
       </div>
     </div>

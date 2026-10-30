@@ -157,6 +157,8 @@
           :matrixTeams="matrixTeams"
           :availableSchools="availableSchools"
           :schoolColorMap="schoolColorMap"
+          v-model:topNote="topNoteText"
+          v-model:topNoteFontSize="topNoteFontSize"
           :canEdit="canEditCurrentGuild"
           @click-slot="handleSlotClick"
           @drag-start-slot="onDragStartSlot"
@@ -246,9 +248,9 @@
                 :schoolColorMap="schoolColorMap"
                 :showSecondarySchool="showSecondarySchool"
                 :showDetails="showDetails"
-                :canEdit="canEditCurrentGuild"
+                :canEdit="false"
               />
-              <RosterTableView 
+              <RosterTableView
                 v-else-if="layoutMode === 'table'"
                 :leagueInfo="leagueInfo"
                 :matrixTeams="exportFilteredTeams"
@@ -256,7 +258,9 @@
                 :schoolColorMap="schoolColorMap"
                 :showHeaderTitle="exportHeaderTitleVisible"
                 :showHeaderNote="exportHeaderNoteVisible"
-                :canEdit="canEditCurrentGuild"
+                :topNote="topNoteText"
+                :topNoteFontSize="topNoteFontSize"
+                :canEdit="false"
               />
               <RosterBenchZone
                 v-if="exportSubstitutesVisible && benchSeats.substitutes.length > 0"
@@ -1299,7 +1303,7 @@ const matrixTeams = ref([
   {
     id: 1,
     name: '進攻一團',
-    desc: '我是團隊備註會顯示的地方',
+    desc: '',
     color: '#84cc16',
     squads: Array.from({ length: 5 }, (_, i) => ({
       id: 10 + i,
@@ -1313,6 +1317,10 @@ const matrixTeams = ref([
 
 // 候補 / 不出席席位區 (不屬於任何團隊，不計入上陣職業統計)
 const benchSeats = ref(createEmptyBench())
+
+// 試算表頂部備註：與聯賽備註 (guild_rosters.notes) 共用，隨保存陣容寫回
+const topNoteText = ref(props.leagueItem?.notes || '')
+const topNoteFontSize = ref(15)
 
 function createDefaultSlots() {
   return Array.from({ length: 6 }, () => ({
@@ -1539,6 +1547,8 @@ const fetchRosterDataFromDB = async () => {
     rosterData = data
   }
 
+  if (rosterData) topNoteText.value = rosterData.notes || ''
+
   if (rosterData && rosterData.matrix_teams && rosterData.matrix_teams.length > 0) {
     const { teams, bench } = splitBenchFromTeams(rosterData.matrix_teams)
     if (teams.length > 0) matrixTeams.value = teams
@@ -1557,6 +1567,7 @@ const saveRosterBoard = async () => {
         .from('guild_rosters')
         .update({
           matrix_teams: mergeBenchIntoTeams(matrixTeams.value, benchSeats.value),
+          notes: topNoteText.value.trim(),
           updated_at: new Date().toISOString()
         })
         .eq('id', props.leagueItem.id)
