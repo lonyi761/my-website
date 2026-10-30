@@ -78,6 +78,8 @@ const signOutBlocked = async (reason) => {
 }
 
 const checkSession = async () => {
+  // 等初始路由解析完成，否則 route.path 仍是 '/'，會誤導向並遺失網址參數
+  await router.isReady()
   const { data: { session } } = await supabase.auth.getSession()
   if (session) {
     currentUser.value = session.user
