@@ -9,6 +9,7 @@
       <router-link to="/members" :class="['nav-item', { active: activeNav === 'members' }]">成員</router-link>
       <router-link to="/league" :class="['nav-item', { active: activeNav === 'league' }]">聯賽</router-link>
       <router-link to="/preparation" :class="['nav-item', { active: activeNav === 'preparation' }]">戰備</router-link>
+      <router-link to="/quick-stats" :class="['nav-item', { active: activeNav === 'quick' }]">快速分析</router-link>
     </nav>
 
     <!-- 右上角：控制台入口＋用戶選單（原本的深色帳號列已整合到這裡） -->

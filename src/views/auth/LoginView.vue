@@ -47,6 +47,15 @@
           </button>
         </div>
       </form>
+
+      <!-- 不用登入也能用的戰績快速分析 -->
+      <div class="quick-entry">
+        <span class="quick-divider">或</span>
+        <router-link to="/quick-stats" class="btn-quick">
+          <i class="mdi mdi-chart-box-outline"></i> 不登入，直接上傳戰績分析
+        </router-link>
+        <p class="quick-hint">上傳遊戲匯出的戰績 CSV，資料只存在這台電腦</p>
+      </div>
     </div>
 
     <!-- 客製化彈窗 Modal -->
@@ -233,6 +242,12 @@ const handleSubmit = async () => {
 .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
 
 .toggle-mode-row { text-align: center; }
+.quick-entry { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.quick-divider { font-size: 12px; color: var(--c-faint); display: flex; align-items: center; gap: 10px; width: 100%; }
+.quick-divider::before, .quick-divider::after { content: ''; flex: 1; height: 1px; background: var(--c-border); }
+.btn-quick { width: 100%; box-sizing: border-box; text-align: center; border: 1px solid var(--c-primary-border); background: var(--c-primary-soft); color: var(--c-primary-text); padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; text-decoration: none; display: flex; justify-content: center; align-items: center; gap: 6px; }
+.btn-quick:hover { border-color: #3b82f6; }
+.quick-hint { margin: 0; font-size: 11px; color: var(--c-faint); }
 .btn-link { background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 13px; font-weight: 500; }
 .btn-link:hover { text-decoration: underline; }
 
