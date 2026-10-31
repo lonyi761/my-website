@@ -71,7 +71,7 @@ export const readRosterPlacement = (matrixTeams) => {
   const seated = new Map()
   teams.forEach(team => (team.squads || []).forEach(squad => (squad.slots || []).forEach(slot => {
     const m = slot?.assignedMember
-    if (m?.id) seated.set(m.id, { name: m.name, place: `${team.name || ''} ${squad.name || ''}`.trim() })
+    if (m?.id) seated.set(m.id, { name: m.name, team: team.name || '', squad: squad.name || '', place: `${team.name || ''} ${squad.name || ''}`.trim() })
   })))
   const toMap = (list) => new Map((list || []).filter(m => m?.id).map(m => [m.id, { name: m.name }]))
   return { seated, substitutes: toMap(bench.substitutes), absentees: toMap(bench.absentees) }

@@ -37,207 +37,178 @@
     </div>
 
     <template v-else>
-      <!-- 檔案資訊 -->
-      <div class="info-bar">
-        <span><i class="mdi mdi-file-delimited-outline"></i> {{ current.file_name || '（未記錄檔名）' }}</span>
-        <span v-if="current.played_at">比賽時間：{{ formatDateTime(current.played_at) }}</span>
-        <span :class="['result-badge', resultBadgeClass]">{{ leagueItem.results?.[activeIndex] || '還沒出' }}</span>
-        <div v-if="canEdit" class="info-actions">
-          <button class="btn-secondary" @click="pickFile">重新上傳</button>
-          <button class="btn-link text-red" @click="deleteStats">刪除數據</button>
+      <div ref="exportArea" class="export-area">
+        <!-- 計分板 -->
+        <div class="scoreboard">
+          <div class="sb-side my">
+            <div class="sb-name">{{ current.my_name }}</div>
+            <div class="sb-meta">{{ current.my_players.length }} 人<span :class="['sb-result', sideResult('my').cls]">{{ sideResult('my').text }}</span></div>
+          </div>
+          <div class="sb-center">
+            <div class="sb-vs">VS</div>
+            <div class="sb-time">{{ current.played_at ? formatDateTime(current.played_at) : leagueItem.startTime }}</div>
+            <div class="sb-league">{{ leagueItem.title }} · 第{{ activeIndex + 1 }}場</div>
+          </div>
+          <div class="sb-side opp">
+            <div class="sb-name">{{ current.opp_name }}</div>
+            <div class="sb-meta"><span :class="['sb-result', sideResult('opp').cls]">{{ sideResult('opp').text }}</span>{{ current.opp_players.length }} 人</div>
+          </div>
+          <div class="sb-totals">
+            <div v-for="row in headlineRows" :key="row.key" class="sb-total">
+              <span :class="['sb-num', 'my', { lead: row.myLeads }]">{{ formatStat(row.my) }}</span>
+              <span class="sb-label">{{ row.label }}</span>
+              <span :class="['sb-num', 'opp', { lead: row.oppLeads }]">{{ formatStat(row.opp) }}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- 雙方對比 -->
-      <div class="card">
-        <div class="vs-head">
-          <span class="side-name my">{{ current.my_name }}（{{ current.my_players.length }} 人）</span>
-          <span class="vs-mark">VS</span>
-          <span class="side-name opp">{{ current.opp_name }}（{{ current.opp_players.length }} 人）</span>
+        <!-- 檢視切換（導出圖片時不含這一列） -->
+        <div class="view-bar" data-html2canvas-ignore="true">
+          <div class="view-tabs">
+            <button v-for="v in VIEWS" :key="v.key" :class="['view-tab', { active: view === v.key }]" @click="view = v.key">
+              <i :class="['mdi', v.icon]"></i>{{ v.label }}
+              <span v-if="v.key === 'attendance' && attendanceAlerts" class="view-badge">{{ attendanceAlerts }}</span>
+            </button>
+          </div>
+          <div class="view-actions">
+            <button class="btn-tool" :disabled="isExporting" title="把目前畫面存成圖片（亮色）" @click="exportImage"><i class="mdi mdi-image-outline"></i> {{ isExporting ? '產生中...' : '導出圖片' }}</button>
+            <template v-if="canEdit">
+              <button class="btn-tool" @click="pickFile"><i class="mdi mdi-upload"></i> 重新上傳</button>
+              <button class="btn-tool danger" @click="deleteStats"><i class="mdi mdi-delete-outline"></i> 刪除數據</button>
+            </template>
+          </div>
         </div>
-        <div class="vs-rows">
-          <div v-for="row in comparisonRows" :key="row.key" class="vs-row">
-            <span :class="['vs-val', 'left', { lead: row.myLeads }]">{{ formatStat(row.my) }}</span>
-            <div class="vs-mid">
-              <div class="vs-label">{{ row.label }}</div>
-              <div class="vs-bar">
-                <div class="bar-my" :style="{ width: row.myPct + '%' }"></div>
-                <div class="bar-opp" :style="{ width: (100 - row.myPct) + '%' }"></div>
+
+        <!-- 雙方對比 -->
+        <template v-if="view === 'compare'">
+          <div class="compare-grid">
+            <div class="card">
+              <h3 class="card-title"><i class="mdi mdi-scale-balance"></i> 數據對比</h3>
+              <div class="vs-rows">
+                <div v-for="row in comparisonRows" :key="row.key" class="vs-row">
+                  <span :class="['vs-val', 'left', { lead: row.myLeads }]">{{ formatStat(row.my) }}</span>
+                  <div class="vs-mid">
+                    <div class="vs-label">{{ row.label }}</div>
+                    <div class="vs-bar">
+                      <div class="bar-my" :style="{ width: row.myPct + '%' }"></div>
+                      <div class="bar-opp" :style="{ width: (100 - row.myPct) + '%' }"></div>
+                    </div>
+                  </div>
+                  <span :class="['vs-val', 'right', { lead: row.oppLeads }]">{{ formatStat(row.opp) }}</span>
+                </div>
               </div>
             </div>
-            <span :class="['vs-val', 'right', { lead: row.oppLeads }]">{{ formatStat(row.opp) }}</span>
+            <div class="card">
+              <TitlePanel :my="current.my_players" :opp="current.opp_players" />
+            </div>
           </div>
+          <div class="card">
+            <JobCompare :my="current.my_players" :opp="current.opp_players" />
+          </div>
+        </template>
+
+        <!-- 我方／對方明細 -->
+        <div v-else-if="view === 'my' || view === 'opp'" class="card">
+          <PlayerStatsTable
+            :key="view + '_' + activeIndex"
+            :players="view === 'my' ? current.my_players : current.opp_players"
+            :side="view"
+            :side-name="view === 'my' ? current.my_name : current.opp_name"
+            :team-of="view === 'my' ? teamOfPlayer : null"
+            :tag-of="view === 'my' ? memberTagOf : null"
+            :file-label="leagueItem.title + '_第' + (activeIndex + 1) + '場'"
+          />
         </div>
 
-        <div class="job-compare">
-          <div v-for="side in jobBreakdown" :key="side.key" class="job-line">
-            <span :class="['job-side', side.key]">{{ side.key === 'my' ? '我方' : '對方' }}職業</span>
-            <span v-for="j in side.jobs" :key="j.job" class="job-chip">{{ j.job }} {{ j.count }}</span>
-          </div>
-        </div>
-      </div>
+        <!-- 出勤對照 -->
+        <template v-else>
+          <!-- 出勤對照（只看我方） -->
+          <div class="card">
+            <h3 class="card-title">出勤對照（{{ current.my_name }}）</h3>
+            <p v-if="!attendance.hasRoster" class="hint left">這場聯賽還沒有排表，只能比對成員；排好表後就會顯示誰沒上場、誰沒排卻上場。</p>
 
-      <!-- 出勤對照（只看我方） -->
-      <div class="card">
-        <h3 class="card-title">出勤對照（{{ current.my_name }}）</h3>
-        <p v-if="!attendance.hasRoster" class="hint left">這場聯賽還沒有排表，只能比對成員；排好表後就會顯示誰沒上場、誰沒排卻上場。</p>
+            <div class="att-summary">
+              <span v-if="attendance.hasRoster" class="att-chip">排表上場 {{ attendance.seatedPlayed.length + attendance.seatedMissing.length }} 人，有出賽 {{ attendance.seatedPlayed.length }} 人</span>
+              <span v-if="attendance.hasRoster" :class="['att-chip', { warn: attendance.seatedMissing.length }]">排了沒上場 {{ attendance.seatedMissing.length }}</span>
+              <span v-if="attendance.hasRoster" class="att-chip">候補上場 {{ attendance.subsPlayed.length }}</span>
+              <span :class="['att-chip', { warn: attendance.hasRoster && attendance.unplanned.length }]">{{ attendance.hasRoster ? '沒排卻上場' : '已對應成員' }} {{ attendance.hasRoster ? attendance.unplanned.length : linkedCount }}</span>
+              <span v-if="attendance.hasRoster" :class="['att-chip', { warn: attendance.absentPlayed.length }]">登記不出席卻上場 {{ attendance.absentPlayed.length }}</span>
+              <span v-if="attendance.hasRoster" class="att-chip">不出席（確實沒上） {{ attendance.absentConfirmed }}</span>
+              <span :class="['att-chip', { warn: attendance.unlinked.length }]">未對應成員 {{ attendance.unlinked.length }}</span>
+            </div>
 
-        <div class="att-summary">
-          <span v-if="attendance.hasRoster" class="att-chip">排表上場 {{ attendance.seatedPlayed.length + attendance.seatedMissing.length }} 人，有出賽 {{ attendance.seatedPlayed.length }} 人</span>
-          <span v-if="attendance.hasRoster" :class="['att-chip', { warn: attendance.seatedMissing.length }]">排了沒上場 {{ attendance.seatedMissing.length }}</span>
-          <span v-if="attendance.hasRoster" class="att-chip">候補上場 {{ attendance.subsPlayed.length }}</span>
-          <span :class="['att-chip', { warn: attendance.hasRoster && attendance.unplanned.length }]">{{ attendance.hasRoster ? '沒排卻上場' : '已對應成員' }} {{ attendance.hasRoster ? attendance.unplanned.length : linkedCount }}</span>
-          <span v-if="attendance.hasRoster" :class="['att-chip', { warn: attendance.absentPlayed.length }]">登記不出席卻上場 {{ attendance.absentPlayed.length }}</span>
-          <span v-if="attendance.hasRoster" class="att-chip">不出席（確實沒上） {{ attendance.absentConfirmed }}</span>
-          <span :class="['att-chip', { warn: attendance.unlinked.length }]">未對應成員 {{ attendance.unlinked.length }}</span>
-        </div>
+            <div class="att-groups">
+              <div v-if="attendance.seatedMissing.length" class="att-group">
+                <div class="att-group-title warn">排了沒上場</div>
+                <span v-for="p in attendance.seatedMissing" :key="'miss_' + p.memberId" class="att-name">{{ p.name }}<small v-if="p.place">{{ p.place }}</small></span>
+              </div>
+              <div v-if="attendance.absentPlayed.length" class="att-group">
+                <div class="att-group-title warn">登記不出席卻上場</div>
+                <span v-for="p in attendance.absentPlayed" :key="'abs_' + p.memberId" class="att-name">{{ p.name }}<small v-if="p.csvName !== p.name">遊戲內：{{ p.csvName }}</small></span>
+              </div>
+              <div v-if="attendance.hasRoster && attendance.unplanned.length" class="att-group">
+                <div class="att-group-title warn">沒排卻上場</div>
+                <span v-for="p in attendance.unplanned" :key="'unp_' + p.memberId" class="att-name">
+                  {{ p.name }}<small v-if="p.otherGuild">{{ guildName(p.otherGuild) }}</small><small v-if="p.csvName !== p.name">遊戲內：{{ p.csvName }}</small>
+                </span>
+              </div>
+              <div v-if="attendance.subsPlayed.length" class="att-group">
+                <div class="att-group-title">候補上場</div>
+                <span v-for="p in attendance.subsPlayed" :key="'sub_' + p.memberId" class="att-name">{{ p.name }}</span>
+              </div>
+            </div>
 
-        <div class="att-groups">
-          <div v-if="attendance.seatedMissing.length" class="att-group">
-            <div class="att-group-title warn">排了沒上場</div>
-            <span v-for="p in attendance.seatedMissing" :key="'miss_' + p.memberId" class="att-name">{{ p.name }}<small v-if="p.place">{{ p.place }}</small></span>
-          </div>
-          <div v-if="attendance.absentPlayed.length" class="att-group">
-            <div class="att-group-title warn">登記不出席卻上場</div>
-            <span v-for="p in attendance.absentPlayed" :key="'abs_' + p.memberId" class="att-name">{{ p.name }}<small v-if="p.csvName !== p.name">遊戲內：{{ p.csvName }}</small></span>
-          </div>
-          <div v-if="attendance.hasRoster && attendance.unplanned.length" class="att-group">
-            <div class="att-group-title warn">沒排卻上場</div>
-            <span v-for="p in attendance.unplanned" :key="'unp_' + p.memberId" class="att-name">
-              {{ p.name }}<small v-if="p.otherGuild">{{ guildName(p.otherGuild) }}</small><small v-if="p.csvName !== p.name">遊戲內：{{ p.csvName }}</small>
-            </span>
-          </div>
-          <div v-if="attendance.subsPlayed.length" class="att-group">
-            <div class="att-group-title">候補上場</div>
-            <span v-for="p in attendance.subsPlayed" :key="'sub_' + p.memberId" class="att-name">{{ p.name }}</span>
-          </div>
-        </div>
+            <!-- 對應不到成員的玩家 -->
+            <div v-if="attendance.unlinked.length || manualLinkRows.length || pastLinkRows.length" class="link-box">
+              <div class="link-head">
+                <div class="att-group-title">成員對應</div>
+                <label v-if="canEdit" class="link-mode">
+                  指定成員後：
+                  <select v-model="linkMode" class="link-mode-select">
+                    <option value="rename">改用遊戲名稱（原名改為曾用名）</option>
+                    <option value="former">加入曾用名（保留原名）</option>
+                    <option value="none">只對應這一場</option>
+                  </select>
+                </label>
+              </div>
+              <p v-if="attendance.unlinked.length && !canEdit" class="hint left">以下玩家對應不到成員，需要編輯權限才能手動指定。</p>
 
-        <!-- 對應不到成員的玩家 -->
-        <div v-if="attendance.unlinked.length || manualLinkRows.length || pastLinkRows.length" class="link-box">
-          <div class="link-head">
-            <div class="att-group-title">成員對應</div>
-            <label v-if="canEdit" class="link-mode">
-              指定成員後：
-              <select v-model="linkMode" class="link-mode-select">
-                <option value="rename">改用遊戲名稱（原名改為曾用名）</option>
-                <option value="former">加入曾用名（保留原名）</option>
-                <option value="none">只對應這一場</option>
-              </select>
-            </label>
-          </div>
-          <p v-if="attendance.unlinked.length && !canEdit" class="hint left">以下玩家對應不到成員，需要編輯權限才能手動指定。</p>
+              <div v-for="p in attendance.unlinked" :key="'ul_' + p.name" class="link-row">
+                <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
+                <span class="link-reason">{{ p.how === 'ambiguous' ? '有多位同名成員' : '找不到成員' }}</span>
+                <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="onLinkChoice(p, $event)">
+                  <option value="">選擇成員…</option>
+                  <option :value="NOT_MEMBER">非幫會成員（外援）</option>
+                  <option v-if="p.how !== 'ambiguous'" :value="NEW_MEMBER">＋ 新增為{{ guildName(leagueItem.guild_id) }}成員</option>
+                  <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
+                    <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
+                  </optgroup>
+                </select>
+              </div>
 
-          <div v-for="p in attendance.unlinked" :key="'ul_' + p.name" class="link-row">
-            <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
-            <span class="link-reason">{{ p.how === 'ambiguous' ? '有多位同名成員' : '找不到成員' }}</span>
-            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="onLinkChoice(p, $event)">
-              <option value="">選擇成員…</option>
-              <option :value="NOT_MEMBER">非幫會成員（外援）</option>
-              <option v-if="p.how !== 'ambiguous'" :value="NEW_MEMBER">＋ 新增為{{ guildName(leagueItem.guild_id) }}成員</option>
-              <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
-                <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
-              </optgroup>
-            </select>
-          </div>
+              <!-- 沿用其他場次的手動指定；這一場要改可直接另選，只影響這一場 -->
+              <div v-for="p in pastLinkRows" :key="'pl_' + p.name" class="link-row done">
+                <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
+                <span class="link-reason">{{ p.label }}</span>
+                <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="onLinkChoice(p, $event)">
+                  <option value="">這一場改為…</option>
+                  <option v-if="p.how !== 'pastNotMember'" :value="NOT_MEMBER">非幫會成員（外援）</option>
+                  <option :value="NEW_MEMBER">＋ 新增為{{ guildName(leagueItem.guild_id) }}成員</option>
+                  <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
+                    <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
+                  </optgroup>
+                </select>
+              </div>
 
-          <!-- 沿用其他場次的手動指定；這一場要改可直接另選，只影響這一場 -->
-          <div v-for="p in pastLinkRows" :key="'pl_' + p.name" class="link-row done">
-            <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
-            <span class="link-reason">{{ p.label }}</span>
-            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="onLinkChoice(p, $event)">
-              <option value="">這一場改為…</option>
-              <option v-if="p.how !== 'pastNotMember'" :value="NOT_MEMBER">非幫會成員（外援）</option>
-              <option :value="NEW_MEMBER">＋ 新增為{{ guildName(leagueItem.guild_id) }}成員</option>
-              <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
-                <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
-              </optgroup>
-            </select>
+              <div v-for="row in manualLinkRows" :key="'ml_' + row.csvName" class="link-row done">
+                <span class="link-csv">{{ row.csvName }}</span>
+                <span class="link-reason">{{ row.label }}</span>
+                <button v-if="canEdit" class="btn-link" :disabled="isLinking" @click="setLink(row.csvName, '')">取消對應</button>
+              </div>
+            </div>
           </div>
 
-          <div v-for="row in manualLinkRows" :key="'ml_' + row.csvName" class="link-row done">
-            <span class="link-csv">{{ row.csvName }}</span>
-            <span class="link-reason">{{ row.label }}</span>
-            <button v-if="canEdit" class="btn-link" :disabled="isLinking" @click="setLink(row.csvName, '')">取消對應</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 各項最高 -->
-      <div class="card">
-        <h3 class="card-title">各項最高</h3>
-        <div class="mvp-grid">
-          <div v-for="m in mvpList" :key="m.key" class="mvp-item">
-            <span class="mvp-label">{{ m.label }}</span>
-            <span :class="['mvp-name', m.side]">{{ m.name }}</span>
-            <span class="mvp-job">{{ m.job }}</span>
-            <span class="mvp-val">{{ formatStat(m.value) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 玩家明細 -->
-      <div class="card">
-        <div class="table-tools">
-          <div class="pill-group">
-            <button :class="['pill', { active: tableSide === 'my' }]" @click="tableSide = 'my'">我方 {{ current.my_name }}</button>
-            <button :class="['pill', { active: tableSide === 'opp' }]" @click="tableSide = 'opp'">對方 {{ current.opp_name }}</button>
-          </div>
-          <input v-model="searchName" class="search-input" placeholder="搜尋玩家" />
-        </div>
-        <div class="pill-group job-filter">
-          <button :class="['pill', 'small', { active: !jobFilter }]" @click="jobFilter = ''">全部職業</button>
-          <button
-            v-for="j in tableJobs"
-            :key="j"
-            :class="['pill', 'small', { active: jobFilter === j }]"
-            @click="jobFilter = jobFilter === j ? '' : j"
-          >{{ j }}</button>
-        </div>
-
-        <div class="table-scroll">
-          <table class="player-table">
-            <thead>
-              <tr>
-                <th class="col-rank">#</th>
-                <th class="col-name">玩家</th>
-                <th>職業</th>
-                <th
-                  v-for="f in STAT_FIELDS"
-                  :key="f.key"
-                  :class="['sortable', { sorted: sortKey === f.key }]"
-                  @click="toggleSort(f.key)"
-                >{{ f.label }}<span v-if="sortKey === f.key">{{ sortDesc ? ' ▼' : ' ▲' }}</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(p, i) in tableRows" :key="p.name + '_' + i">
-                <td class="col-rank">{{ i + 1 }}</td>
-                <td class="col-name">
-                  {{ p.name }}
-                  <template v-if="tableSide === 'my'">
-                    <span v-if="isNotMemberLink(linkByName[p.name]?.how)" class="name-tag">外援</span>
-                    <span v-else-if="!linkByName[p.name]?.memberId" class="name-tag warn">未對應</span>
-                    <span v-else-if="memberById.get(linkByName[p.name].memberId)?.name !== p.name" class="name-tag">成員：{{ memberById.get(linkByName[p.name].memberId)?.name }}</span>
-                  </template>
-                </td>
-                <td>{{ p.job }}</td>
-                <td v-for="f in STAT_FIELDS" :key="f.key" :class="{ zero: !p[f.key] }">{{ p[f.key] ? formatStat(p[f.key]) : '—' }}</td>
-              </tr>
-              <tr v-if="tableRows.length === 0">
-                <td :colspan="3 + STAT_FIELDS.length" class="empty-cell">沒有符合條件的玩家</td>
-              </tr>
-            </tbody>
-            <tfoot v-if="tableRows.length">
-              <tr>
-                <td></td>
-                <td class="col-name">合計</td>
-                <td>{{ tableRows.length }} 人</td>
-                <td v-for="f in STAT_FIELDS" :key="f.key">{{ formatStat(sumOf(tableRows, f.key)) }}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        </template>
       </div>
     </template>
 
@@ -305,15 +276,15 @@ import { parseMatchCsv, formatStat, STAT_FIELDS } from '../../utils/matchStatsCs
 import { linkPlayers, readRosterPlacement, buildAttendance, collectPastLinks, isNotMemberLink, NOT_MEMBER } from '../../utils/matchAttendance'
 import { SCHOOL_NAMES } from '../../constants/schools'
 import { notify } from '../../utils/notify'
+import PlayerStatsTable from './stats/PlayerStatsTable.vue'
+import TitlePanel from './stats/TitlePanel.vue'
+import JobCompare from './stats/JobCompare.vue'
 
 const props = defineProps({
   leagueItem: { type: Object, required: true },
   canEdit: { type: Boolean, default: false }
 })
 const emit = defineEmits(['back'])
-
-// 「各項最高」要列出的欄位
-const MVP_FIELDS = ['kills', 'assists', 'pvp', 'bld', 'heal', 'tank', 'feather', 'bone']
 
 const opponents = ref([...(props.leagueItem.opponents || [])])
 const activeIndex = ref(0)
@@ -323,11 +294,16 @@ const isSaving = ref(false)
 const fileInput = ref(null)
 const pending = ref(null)
 
-const tableSide = ref('my')
-const jobFilter = ref('')
-const searchName = ref('')
-const sortKey = ref('pvp')
-const sortDesc = ref(true)
+// 報告檢視：雙方對比、我方明細、對方明細、出勤對照
+const VIEWS = [
+  { key: 'compare', label: '雙方對比', icon: 'mdi-scale-balance' },
+  { key: 'my', label: '我方明細', icon: 'mdi-shield-account' },
+  { key: 'opp', label: '對方明細', icon: 'mdi-sword' },
+  { key: 'attendance', label: '出勤對照', icon: 'mdi-clipboard-check-outline' }
+]
+const view = ref('compare')
+const exportArea = ref(null)
+const isExporting = ref(false)
 
 // 成員對應與出勤
 const members = ref([])
@@ -343,12 +319,13 @@ const isLinking = ref(false)
 const statsByIndex = computed(() => Object.fromEntries(statsRows.value.map(r => [r.match_index, r])))
 const current = computed(() => statsByIndex.value[activeIndex.value] || null)
 
-const resultBadgeClass = computed(() => {
+// 依聯賽結果顯示每一方的勝負
+const sideResult = (side) => {
   const res = props.leagueItem.results?.[activeIndex.value]
-  if (res === '我方贏') return 'badge-win'
-  if (res === '對方贏') return 'badge-loss'
-  return 'badge-gray'
-})
+  if (res !== '我方贏' && res !== '對方贏') return { text: '未填結果', cls: 'pending' }
+  const myWin = res === '我方贏'
+  return (side === 'my') === myWin ? { text: '勝利', cls: 'win' } : { text: '敗北', cls: 'loss' }
+}
 
 const memberById = computed(() => new Map(members.value.map(m => [m.id, m])))
 const guildName = (id) => guilds.value.find(g => g.id === id)?.name || '其他幫會'
@@ -358,7 +335,7 @@ const linkedPlayers = computed(() => current.value
   : [])
 const linkByName = computed(() => Object.fromEntries(linkedPlayers.value.map(p => [p.name, p])))
 const linkedCount = computed(() => linkedPlayers.value.filter(p => p.memberId).length)
-const attendance = computed(() => buildAttendance(linkedPlayers.value, readRosterPlacement(rosterTeams.value), memberById.value, props.leagueItem.guild_id))
+const attendance = computed(() => buildAttendance(linkedPlayers.value, rosterPlacement.value, memberById.value, props.leagueItem.guild_id))
 
 const manualLinkRows = computed(() => Object.entries(current.value?.member_links || {}).map(([csvName, id]) => ({
   csvName,
@@ -410,50 +387,59 @@ const comparisonRows = computed(() => {
   })
 })
 
-const countJobs = (players) => {
-  const counts = {}
-  players.forEach(p => { counts[p.job || '未知'] = (counts[p.job || '未知'] || 0) + 1 })
-  return Object.entries(counts).map(([job, count]) => ({ job, count })).sort((a, b) => b.count - a.count)
+// 計分板只顯示幾項重點
+const headlineRows = computed(() => comparisonRows.value.filter(r => ['kills', 'pvp', 'bld', 'heal'].includes(r.key)))
+
+// 出勤分頁的提醒數：排了沒上、登記不出席卻上場、沒排卻上場、未對應
+const attendanceAlerts = computed(() => {
+  const a = attendance.value
+  return a.seatedMissing.length + a.absentPlayed.length + (a.hasRoster ? a.unplanned.length : 0) + a.unlinked.length
+})
+
+// 我方玩家 → 排表團隊（候補、未排表另外標示）
+const rosterPlacement = computed(() => readRosterPlacement(rosterTeams.value))
+const teamOfPlayer = (name) => {
+  const id = linkByName.value[name]?.memberId
+  if (!id) return ''
+  const seat = rosterPlacement.value.seated.get(id)
+  if (seat) return seat.team || '已排表'
+  if (rosterPlacement.value.substitutes.has(id)) return '候補'
+  return ''
 }
 
-const jobBreakdown = computed(() => current.value
-  ? [{ key: 'my', jobs: countJobs(current.value.my_players) }, { key: 'opp', jobs: countJobs(current.value.opp_players) }]
-  : [])
+// 我方玩家名稱旁的對應標籤
+const memberTagOf = (name) => {
+  const link = linkByName.value[name]
+  if (isNotMemberLink(link?.how)) return { text: '外援' }
+  if (!link?.memberId) return { text: '未對應', warn: true }
+  const memberName = memberById.value.get(link.memberId)?.name
+  return memberName && memberName !== name ? { text: '成員：' + memberName } : null
+}
 
-const mvpList = computed(() => {
-  if (!current.value) return []
-  const everyone = [
-    ...current.value.my_players.map(p => ({ ...p, side: 'my' })),
-    ...current.value.opp_players.map(p => ({ ...p, side: 'opp' }))
-  ]
-  return MVP_FIELDS.map(key => {
-    const top = everyone.reduce((best, p) => (Number(p[key]) || 0) > (Number(best?.[key]) || 0) ? p : best, null)
-    const label = STAT_FIELDS.find(f => f.key === key).label
-    return top ? { key, label, name: top.name, job: top.job, side: top.side, value: top[key] } : null
-  }).filter(Boolean)
-})
+watch(activeIndex, () => { view.value = 'compare' })
 
-const sidePlayers = computed(() => current.value ? (tableSide.value === 'my' ? current.value.my_players : current.value.opp_players) : [])
-const tableJobs = computed(() => countJobs(sidePlayers.value).map(j => j.job))
-
-const tableRows = computed(() => {
-  const keyword = searchName.value.trim()
-  const rows = sidePlayers.value.filter(p => (!jobFilter.value || p.job === jobFilter.value) && (!keyword || p.name.includes(keyword)))
-  const dir = sortDesc.value ? -1 : 1
-  return [...rows].sort((a, b) => ((Number(a[sortKey.value]) || 0) - (Number(b[sortKey.value]) || 0)) * dir)
-})
-
-// 換邊或換場時，原本選的職業不一定存在，清掉篩選
-watch(tableSide, () => { jobFilter.value = '' })
-watch(activeIndex, () => {
-  tableSide.value = 'my'
-  jobFilter.value = ''
-  searchName.value = ''
-})
-
-const toggleSort = (key) => {
-  if (sortKey.value === key) sortDesc.value = !sortDesc.value
-  else { sortKey.value = key; sortDesc.value = true }
+// 把計分板與目前檢視存成圖片（一律亮色，方便分享）
+const exportImage = async () => {
+  if (!exportArea.value || isExporting.value) return
+  isExporting.value = true
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(exportArea.value, {
+      scale: 2,
+      backgroundColor: '#f4f6f9',
+      logging: false,
+      onclone: (doc) => { doc.documentElement.dataset.theme = 'light' }
+    })
+    const a = document.createElement('a')
+    a.href = canvas.toDataURL('image/png')
+    const viewLabel = VIEWS.find(v => v.key === view.value)?.label || ''
+    a.download = `${props.leagueItem.title}_第${activeIndex.value + 1}場_${viewLabel}.png`
+    a.click()
+  } catch (err) {
+    notify('導出圖片失敗：' + err.message)
+  } finally {
+    isExporting.value = false
+  }
 }
 
 const formatDateTime = (value) => {
@@ -677,8 +663,7 @@ const savePending = async () => {
 
   pending.value = null
   isSaving.value = false
-  tableSide.value = 'my'
-  jobFilter.value = ''
+  view.value = 'compare'
   await fetchStats()
   await fetchGuildLinks()
 }
@@ -718,13 +703,9 @@ onMounted(() => {
 .hint { font-size: 12px; color: var(--c-muted); margin: 6px 0 14px; }
 .hint code { background: var(--c-surface-3); padding: 1px 5px; border-radius: 4px; }
 
-.info-bar { padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--c-text-3); }
-.info-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
 
-.vs-head { display: flex; justify-content: center; align-items: center; gap: 14px; margin-bottom: 14px; font-weight: bold; }
 .side-name.my { color: var(--c-primary-text); }
 .side-name.opp { color: var(--c-danger-text); }
-.vs-mark { color: var(--c-faint); font-size: 12px; }
 .vs-rows { display: flex; flex-direction: column; gap: 8px; max-width: 720px; margin: 0 auto; }
 .vs-row { display: grid; grid-template-columns: 80px 1fr 80px; align-items: center; gap: 10px; }
 .vs-val { font-size: 13px; color: var(--c-faint); }
@@ -735,12 +716,6 @@ onMounted(() => {
 .bar-my { background: #3b82f6; }
 .bar-opp { background: #ef4444; }
 
-.job-compare { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--c-border-soft); display: flex; flex-direction: column; gap: 6px; }
-.job-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
-.job-side { font-weight: bold; width: 64px; }
-.job-side.my { color: var(--c-primary-text); }
-.job-side.opp { color: var(--c-danger-text); }
-.job-chip { background: var(--c-surface-3); color: var(--c-text-2); padding: 2px 8px; border-radius: 10px; }
 
 .hint.left { text-align: left; margin: 0 0 10px; }
 .att-summary { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -768,38 +743,9 @@ onMounted(() => {
 .link-row.done .link-reason { color: var(--c-muted); }
 .link-row .btn-link { justify-self: start; color: var(--c-primary-text); }
 .link-select { border: 1px solid var(--c-border-strong); border-radius: 6px; padding: 5px 8px; font-size: 13px; max-width: 100%; }
-.name-tag { margin-left: 6px; font-size: 10px; font-weight: normal; color: var(--c-muted); background: var(--c-surface-3); padding: 1px 6px; border-radius: 8px; }
-.name-tag.warn { color: var(--c-warn-text); background: var(--c-warn-soft); }
 
-.mvp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
-.mvp-item { display: grid; grid-template-columns: 76px 1fr auto; grid-template-rows: auto auto; column-gap: 8px; padding: 8px 10px; border: 1px solid var(--c-border-soft); border-radius: 8px; font-size: 12px; align-items: center; }
-.mvp-label { grid-row: span 2; color: var(--c-muted); }
-.mvp-name { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mvp-name.my { color: var(--c-primary-text); }
-.mvp-name.opp { color: var(--c-danger-text); }
-.mvp-val { grid-row: span 2; font-weight: bold; color: var(--c-text); }
-.mvp-job { color: var(--c-faint); }
 
-.table-tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
-.job-filter { margin: 10px 0; }
-.pill { background: var(--c-surface-2); border: 1px solid var(--c-border-strong); color: var(--c-text-3); padding: 5px 12px; border-radius: 14px; font-size: 12px; cursor: pointer; }
-.pill.small { padding: 3px 10px; }
-.pill.active { background: var(--c-primary-soft); border-color: #3b82f6; color: var(--c-primary-text); font-weight: bold; }
-.search-input { border: 1px solid var(--c-border-strong); border-radius: 6px; padding: 6px 10px; font-size: 13px; width: 180px; }
 
-.table-scroll { overflow-x: auto; }
-.player-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
-.player-table th, .player-table td { padding: 8px 10px; border-bottom: 1px solid var(--c-border-soft); text-align: right; }
-.player-table th { background: var(--c-surface-2); color: var(--c-muted); font-weight: 600; position: sticky; top: 0; }
-.player-table .col-name, .player-table th:nth-child(3), .player-table td:nth-child(3) { text-align: left; }
-.player-table .col-rank { text-align: center; color: var(--c-faint); width: 32px; }
-.player-table td.col-name { font-weight: bold; color: var(--c-text); }
-.player-table td.zero { color: var(--c-faint-2); }
-.player-table tfoot td { font-weight: bold; background: var(--c-surface-2); color: var(--c-text); }
-.sortable { cursor: pointer; user-select: none; }
-.sortable.sorted { color: var(--c-primary-text); }
-.empty-cell { text-align: center !important; color: var(--c-faint); padding: 24px; }
 
 .hidden-input { display: none; }
 .btn-back { background: var(--c-surface); border: 1px solid var(--c-border-strong); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--c-text-3); }
@@ -807,11 +753,6 @@ onMounted(() => {
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: var(--c-surface-3); color: var(--c-text-2); border: 1px solid var(--c-border-strong); padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .btn-link { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0; }
-.text-red { color: #ef4444; }
-.result-badge { padding: 3px 12px; border-radius: 14px; font-size: 11px; font-weight: bold; }
-.badge-win { background: #3b82f6; color: #ffffff; }
-.badge-loss { background: #ef4444; color: #ffffff; }
-.badge-gray { background: var(--c-surface-4); color: var(--c-muted); }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; z-index: 100; padding: 16px; }
 .modal-card { background: var(--c-surface); border-radius: 12px; padding: 20px; color: var(--c-text); width: 460px; max-width: 100%; max-height: 85vh; overflow-y: auto; }
@@ -832,8 +773,56 @@ onMounted(() => {
 @media (max-width: 640px) {
   .header-left { flex-direction: column; align-items: flex-start; gap: 8px; }
   .vs-row { grid-template-columns: 64px 1fr 64px; }
-  .info-actions { margin-left: 0; }
-  .search-input { width: 100%; }
   .link-row { grid-template-columns: 1fr; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--c-border-soft); }
+}
+/* 計分板 */
+.export-area { display: flex; flex-direction: column; gap: 14px; }
+.scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px 18px; align-items: center; padding: 18px 20px; border-radius: 12px; background: linear-gradient(90deg, rgba(59, 130, 246, 0.10), var(--c-surface) 35%, var(--c-surface) 65%, rgba(239, 68, 68, 0.10)); border: 1px solid var(--c-border); }
+.sb-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sb-side.my { align-items: flex-start; }
+.sb-side.opp { align-items: flex-end; text-align: right; }
+.sb-name { font-size: 20px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.sb-side.my .sb-name { color: #3b82f6; }
+.sb-side.opp .sb-name { color: #ef4444; }
+.sb-meta { font-size: 12px; color: var(--c-muted); display: flex; gap: 8px; align-items: center; }
+.sb-result { padding: 1px 10px; border-radius: 10px; font-weight: bold; font-size: 12px; }
+.sb-result.win { background: #3b82f6; color: #ffffff; }
+.sb-result.loss { background: #ef4444; color: #ffffff; }
+.sb-result.pending { background: var(--c-surface-4); color: var(--c-muted); }
+.sb-center { text-align: center; }
+.sb-vs { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: var(--c-faint); }
+.sb-time { font-size: 12px; color: var(--c-text-3); }
+.sb-league { font-size: 11px; color: var(--c-faint); }
+.sb-totals { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 10px; border-top: 1px dashed var(--c-border); }
+.sb-total { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; font-size: 13px; }
+.sb-label { color: var(--c-muted); font-size: 12px; }
+.sb-num { color: var(--c-faint); font-variant-numeric: tabular-nums; }
+.sb-num.my { text-align: right; }
+.sb-num.lead.my { color: #3b82f6; font-weight: bold; }
+.sb-num.lead.opp { color: #ef4444; font-weight: bold; }
+
+/* 檢視切換 */
+.view-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.view-tabs { display: flex; gap: 4px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 10px; padding: 4px; flex-wrap: wrap; }
+.view-tab { border: none; background: none; color: var(--c-text-3); padding: 6px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.view-tab:hover { background: var(--c-surface-3); }
+.view-tab.active { background: #3b82f6; color: #ffffff; font-weight: bold; }
+.view-badge { background: #f59e0b; color: #ffffff; border-radius: 9px; font-size: 10px; padding: 0 6px; font-weight: bold; }
+.view-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-tool { border: 1px solid var(--c-border-strong); background: var(--c-surface); color: var(--c-text-2); border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+.btn-tool:hover { background: var(--c-surface-3); }
+.btn-tool:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-tool.danger { color: var(--c-danger-text); }
+.compare-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: 14px; }
+.card-title { display: flex; align-items: center; gap: 4px; }
+.vs-rows { max-width: none; }
+
+@media (max-width: 900px) {
+  .compare-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .scoreboard { padding: 14px; }
+  .sb-name { font-size: 16px; }
+  .sb-totals { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
