@@ -6,10 +6,13 @@
       @back="isAdminView = false" 
     />
 
-    <router-view 
-      v-else 
-      @login-success="handleLoginSuccess" 
+    <router-view
+      v-else
+      @login-success="handleLoginSuccess"
     />
+
+    <!-- 全站頁面內提示（取代 alert 跳窗） -->
+    <NoticeHost />
   </div>
 </template>
 
@@ -18,6 +21,8 @@ import { ref, computed, onMounted, provide } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from './utils/supabase'
 import AdminDashboard from './views/admin/AdminDashboard.vue'
+import NoticeHost from './components/NoticeHost.vue'
+import { safeRedirect } from './router'
 import { getAccountBlockReason } from './utils/accountStatus'
 
 const router = useRouter()
@@ -66,14 +71,12 @@ const checkSession = async () => {
     await fetchAllGuilds()
 
     if (route.path === '/login' || route.path === '/' || route.path === '/home') {
-      router.push('/members')
+      router.push(safeRedirect(route.query.redirect))
     }
   } else {
+    // 沒登入時路由守衛（router.js）已導到登入頁
     currentUser.value = null
     userProfile.value = null
-    if (route.path !== '/login') {
-      router.push('/login')
-    }
   }
 }
 
@@ -98,7 +101,7 @@ const handleLoginSuccess = async ({ user, profile }) => {
   userProfile.value = profile
   isAdminView.value = false
   await fetchAllGuilds()
-  router.push('/members')
+  router.push(safeRedirect(route.query.redirect))
 }
 
 const handleLogout = async () => {

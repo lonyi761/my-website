@@ -45,7 +45,6 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { supabase } from '../utils/supabase'
 import Navbar from '../components/layout/Navbar.vue'
 import RoleManagement from './preparation/RoleManagement.vue'
@@ -55,7 +54,6 @@ import QuestionConfig from './preparation/QuestionConfig.vue'
 
 const GUILD_STORAGE_KEY = 'prep_selected_guild_id'
 
-const router = useRouter()
 const username = ref('')
 const currentTab = ref('roles')
 const userProfile = ref(null)
@@ -89,7 +87,7 @@ watch(selectedGuildId, (id) => {
 
 const loadPage = async () => {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return router.push('/login')
+  if (!session) return // 未登入由路由守衛導向登入頁
   username.value = session.user.email.split('@')[0]
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle()

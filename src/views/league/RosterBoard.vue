@@ -1154,6 +1154,8 @@ import RosterMatrixView from './components/RosterMatrixView.vue'
 import RosterTableView from './components/RosterTableView.vue'
 import RosterBenchZone from './components/RosterBenchZone.vue'
 import { createEmptyBench, splitBenchFromTeams, mergeBenchIntoTeams } from './rosterBench'
+import { notify } from '../../utils/notify'
+import { SCHOOLS, schoolBgMap, getSchoolImg } from '../../constants/schools'
 
 const props = defineProps({
   leagueItem: {
@@ -1175,18 +1177,7 @@ const props = defineProps({
 defineEmits(['back'])
 
 // 常數宣告 (最頂層)
-const availableSchools = [
-  { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
-  { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
-  { name: '九靈', file: 'jl', color: '#8b5cf6', bg: '#f3e8ff' },
-  { name: '神相', file: 'sx', color: '#6366f1', bg: '#e0e7ff' },
-  { name: '碎夢', file: 'sm', color: '#06b6d4', bg: '#cffaff' },
-  { name: '素問', file: 'sw', color: '#f43f5e', bg: '#ffe4e6' },
-  { name: '龍吟', file: 'ly', color: '#10b981', bg: '#d1fae5' },
-  { name: '玄機', file: 'xj', color: '#84cc16', bg: '#ecfccb' },
-  { name: '潮光', file: 'cg', color: '#38bdf8', bg: '#f0f9ff' },
-  { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
-]
+const availableSchools = SCHOOLS
 
 const teamColorOptions = [
   { color: '#84cc16', label: '淺綠色' },
@@ -1196,11 +1187,7 @@ const teamColorOptions = [
   { color: '#a855f7', label: '淡紫色' }
 ]
 
-const schoolColorMap = {
-  '鐵衣': '#fef3c7', '血河': '#ffe4e6', '九靈': '#f3e8ff', '神相': '#e0e7ff',
-  '碎夢': '#cffaff', '素問': '#ffe4e6', '龍吟': '#d1fae5', '玄機': '#ecfccb',
-  '潮光': '#f0f9ff', '滄瀾': '#e0e7ff'
-}
+const schoolColorMap = schoolBgMap(SCHOOLS)
 
 // 所有 State 宣告
 const allMembers = ref([])
@@ -1421,11 +1408,6 @@ watch(assignedMemberIds, () => {
   updateMembersAssignedStatus()
 }, { immediate: true })
 
-const getSchoolImg = (fileName) => {
-  if (!fileName) return ''
-  return new URL(`../../assets/schools/${fileName}.png`, import.meta.url).href
-}
-
 const getSchoolImgByName = (schoolName) => {
   const found = availableSchools.find(s => s.name === schoolName)
   return found ? getSchoolImg(found.file) : ''
@@ -1570,8 +1552,8 @@ const fetchGuildMembersFromDB = async () => {
 }
 
 const saveRosterBoard = async () => {
-  if (!canEditCurrentGuild.value) return alert('您目前僅具備該幫會之查看權限，無法保存陣容！')
-  if (!props.leagueItem?.id) return alert('找不到對應的聯賽，無法保存陣容！')
+  if (!canEditCurrentGuild.value) return notify('您目前僅具備該幫會之查看權限，無法保存陣容！')
+  if (!props.leagueItem?.id) return notify('找不到對應的聯賽，無法保存陣容！')
   isSaving.value = true
   try {
     const error = getWriteError(await supabase
@@ -1585,10 +1567,10 @@ const saveRosterBoard = async () => {
       .select('id'))
 
     if (error) throw new Error(error)
-    alert('陣容成功儲存至雲端資料庫！同幫會成員登入即可看到最新排表。')
+    notify('陣容成功儲存至雲端資料庫！同幫會成員登入即可看到最新排表。')
   } catch (err) {
     console.error('儲存失敗:', err)
-    alert('陣容保存失敗：' + err.message)
+    notify('陣容保存失敗：' + err.message)
   } finally {
     isSaving.value = false
   }
@@ -1607,7 +1589,7 @@ const loadHtml2CanvasScript = async () => (await import('html2canvas')).default
 
 const downloadExportImage = async () => {
   const targetEl = document.querySelector('.preview-canvas-paper')
-  if (!targetEl) return alert('找不到預覽畫面！')
+  if (!targetEl) return notify('找不到預覽畫面！')
 
   isExporting.value = true
   try {
@@ -1627,7 +1609,7 @@ const downloadExportImage = async () => {
 
     showExportModal.value = false
   } catch (err) {
-    alert('導出圖片失敗，請稍微重試。')
+    notify('導出圖片失敗，請稍微重試。')
   } finally {
     isExporting.value = false
   }
@@ -1660,7 +1642,7 @@ const toggleNewMemberSchool = (sName) => {
       }
     }
   } else {
-    if (newMemberForm.value.schools.length >= 2) return alert('最多只能選擇 2 個流派！')
+    if (newMemberForm.value.schools.length >= 2) return notify('最多只能選擇 2 個流派！')
     newMemberForm.value.schools.push(sName)
   }
 }
@@ -1674,7 +1656,7 @@ const toggleRolePrefInNewMember = (rName) => {
 const saveNewMember = async () => {
   if (!canEditCurrentGuild.value) return
   const cleanName = newMemberForm.value.name.trim()
-  if (!cleanName) return alert('請輸入角色名！')
+  if (!cleanName) return notify('請輸入角色名！')
 
   const { data: gData } = await supabase.from('guilds').select('id').eq('name', leagueInfo.value.guild).maybeSingle()
 
@@ -1692,7 +1674,7 @@ const saveNewMember = async () => {
       role_preference: newMemberForm.value.rolePrefList
     }])
 
-    if (error) return alert('新增成員失敗：' + error.message)
+    if (error) return notify('新增成員失敗：' + error.message)
   }
 
   await fetchGuildMembersFromDB()
@@ -1701,7 +1683,7 @@ const saveNewMember = async () => {
 
 const addTeam = () => {
   if (!canEditCurrentGuild.value) return
-  if (matrixTeams.value.length >= 5) return alert('最多只能創建 5 個團隊！')
+  if (matrixTeams.value.length >= 5) return notify('最多只能創建 5 個團隊！')
   const num = matrixTeams.value.length + 1
   const defaultColor = teamColorOptions[(num - 1) % teamColorOptions.length].color
   matrixTeams.value.push({
@@ -1721,7 +1703,7 @@ const addTeam = () => {
 
 const addSquadToTeam = (team) => {
   if (!canEditCurrentGuild.value) return
-  if (team.squads.length >= 5) return alert('每個團隊最多只能創建 5 個小隊！')
+  if (team.squads.length >= 5) return notify('每個團隊最多只能創建 5 個小隊！')
   const squadNum = team.squads.length + 1
   team.squads.push({
     id: Date.now(),
@@ -2075,7 +2057,7 @@ const toggleMemberEditSchool = (sName) => {
       }
     }
   } else {
-    if (memberEditForm.value.schools.length >= 2) return alert('最多只能選擇 2 個流派！')
+    if (memberEditForm.value.schools.length >= 2) return notify('最多只能選擇 2 個流派！')
     memberEditForm.value.schools.push(sName)
   }
 }
@@ -2089,7 +2071,7 @@ const toggleRolePrefInMemberEdit = (rName) => {
 const saveFullMemberEdit = async () => {
   if (!canEditCurrentGuild.value) return
   const cleanName = memberEditForm.value.name.trim()
-  if (!cleanName) return alert('請輸入角色名！')
+  if (!cleanName) return notify('請輸入角色名！')
 
   const payload = {
     name: cleanName,
@@ -2111,7 +2093,7 @@ const saveFullMemberEdit = async () => {
       .select('id'))
 
     if (error) {
-      return alert('編輯成員同步至資料庫失敗：' + error)
+      return notify('編輯成員同步至資料庫失敗：' + error)
     }
   }
 
@@ -2188,7 +2170,7 @@ const openBatchEditModal = () => {
     showBatchEditModal.value = true
     showOtherOpsDropdown.value = false
   } catch (err) {
-    alert("批量編輯資料載入失敗，請稍後重試。")
+    notify("批量編輯資料載入失敗，請稍後重試。")
   }
 }
 
@@ -2203,7 +2185,7 @@ const toggleGroupBatchSelect = (group, event) => {
 }
 
 const openBatchRoleSelectModal = () => {
-  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  if (selectedBatchMembers.value.length === 0) return notify('請先勾選要批量修改的成員！')
   tempBatchRolePills.value = ['保鑣']
   showBatchRoleDialog.value = true
 }
@@ -2228,7 +2210,7 @@ const applyBatchRoleSelection = () => {
 }
 
 const openBatchJuejiSelectModal = () => {
-  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  if (selectedBatchMembers.value.length === 0) return notify('請先勾選要批量修改的成員！')
   tempBatchJuejiVal.value = '太極圖'
   showBatchJuejiDialog.value = true
 }
@@ -2247,7 +2229,7 @@ const applyBatchJuejiSelection = () => {
 }
 
 const openBatchQunxiaSelectModal = () => {
-  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  if (selectedBatchMembers.value.length === 0) return notify('請先勾選要批量修改的成員！')
   tempBatchQunxiaVal.value = '咚咚跳台'
   showBatchQunxiaDialog.value = true
 }
@@ -2275,7 +2257,7 @@ const applyBatchQunxiaSelection = () => {
 }
 
 const openBatchLiupaiSelectModal = () => {
-  if (selectedBatchMembers.value.length === 0) return alert('請先勾選要批量修改的成員！')
+  if (selectedBatchMembers.value.length === 0) return notify('請先勾選要批量修改的成員！')
   tempBatchLiupaiVal.value = '清泉'
   showBatchLiupaiDialog.value = true
 }
@@ -2378,7 +2360,7 @@ const applyRosterTemplate = (tpl) => {
   if (!canEditCurrentGuild.value) return
   showTemplateDropdown.value = false
   const tplTeams = Array.isArray(tpl.teams) ? tpl.teams : []
-  if (tplTeams.length === 0) return alert(`模板「${tpl.name}」還沒有任何團隊設定。`)
+  if (tplTeams.length === 0) return notify(`模板「${tpl.name}」還沒有任何團隊設定。`)
   if (!confirm(`確定套用模板「${tpl.name}」嗎？\n團隊、小隊名稱與各席位的模板設定會被取代，已排入的成員不會變動。`)) return
 
   tplTeams.forEach((tplTeam, tIdx) => {

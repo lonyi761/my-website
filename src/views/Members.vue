@@ -555,12 +555,12 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { supabase } from '../utils/supabase'
 import { getWriteError } from '../utils/writeResult'
 import Navbar from '../components/layout/Navbar.vue'
+import { notify } from '../utils/notify'
+import { SCHOOLS, SCHOOL_NAMES, getSchoolImg } from '../constants/schools'
 
-const router = useRouter()
 const username = ref('VIP')
 const userProfile = ref(null)
 
@@ -628,23 +628,7 @@ const showGuildEditModal = ref(false)
 const targetEditGuild = ref(null)
 const editingGuildName = ref('')
 
-const availableSchools = ref([
-  { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
-  { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
-  { name: '九靈', file: 'jl', color: '#8b5cf6', bg: '#f3e8ff' },
-  { name: '神相', file: 'sx', color: '#6366f1', bg: '#e0e7ff' },
-  { name: '碎夢', file: 'sm', color: '#06b6d4', bg: '#cffaff' },
-  { name: '素問', file: 'sw', color: '#f43f5e', bg: '#ffe4e6' },
-  { name: '龍吟', file: 'ly', color: '#10b981', bg: '#d1fae5' },
-  { name: '玄機', file: 'xj', color: '#84cc16', bg: '#ecfccb' },
-  { name: '潮光', file: 'cg', color: '#38bdf8', bg: '#f0f9ff' },
-  { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' }
-])
-
-const getSchoolImg = (fileName) => {
-  if (!fileName) return ''
-  return new URL(`../assets/schools/${fileName}.png`, import.meta.url).href
-}
+const availableSchools = ref(SCHOOLS)
 
 const members = ref([])
 const searchQuery = ref('')
@@ -782,7 +766,7 @@ const formatDateTime = (dateStr) => {
 
 const fetchCloudData = async () => {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) { router.push('/login'); return }
+  if (!session) return // 未登入由路由守衛導向登入頁
 
   username.value = session.user.email.split('@')[0]
 
@@ -926,7 +910,7 @@ const quickSwitchSchool = async (member, schoolName) => {
   const error = getWriteError(await supabase.from('guild_members').update({ current_school: schoolName }).eq('id', member.id).select('id'))
   if (error) {
     member.currentSchool = previous
-    alert('切換流派失敗：' + error)
+    notify('切換流派失敗：' + error)
   }
 }
 
@@ -938,7 +922,7 @@ const quickSwitchStatus = async (member, status) => {
   const error = getWriteError(await supabase.from('guild_members').update({ status: status }).eq('id', member.id).select('id'))
   if (error) {
     member.status = previous
-    alert('切換狀態失敗：' + error)
+    notify('切換狀態失敗：' + error)
   }
 }
 
@@ -946,7 +930,7 @@ const openAddGuildModal = async () => {
   const name = prompt('請輸入新幫會名稱：')
   if (name && name.trim()) {
     const { data: newGuild, error } = await supabase.from('guilds').insert([{ name: name.trim() }]).select().single()
-    if (error) return alert('新增幫會失敗：' + error.message)
+    if (error) return notify('新增幫會失敗：' + error.message)
     if (newGuild) {
       await fetchCloudData()
       currentGuildId.value = newGuild.id
@@ -963,7 +947,7 @@ const openEditGuildModal = (guild) => {
 const saveGuildName = async () => {
   if (targetEditGuild.value && editingGuildName.value.trim()) {
     const error = getWriteError(await supabase.from('guilds').update({ name: editingGuildName.value.trim() }).eq('id', targetEditGuild.value.id).select('id'))
-    if (error) return alert('修改幫會名稱失敗：' + error)
+    if (error) return notify('修改幫會名稱失敗：' + error)
     await fetchCloudData()
     showGuildEditModal.value = false
   }
@@ -972,7 +956,7 @@ const saveGuildName = async () => {
 const deleteGuild = () => {
   triggerConfirmModal('刪除幫會', `確定要刪除幫會【${targetEditGuild.value.name}】嗎？`, async () => {
     const error = getWriteError(await supabase.from('guilds').delete().eq('id', targetEditGuild.value.id).select('id'))
-    if (error) return alert('刪除幫會失敗：' + error)
+    if (error) return notify('刪除幫會失敗：' + error)
     await fetchCloudData()
     showGuildEditModal.value = false
   })
@@ -989,7 +973,7 @@ const toggleSchoolSelection = (schoolName) => {
     }
   } else {
     if (memberForm.value.schools.length >= 2) {
-      alert('最多只能選擇 2 個流派！')
+      notify('最多只能選擇 2 個流派！')
       return
     }
     memberForm.value.schools.push(schoolName)
@@ -1024,8 +1008,8 @@ const openMemberModal = (member = null) => {
 
 const saveMember = async () => {
   const cleanName = memberForm.value.name.trim()
-  if (!cleanName) return alert('請輸入角色名！')
-  if (memberForm.value.schools.length === 0) return alert('請至少選擇一個流派！')
+  if (!cleanName) return notify('請輸入角色名！')
+  if (memberForm.value.schools.length === 0) return notify('請至少選擇一個流派！')
 
   const isDuplicateInSameGuild = members.value.some(m => 
     m.guild === memberForm.value.guild && 
@@ -1034,7 +1018,7 @@ const saveMember = async () => {
   )
 
   if (isDuplicateInSameGuild) {
-    return alert(`幫會【${memberForm.value.guild}】中已存在角色名「${cleanName}」，請勿重複新增！`)
+    return notify(`幫會【${memberForm.value.guild}】中已存在角色名「${cleanName}」，請勿重複新增！`)
   }
 
   const targetGuildId = getGuildIdByName(memberForm.value.guild)
@@ -1063,7 +1047,7 @@ const saveMember = async () => {
     if (session) payload.created_by = session.user.id
     error = getWriteError(await supabase.from('guild_members').insert([payload]))
   }
-  if (error) return alert('儲存成員失敗：' + error)
+  if (error) return notify('儲存成員失敗：' + error)
 
   await fetchCloudData()
   showMemberModal.value = false
@@ -1073,7 +1057,7 @@ const deleteMember = (id) => {
   const m = members.value.find(item => item.id === id)
   triggerConfirmModal('刪除成員', `確定要刪除成員【${m?.name || ''}】嗎？`, async () => {
     const error = getWriteError(await supabase.from('guild_members').delete().eq('id', id).select('id'))
-    if (error) return alert('刪除成員失敗：' + error)
+    if (error) return notify('刪除成員失敗：' + error)
     await fetchCloudData()
   })
 }
@@ -1142,7 +1126,7 @@ const preprocessImageToCanvas = (file) => {
 }
 
 const parseOcrTextToMembers = (rawText) => {
-  const validSchools = ['鐵衣', '血河', '九靈', '神相', '碎夢', '素問', '龍吟', '玄機', '潮光', '滄瀾']
+  const validSchools = SCHOOL_NAMES
   const globalSchool = validSchools.find(s => rawText.includes(s))
 
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
@@ -1196,7 +1180,7 @@ const handleFileUpload = async (e) => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
       const jsonData = XLSX.utils.sheet_to_json(worksheet)
 
-      const validSchools = ['鐵衣', '血河', '九靈', '神相', '碎夢', '素問', '龍吟', '玄機', '潮光', '滄瀾']
+      const validSchools = SCHOOL_NAMES
       const parsedMembers = []
 
       jsonData.forEach(row => {
@@ -1232,12 +1216,12 @@ const handleFileUpload = async (e) => {
       })
 
       if (parsedMembers.length === 0) {
-        alert('Excel 中未找到包含有效流派名稱的成員資料！')
+        notify('Excel 中未找到包含有效流派名稱的成員資料！')
       } else {
         ocrPreviewList.value = parsedMembers
       }
     } catch (err) {
-      alert('解析 Excel 失敗，請確認檔案格式！')
+      notify('解析 Excel 失敗，請確認檔案格式！')
     }
   } else {
     isParsingImage.value = true
@@ -1253,14 +1237,14 @@ const handleFileUpload = async (e) => {
         if (parsed.length > 0) {
           ocrPreviewList.value = parsed
         } else {
-          alert('圖片中未識別到包含合法流派的成員，請上傳清晰的遊戲幫會成員列表截圖！')
+          notify('圖片中未識別到包含合法流派的成員，請上傳清晰的遊戲幫會成員列表截圖！')
         }
       } else {
-        alert('網路連線或 OCR 模組載入失敗，請稍後重試或使用 Excel 上傳！')
+        notify('網路連線或 OCR 模組載入失敗，請稍後重試或使用 Excel 上傳！')
       }
     } catch (err) {
       console.error('圖片 OCR 識別出錯:', err)
-      alert('截圖識別失敗，請確保上傳清晰完整的遊戲成員列表截圖！')
+      notify('截圖識別失敗，請確保上傳清晰完整的遊戲成員列表截圖！')
     } finally {
       isParsingImage.value = false
     }
@@ -1272,10 +1256,10 @@ const handleFileUpload = async (e) => {
 const confirmImport = async () => {
   if (ocrPreviewList.value.length === 0 || isImporting.value) return
 
-  if (!importTargetGuild.value) return alert('請選擇要匯入的幫會！')
+  if (!importTargetGuild.value) return notify('請選擇要匯入的幫會！')
 
   const targetGuildId = getGuildIdByName(importTargetGuild.value)
-  if (!targetGuildId) return alert('請選擇有效的所屬幫會！')
+  if (!targetGuildId) return notify('請選擇有效的所屬幫會！')
 
   const existingNamesInTargetGuild = new Set(
     members.value
@@ -1299,7 +1283,7 @@ const confirmImport = async () => {
   })
 
   if (toImportList.length === 0) {
-    alert(`名單中的所有成員 (${skippedCount} 人) 已存在於【${importTargetGuild.value}】中，無須重複導入！`)
+    notify(`名單中的所有成員 (${skippedCount} 人) 已存在於【${importTargetGuild.value}】中，無須重複導入！`)
     return
   }
 
@@ -1357,7 +1341,7 @@ const finishBatchModal = () => {
 // 一次送出的批量寫入：回傳實際影響的筆數（被權限擋下的資料列不會計入），失敗時提示原因
 const countAffected = ({ data, error }) => {
   if (error) {
-    alert('操作失敗：' + error.message)
+    notify('操作失敗：' + error.message)
     return 0
   }
   return data?.length || 0
@@ -1367,7 +1351,7 @@ const handleBatchUpdateAttributes = async () => {
   if (selectedMemberIds.value.length === 0 || isBatchProcessing.value) return
 
   if (batchGodlyWeapon.value === 'no_change' && !batchStatus.value && !batchNotes.value.trim()) {
-    return alert('請至少選擇或填寫一項要批量修改的內容！')
+    return notify('請至少選擇或填寫一項要批量修改的內容！')
   }
 
   isBatchProcessing.value = true

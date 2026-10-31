@@ -297,7 +297,7 @@
                 :style="{ '--badge-color': s.color, '--badge-bg': s.bg }"
                 @click="toggleSlotSchool(s.name)"
               >
-                <img :src="getSchoolImg(s.file)" class="btn-img-icon" />
+                <img v-if="getSchoolImg(s.file)" :src="getSchoolImg(s.file)" class="btn-img-icon" />
                 <span>{{ s.name }}</span>
               </button>
             </div>
@@ -476,6 +476,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
+import { notify } from '../../utils/notify'
+import { TEMPLATE_SCHOOLS, schoolBgMap, getSchoolImg } from '../../constants/schools'
 
 // 排表模板依幫會存在 lineup_templates 資料表；排表頁可直接套用
 const props = defineProps({
@@ -487,24 +489,7 @@ const currentView = ref('list')
 const searchQuery = ref('')
 const showDetails = ref(false)
 
-const availableSchools = [
-  { name: '鐵衣', file: 'ty', color: '#d97706', bg: '#fef3c7' },
-  { name: '血河', file: 'xh', color: '#e11d48', bg: '#ffe4e6' },
-  { name: '九靈', file: 'jl', color: '#8b5cf6', bg: '#f3e8ff' },
-  { name: '神相', file: 'sx', color: '#6366f1', bg: '#e0e7ff' },
-  { name: '碎夢', file: 'sm', color: '#06b6d4', bg: '#cffaff' },
-  { name: '素問', file: 'sw', color: '#f43f5e', bg: '#ffe4e6' },
-  { name: '龍吟', file: 'ly', color: '#10b981', bg: '#d1fae5' },
-  { name: '玄機', file: 'xj', color: '#84cc16', bg: '#ecfccb' },
-  { name: '潮光', file: 'cg', color: '#38bdf8', bg: '#f0f9ff' },
-  { name: '滄瀾', file: 'cl', color: '#0284c7', bg: '#e0e7ff' },
-  { name: '鴻音', file: 'hy', color: '#ec4899', bg: '#fce7f3' }
-]
-
-const getSchoolImg = (fileName) => {
-  if (!fileName) return ''
-  return new URL(`../../assets/schools/${fileName}.png`, import.meta.url).href
-}
+const availableSchools = TEMPLATE_SCHOOLS
 
 const getSchoolImgByName = (schoolName) => {
   const found = availableSchools.find(s => s.name === schoolName)
@@ -536,19 +521,7 @@ const loadOptions = async () => {
   liupaiSkillOptions.value = uniqueList(enabledSkills.filter(k => k.category === 'liupai').map(k => k.content))
 }
 
-const schoolColorMap = {
-  '鐵衣': '#fef3c7',
-  '血河': '#ffe4e6',
-  '九靈': '#f3e8ff',
-  '神相': '#e0e7ff',
-  '碎夢': '#cffaff',
-  '素問': '#ffe4e6',
-  '龍吟': '#d1fae5',
-  '玄機': '#ecfccb',
-  '潮光': '#f0f9ff',
-  '滄瀾': '#e0e7ff',
-  '鴻音': '#fce7f3'
-}
+const schoolColorMap = schoolBgMap(TEMPLATE_SCHOOLS)
 
 // 置中刪除確認 Modal
 const showConfirmModal = ref(false)
@@ -587,7 +560,7 @@ const loadTemplates = async () => {
     .eq('guild_id', props.guildId)
     .order('updated_at', { ascending: false })
   isLoading.value = false
-  if (error) return alert('讀取排表模板失敗：' + error.message)
+  if (error) return notify('讀取排表模板失敗：' + error.message)
   templateList.value = (data || []).map(t => ({
     id: t.id,
     name: t.name,
@@ -669,7 +642,7 @@ const saveTemplateTeams = async () => {
     .eq('id', activeTemplate.value.id)
     .select('id'))
   isSavingTeams.value = false
-  if (error) return alert('保存排表失敗：' + error)
+  if (error) return notify('保存排表失敗：' + error)
   savedTeamsSnapshot.value = JSON.stringify(activeTemplate.value.teams)
   await loadTemplates()
 }
@@ -692,13 +665,13 @@ const openTemplateModal = (tpl = null) => {
 
 const saveTemplate = async () => {
   const name = templateForm.value.name.trim()
-  if (!name) return alert('請輸入模板名稱！')
+  if (!name) return notify('請輸入模板名稱！')
 
   const meta = { name, description: templateForm.value.desc.trim(), updated_at: new Date().toISOString() }
   const error = editingTemplateId.value
     ? getWriteError(await supabase.from('lineup_templates').update(meta).eq('id', editingTemplateId.value).select('id'))
     : getWriteError(await supabase.from('lineup_templates').insert([{ ...meta, guild_id: props.guildId, teams: createSampleTeams() }]).select('id'))
-  if (error) return alert('保存模板失敗：' + error)
+  if (error) return notify('保存模板失敗：' + error)
 
   showTemplateModal.value = false
   await loadTemplates()
@@ -710,7 +683,7 @@ const confirmDeleteTemplate = (tpl) => {
     `確定要刪除模板「${tpl.name}」嗎？`,
     async () => {
       const error = getWriteError(await supabase.from('lineup_templates').delete().eq('id', tpl.id).select('id'))
-      if (error) return alert('刪除模板失敗：' + error)
+      if (error) return notify('刪除模板失敗：' + error)
       await loadTemplates()
     }
   )
@@ -739,7 +712,7 @@ const openTeamModal = (team, idx) => {
 }
 
 const saveTeamModal = () => {
-  if (!teamForm.value.name.trim()) return alert('請輸入團隊名稱！')
+  if (!teamForm.value.name.trim()) return notify('請輸入團隊名稱！')
   const team = activeTemplate.value.teams[activeTeamIndex.value]
   if (team) {
     team.name = teamForm.value.name.trim()
@@ -778,7 +751,7 @@ const openSquadModal = (team, squad, sIdx) => {
 }
 
 const saveSquadModal = () => {
-  if (!squadForm.value.name.trim()) return alert('請輸入小隊名！')
+  if (!squadForm.value.name.trim()) return notify('請輸入小隊名！')
   const squad = activeTeamForSquad.value.squads[activeSquadIndex.value]
   if (squad) {
     squad.name = squadForm.value.name.trim()

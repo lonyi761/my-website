@@ -182,6 +182,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
+import { notify } from '../../utils/notify'
 
 defineEmits(['back'])
 
@@ -285,7 +286,7 @@ const toggleGuildSelection = async (user, guildId, type) => {
 
   const { error } = await supabase.from('profiles').update(payload).eq('id', user.id)
   if (error) {
-    alert('變更幫會權限失敗：' + error.message)
+    notify('變更幫會權限失敗：' + error.message)
   }
 }
 
@@ -296,7 +297,7 @@ const updateUserRole = async (user, event) => {
 
   if (user.id === currentUserId.value) {
     select.value = user.role
-    return alert('不能變更自己的角色，以免失去總管理員權限。')
+    return notify('不能變更自己的角色，以免失去總管理員權限。')
   }
   if (!confirm(`確定要將【${name}】的角色改為「${getRoleLabel(nextRole)}」嗎？`)) {
     select.value = user.role
@@ -306,18 +307,18 @@ const updateUserRole = async (user, event) => {
   const { error } = await supabase.from('profiles').update({ role: nextRole }).eq('id', user.id)
   if (error) {
     select.value = user.role
-    return alert('變更角色失敗：' + error.message)
+    return notify('變更角色失敗：' + error.message)
   }
   user.role = nextRole
 }
 
 const toggleBanStatus = async (user) => {
-  if (user.id === currentUserId.value) return alert('不能停權自己的帳號。')
+  if (user.id === currentUserId.value) return notify('不能停權自己的帳號。')
   const nextStatus = user.status === '已停權' ? '使用中' : '已停權'
   if (nextStatus === '已停權' && !confirm(`確定要停權【${getUserDisplayName(user)}】嗎？停權後對方將無法使用系統。`)) return
 
   const { error } = await supabase.from('profiles').update({ status: nextStatus }).eq('id', user.id)
-  if (error) return alert('變更狀態失敗：' + error.message)
+  if (error) return notify('變更狀態失敗：' + error.message)
   user.status = nextStatus
 }
 
@@ -327,21 +328,21 @@ const addDays = async (user, days) => {
   const newExpire = current.toISOString()
 
   const { error } = await supabase.from('profiles').update({ expire_at: newExpire }).eq('id', user.id)
-  if (error) return alert('延長天數失敗：' + error.message)
+  if (error) return notify('延長天數失敗：' + error.message)
   user.expire_at = newExpire
-  alert(`已為【${getUserDisplayName(user)}】延長 ${days} 天！`)
+  notify(`已為【${getUserDisplayName(user)}】延長 ${days} 天！`)
 }
 
 const setPermanent = async (user) => {
   const permanentDate = '2099-12-31T23:59:59.000Z'
   const { error } = await supabase.from('profiles').update({ expire_at: permanentDate }).eq('id', user.id)
-  if (error) return alert('設定永久授權失敗：' + error.message)
+  if (error) return notify('設定永久授權失敗：' + error.message)
   user.expire_at = permanentDate
-  alert(`已為【${getUserDisplayName(user)}】設定永久授權！`)
+  notify(`已為【${getUserDisplayName(user)}】設定永久授權！`)
 }
 
 const confirmDeleteUser = (user) => {
-  if (user.id === currentUserId.value) return alert('不能刪除自己的帳號。')
+  if (user.id === currentUserId.value) return notify('不能刪除自己的帳號。')
   const name = getUserDisplayName(user)
   triggerConfirmModal(
     '刪除帳號',
@@ -352,7 +353,7 @@ const confirmDeleteUser = (user) => {
       if (!error) {
         userList.value = userList.value.filter(u => u.id !== user.id)
       } else {
-        alert('刪除帳號失敗：' + error.message)
+        notify('刪除帳號失敗：' + error.message)
       }
     }
   )

@@ -164,6 +164,7 @@
 import { ref, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
+import { notify } from '../../utils/notify'
 
 // 報名問題依幫會存在 signup_questions 資料表
 const props = defineProps({
@@ -193,7 +194,7 @@ const loadQuestions = async () => {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
   isLoading.value = false
-  if (error) return alert('讀取報名問題失敗：' + error.message)
+  if (error) return notify('讀取報名問題失敗：' + error.message)
   questionList.value = (data || []).map(toQuestion)
 }
 
@@ -232,7 +233,7 @@ const onQuestionDrop = async (targetIndex) => {
   }))
   const failed = results.map(getWriteError).find(Boolean)
   if (failed) {
-    alert('保存排序失敗：' + failed)
+    notify('保存排序失敗：' + failed)
     await loadQuestions()
   }
 }
@@ -282,11 +283,11 @@ const openQuestionModal = (q = null) => {
 
 const saveQuestion = async () => {
   const title = questionForm.value.title.trim()
-  if (!title) return alert('請輸入題幹！')
+  if (!title) return notify('請輸入題幹！')
 
   const cleanOptions = questionForm.value.options.map(s => s.trim()).filter(Boolean)
   if (questionForm.value.type !== 'text' && cleanOptions.length === 0) {
-    return alert('請至少新增一個選項！')
+    return notify('請至少新增一個選項！')
   }
   if (isSavingQuestion.value) return
 
@@ -304,7 +305,7 @@ const saveQuestion = async () => {
     : getWriteError(await supabase.from('signup_questions').insert([{ ...payload, guild_id: props.guildId, sort_order: questionList.value.length + 1 }]).select('id'))
   isSavingQuestion.value = false
 
-  if (error) return alert('保存報名問題失敗：' + error)
+  if (error) return notify('保存報名問題失敗：' + error)
   showQuestionModal.value = false
   await loadQuestions()
 }
@@ -317,7 +318,7 @@ const deleteQuestion = (id) => {
     `確定要刪除問題「${qTitle}」嗎？刪除後無法恢復。`,
     async () => {
       const error = getWriteError(await supabase.from('signup_questions').delete().eq('id', id).select('id'))
-      if (error) return alert('刪除報名問題失敗：' + error)
+      if (error) return notify('刪除報名問題失敗：' + error)
       await loadQuestions()
     }
   )
