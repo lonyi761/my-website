@@ -37,6 +37,18 @@
     </div>
 
     <template v-else>
+      <div v-if="current.share_id" class="share-box">
+        <i class="mdi mdi-link-variant"></i>
+        <span class="share-label">分享連結</span>
+        <input class="share-input" :value="shareUrl(current.share_id)" readonly @focus="$event.target.select()" />
+        <button class="btn-tool" @click="copyShare"><i class="mdi mdi-content-copy"></i> 複製</button>
+        <template v-if="canEdit">
+          <button class="btn-tool" :disabled="isSharing" title="結果或數據有更新時，重新產生連結" @click="createShare"><i class="mdi mdi-refresh"></i> 重新產生</button>
+          <button class="btn-text danger" :disabled="isSharing" @click="removeShare">取消分享</button>
+        </template>
+        <span class="share-hint">任何人打開連結都能看這場戰績（不用登入）；只包含 CSV 的數據，不含成員對應與出勤。</span>
+      </div>
+
       <MatchReport
         :key="activeIndex"
         :record="current"
@@ -49,6 +61,7 @@
         :extra-views="[{ key: 'attendance', label: '出勤對照', icon: 'mdi-clipboard-check-outline', badge: attendanceAlerts }]"
       >
         <template v-if="canEdit" #actions>
+          <button v-if="!current.share_id" class="btn-tool share" :disabled="isSharing" @click="createShare"><i class="mdi mdi-share-variant"></i> {{ isSharing ? '產生中...' : '分享' }}</button>
           <button class="btn-tool" @click="pickFile"><i class="mdi mdi-upload"></i> 重新上傳</button>
           <button class="btn-tool danger" @click="deleteStats"><i class="mdi mdi-delete-outline"></i> 刪除數據</button>
         </template>
@@ -474,6 +487,69 @@ const createMemberFromPlayer = async (player) => {
   notify(`已新增成員「${player.name}」到${guildName(guildId)}。`, 'success')
 }
 
+// ---- 分享連結（沿用快速分析的 shared_reports，任何人不用登入即可查看） ----
+const isSharing = ref(false)
+const shareUrl = (id) => `${location.origin}/share/${id}`
+
+const copyShare = async () => {
+  if (!current.value?.share_id) return
+  try {
+    await navigator.clipboard.writeText(shareUrl(current.value.share_id))
+    notify('分享連結已複製，貼給別人就能直接查看（不用登入）。', 'success')
+  } catch {
+    notify('請手動複製上方的分享連結。', 'warning')
+  }
+}
+
+// 產生（或重新產生）這一場的分享連結；重新產生時舊連結會失效
+const createShare = async () => {
+  const row = current.value
+  if (!row || isSharing.value) return
+  isSharing.value = true
+  try {
+    const { data, error } = await supabase.from('shared_reports').insert([{
+      file_name: row.file_name || '',
+      played_at: row.played_at,
+      my_name: row.my_name,
+      opp_name: row.opp_name,
+      result: myResult.value,
+      my_players: row.my_players,
+      opp_players: row.opp_players
+    }]).select('id')
+    if (error || !data?.[0]) throw new Error(error?.message || '沒有權限建立分享')
+    const newId = data[0].id
+    const oldId = row.share_id
+    const linkError = getWriteError(await supabase.from('match_stats').update({ share_id: newId }).eq('id', row.id).select('id'))
+    if (linkError) {
+      await supabase.from('shared_reports').delete().eq('id', newId)
+      throw new Error(linkError)
+    }
+    row.share_id = newId
+    if (oldId) await supabase.from('shared_reports').delete().eq('id', oldId)
+    await copyShare()
+  } catch (err) {
+    notify('產生分享連結失敗：' + err.message)
+  } finally {
+    isSharing.value = false
+  }
+}
+
+const removeShare = async () => {
+  const row = current.value
+  if (!row?.share_id || !confirm('取消分享後，原本的連結就打不開了。確定嗎？')) return
+  isSharing.value = true
+  // 刪除分享後，match_stats.share_id 會由資料庫自動清空
+  const { data, error } = await supabase.from('shared_reports').delete().eq('id', row.share_id).select('id')
+  isSharing.value = false
+  if (error) return notify('取消分享失敗：' + error.message)
+  if (!data?.length) {
+    // 分享已不存在（或沒有權限）：把這場的連結欄位清掉
+    await supabase.from('match_stats').update({ share_id: null }).eq('id', row.id)
+  }
+  row.share_id = null
+  notify('已取消分享。', 'success')
+}
+
 const pickFile = () => {
   if (fileInput.value) {
     fileInput.value.value = ''
@@ -543,9 +619,11 @@ const savePending = async () => {
 
 const deleteStats = async () => {
   if (!current.value) return
-  if (!confirm(`確定要刪除第${activeIndex.value + 1}場的戰績數據嗎？`)) return
+  if (!confirm(`確定要刪除第${activeIndex.value + 1}場的戰績數據嗎？${current.value.share_id ? '\n（這場的分享連結也會一併失效）' : ''}`)) return
+  const shareId = current.value.share_id
   const error = getWriteError(await supabase.from('match_stats').delete().eq('id', current.value.id).select('id'))
   if (error) return notify('刪除失敗：' + error)
+  if (shareId) await supabase.from('shared_reports').delete().eq('id', shareId)
   await fetchStats()
   await fetchGuildLinks()
 }
@@ -643,6 +721,13 @@ onMounted(() => {
 .btn-tool:hover { background: var(--c-surface-3); }
 .btn-tool:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-tool.danger { color: var(--c-danger-text); }
+.btn-tool.share { border-color: #3b82f6; color: var(--c-primary-text); }
+.share-box { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--c-primary-soft); border: 1px solid var(--c-primary-border); border-radius: 10px; padding: 8px 12px; color: var(--c-primary-text); }
+.share-label { font-size: 13px; font-weight: bold; }
+.share-input { flex: 1; min-width: 220px; border: 1px solid var(--c-primary-border); border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+.share-hint { width: 100%; font-size: 11px; color: var(--c-muted); }
+.btn-text { background: none; border: none; font-size: 12px; cursor: pointer; padding: 0; }
+.btn-text.danger { color: var(--c-danger-text); }
 .card-title { display: flex; align-items: center; gap: 4px; }
 
 </style>
