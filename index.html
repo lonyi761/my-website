@@ -8,6 +8,13 @@
     <meta name="theme-color" content="#2563eb" />
     <meta name="description" content="逆水寒幫會成員管理與聯賽即時排表系統" />
     <title>逆水寒團隊系統</title>
+    <!-- 中文字體：各電腦內建字體不同（有的沒有粗體），統一使用 Noto Sans TC -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" />
+    <script>
+      try { if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark' } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

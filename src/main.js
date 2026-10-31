@@ -1,5 +1,7 @@
 import { createApp } from 'vue'
+import './theme.css'
 import './style.css'
+import './utils/theme'
 import '@mdi/font/css/materialdesignicons.css' // 引入圖示
 import App from './App.vue'
 import router from './router'

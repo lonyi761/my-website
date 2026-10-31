@@ -13,6 +13,10 @@
 
     <!-- 右上角：控制台入口＋用戶選單（原本的深色帳號列已整合到這裡） -->
     <div class="nav-right">
+      <!-- 亮色／暗色（夜晚版）切換，記在這台裝置 -->
+      <button class="btn-theme" :title="theme === 'dark' ? '切換為亮色' : '切換為夜晚版'" @click="toggleTheme">
+        <i :class="['mdi', theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night']"></i>
+      </button>
       <button v-if="isSuperAdmin" class="btn-admin-nav" @click="account.openAdminView()">
         <i class="mdi mdi-cog-outline"></i> 總管理員控制台
       </button>
@@ -90,6 +94,7 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../../utils/supabase'
 import { notify } from '../../utils/notify'
 import { getWriteError } from '../../utils/writeResult'
+import { theme, toggleTheme } from '../../utils/theme'
 
 const props = defineProps({
   activeNav: String,
@@ -219,10 +224,10 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
+  background: var(--c-surface);
   padding: 0 24px;
   height: 56px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--c-border);
   box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   position: relative;
   z-index: 100;
@@ -231,7 +236,7 @@ onMounted(() => {
 .brand-title {
   font-size: 16px;
   font-weight: bold;
-  color: #1e293b;
+  color: var(--c-text);
 }
 
 .nav-links {
@@ -241,14 +246,14 @@ onMounted(() => {
 .nav-item {
   text-decoration: none;
   font-size: 14px;
-  color: #64748b;
+  color: var(--c-muted);
   font-weight: 500;
   padding: 16px 0;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
 }
 .nav-item.active, .nav-item:hover {
-  color: #2563eb;
+  color: var(--c-primary-text);
   border-bottom-color: #2563eb;
   font-weight: bold;
 }
@@ -264,16 +269,16 @@ onMounted(() => {
   transition: background 0.2s;
 }
 .user-menu-wrapper:hover {
-  background: #f1f5f9;
+  background: var(--c-surface-3);
 }
 .user-name {
   font-size: 13px;
   font-weight: bold;
-  color: #334155;
+  color: var(--c-text-2);
 }
 .arrow-icon {
   font-size: 16px;
-  color: #94a3b8;
+  color: var(--c-faint);
   transition: transform 0.2s;
 }
 .arrow-icon.rotate {
@@ -285,8 +290,8 @@ onMounted(() => {
   top: 100%;
   right: 0;
   margin-top: 6px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.1);
   padding: 4px 0;
@@ -301,27 +306,29 @@ onMounted(() => {
   padding: 8px 16px;
   font-size: 12px;
   cursor: pointer;
-  color: #334155;
+  color: var(--c-text-2);
   display: flex;
   align-items: center;
 }
 .dropdown-item-btn:hover {
-  background: #f1f5f9;
+  background: var(--c-surface-3);
 }
 .margin-r { margin-right: 6px; }
 .text-red { color: #ef4444; }
 
 .nav-right { display: flex; align-items: center; gap: 10px; }
-.btn-admin-nav { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.btn-theme { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--c-border-strong); background: var(--c-surface); color: var(--c-text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+.btn-theme:hover { background: var(--c-surface-3); }
+.btn-admin-nav { background: var(--c-warn-soft); color: var(--c-warn-text); border: 1px solid var(--c-warn-border); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .btn-admin-nav:hover { background: #fde68a; }
 .user-role-badge { font-size: 10px; color: #fff; background: #64748b; padding: 1px 6px; border-radius: 4px; }
 .user-role-badge.super_admin { background: #ef4444; }
 .user-role-badge.guild_admin { background: #3b82f6; }
-.account-info { padding: 8px 16px 10px; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; min-width: 260px; }
-.account-info-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: #94a3b8; padding: 2px 0; }
+.account-info { padding: 8px 16px 10px; border-bottom: 1px solid var(--c-border-soft); margin-bottom: 4px; min-width: 260px; }
+.account-info-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--c-faint); padding: 2px 0; }
 .account-info-row span { white-space: nowrap; }
-.account-info-row b { color: #334155; font-weight: 600; text-align: right; }
-.field-hint { margin: -6px 0 10px; font-size: 11px; color: #94a3b8; }
+.account-info-row b { color: var(--c-text-2); font-weight: 600; text-align: right; }
+.field-hint { margin: -6px 0 10px; font-size: 11px; color: var(--c-faint); }
 
 /* Modal 通用 */
 .modal-overlay {
@@ -337,10 +344,10 @@ onMounted(() => {
   z-index: 200;
 }
 .modal-card {
-  background: white;
+  background: var(--c-surface);
   border-radius: 12px;
   padding: 20px;
-  color: #333;
+  color: var(--c-text);
 }
 .medium-card { width: 440px; }
 .modal-header {
@@ -352,7 +359,7 @@ onMounted(() => {
 .close-btn {
   cursor: pointer;
   font-size: 20px;
-  color: #94a3b8;
+  color: var(--c-faint);
 }
 .form-row {
   display: flex;
@@ -363,25 +370,25 @@ onMounted(() => {
 .form-row label {
   width: 90px;
   font-weight: bold;
-  color: #334155;
+  color: var(--c-text-2);
 }
 .input-field {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
   font-size: 13px;
   outline: none;
 }
 .divider-line {
   border: none;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--c-border);
   margin: 16px 0 12px 0;
 }
 .section-sub-title {
   font-size: 12px;
   font-weight: bold;
-  color: #2563eb;
+  color: var(--c-primary-text);
   margin-bottom: 12px;
 }
 .modal-footer {
@@ -400,9 +407,9 @@ onMounted(() => {
   cursor: pointer;
 }
 .btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background: var(--c-surface-3);
+  color: var(--c-text-2);
+  border: 1px solid var(--c-border-strong);
   padding: 6px 16px;
   border-radius: 6px;
   font-size: 12px;

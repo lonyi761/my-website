@@ -125,5 +125,5 @@ onMounted(checkSession)
 </script>
 
 <style>
-#app { min-height: 100vh; background-color: #f4f6f9; }
+#app { min-height: 100vh; background-color: var(--c-page); }
 </style>
