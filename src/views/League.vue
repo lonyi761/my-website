@@ -355,6 +355,7 @@ import RosterBoard from './league/RosterBoard.vue'
 import MatchStats from './league/MatchStats.vue'
 import GuildStatsOverview from './league/GuildStatsOverview.vue'
 import { isBenchEntry } from './league/rosterBench'
+import { notify } from '../utils/notify'
 
 const username = ref('VIP')
 const userProfile = ref(null)
@@ -504,7 +505,7 @@ const openEditResultModal = (item) => {
 const saveMatchResults = async () => {
   if (!activeEditingLeague.value) return
   const error = getWriteError(await supabase.from('guild_rosters').update({ results: editingResults.value }).eq('id', activeEditingLeague.value.id).select('id'))
-  if (error) return alert('保存比賽結果失敗：' + error)
+  if (error) return notify('保存比賽結果失敗：' + error)
   await fetchLeaguesFromDB()
   showResultModal.value = false
 }
@@ -519,14 +520,14 @@ const saveMatchOpponents = async () => {
   if (!activeEditingLeague.value) return
   const safeOpponents = editingOpponents.value.map(o => o.trim() || '未填選')
   const error = getWriteError(await supabase.from('guild_rosters').update({ opponents: safeOpponents }).eq('id', activeEditingLeague.value.id).select('id'))
-  if (error) return alert('保存對陣幫會失敗：' + error)
+  if (error) return notify('保存對陣幫會失敗：' + error)
   await fetchLeaguesFromDB()
   showOpponentModal.value = false
 }
 
 const openCopyModal = () => {
   if (copyableLeagueList.value.length === 0) {
-    return alert('暫無可複製的已有聯賽！')
+    return notify('暫無可複製的已有聯賽！')
   }
   copySourceLeagueId.value = copyableLeagueList.value[0].id
   copyTargetTitle.value = copyableLeagueList.value[0].title
@@ -550,11 +551,11 @@ watch(copySourceLeagueId, (newId) => {
 
 // 複製源聯賽陣容連同 templateConfig，離幫成員自動清空
 const executeCopyLeague = async () => {
-  if (!copySourceLeagueId.value) return alert('請選擇源聯賽！')
-  if (!copyTargetTitle.value.trim()) return alert('請輸入聯賽名字！')
+  if (!copySourceLeagueId.value) return notify('請選擇源聯賽！')
+  if (!copyTargetTitle.value.trim()) return notify('請輸入聯賽名字！')
 
   const srcLeague = leagueList.value.find(l => l.id === copySourceLeagueId.value)
-  if (!srcLeague) return alert('找不到源聯賽！')
+  if (!srcLeague) return notify('找不到源聯賽！')
 
   isCopying.value = true
   try {
@@ -631,19 +632,19 @@ const executeCopyLeague = async () => {
     const { error } = await supabase.from('guild_rosters').insert([payload])
     if (error) throw error
 
-    alert('複製聯賽成功！已為您帶入原陣容與席位配置，並自動將離幫成員席位清空為空格。')
+    notify('複製聯賽成功！已為您帶入原陣容與席位配置，並自動將離幫成員席位清空為空格。')
     showCopyModal.value = false
     await fetchLeaguesFromDB()
     currentView.value = 'list'
   } catch (err) {
-    alert('複製失敗：' + err.message)
+    notify('複製失敗：' + err.message)
   } finally {
     isCopying.value = false
   }
 }
 
 const openCreateView = () => {
-  if (editableGuildList.value.length === 0) return alert('您沒有任何幫會的編輯權限，無法創建聯賽！')
+  if (editableGuildList.value.length === 0) return notify('您沒有任何幫會的編輯權限，無法創建聯賽！')
   editingLeagueId.value = null
   leagueForm.value = {
     type: '幫會聯賽',
@@ -675,10 +676,10 @@ const openEditLeagueModal = (item) => {
 }
 
 const saveLeagueForm = async () => {
-  if (!leagueForm.value.title.trim()) return alert('請輸入聯賽名稱！')
+  if (!leagueForm.value.title.trim()) return notify('請輸入聯賽名稱！')
 
   const targetGuild = allGuilds.value.find(g => g.name === leagueForm.value.participant)
-  if (!targetGuild) return alert('請選擇有效的授權幫會！')
+  if (!targetGuild) return notify('請選擇有效的授權幫會！')
 
   isSaving.value = true
   const count = leagueForm.value.matchesCount || 1
@@ -711,7 +712,7 @@ const saveLeagueForm = async () => {
     await fetchLeaguesFromDB()
     currentView.value = 'list'
   } catch (err) {
-    alert('保存聯賽失敗：' + err.message)
+    notify('保存聯賽失敗：' + err.message)
   } finally {
     isSaving.value = false
   }
@@ -725,7 +726,7 @@ const openRosterBoard = (item) => {
 const confirmDeleteLeague = async (item) => {
   if (confirm(`確定要刪除聯賽「${item.title}」嗎？`)) {
     const error = getWriteError(await supabase.from('guild_rosters').delete().eq('id', item.id).select('id'))
-    if (error) return alert('刪除聯賽失敗：' + error)
+    if (error) return notify('刪除聯賽失敗：' + error)
     await fetchLeaguesFromDB()
   }
 }

@@ -150,6 +150,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { formatStat, STAT_FIELDS } from '../../utils/matchStatsCsv'
 import { aggregateMemberStats } from '../../utils/matchAggregate'
+import { notify } from '../../utils/notify'
 
 const props = defineProps({
   guilds: { type: Array, required: true },
@@ -184,7 +185,7 @@ const load = async () => {
     .from('match_stats')
     .select('id, league_id, match_index, played_at, opp_name, my_players, member_links, updated_at')
     .eq('guild_id', guildId.value)
-  if (error) alert('讀取戰績失敗：' + error.message)
+  if (error) notify('讀取戰績失敗：' + error.message)
   const list = statRows || []
 
   // 只讀有戰績的聯賽；排表（matrix_teams）用來算排了沒上

@@ -124,6 +124,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
+import { notify } from '../../utils/notify'
 
 const skillCategory = ref('jueji')
 const searchSkillQuery = ref('')
@@ -309,7 +310,7 @@ const openSkillModal = (item = null) => {
 // 確定保存（寫入本地 State 與 Supabase 全局通用技能）
 const saveSkill = async () => {
   const content = skillForm.value.content.trim()
-  if (!content) return alert('請輸入技能內容！')
+  if (!content) return notify('請輸入技能內容！')
 
   const category = skillCategory.value
   const targetList = category === 'jueji' ? juejiSkillList : (category === 'qunxia' ? qunxiaSkillList : liupaiSkillList)
@@ -330,7 +331,7 @@ const saveSkill = async () => {
         .select('id'))
 
       if (error) {
-        alert('更新失敗：' + error)
+        notify('更新失敗：' + error)
         return
       }
     }
@@ -357,7 +358,7 @@ const saveSkill = async () => {
       .single()
 
     if (error) {
-      alert('新增失敗：' + error.message)
+      notify('新增失敗：' + error.message)
       return
     }
 
@@ -381,7 +382,7 @@ const deleteSkill = (id) => {
       if (id && !String(id).startsWith('def_')) {
         const error = getWriteError(await supabase.from('preparation_skills').delete().eq('id', id).select('id'))
         if (error) {
-          alert('刪除失敗：' + error)
+          notify('刪除失敗：' + error)
           return
         }
       }

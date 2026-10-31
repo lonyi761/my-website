@@ -88,6 +88,8 @@
 import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../utils/supabase'
+import { notify } from '../../utils/notify'
+import { getWriteError } from '../../utils/writeResult'
 
 const props = defineProps({
   activeNav: String,
@@ -147,14 +149,14 @@ const saveProfile = async () => {
   const newName = profileForm.value.username.trim()
   const { oldPassword, newPassword, confirmPassword } = profileForm.value
 
-  if (!newName) return alert('請輸入顯示名稱！')
+  if (!newName) return notify('請輸入顯示名稱！')
 
   // 若使用者填寫了新密碼，進行舊密碼驗證流程
   if (newPassword || oldPassword) {
-    if (!oldPassword) return alert('修改密碼請先輸入舊密碼！')
-    if (!newPassword) return alert('請輸入新密碼！')
-    if (newPassword.length < 6) return alert('新密碼長度至少需要 6 個字元！')
-    if (newPassword !== confirmPassword) return alert('兩次輸入的新密碼不一致！')
+    if (!oldPassword) return notify('修改密碼請先輸入舊密碼！')
+    if (!newPassword) return notify('請輸入新密碼！')
+    if (newPassword.length < 6) return notify('新密碼長度至少需要 6 個字元！')
+    if (newPassword !== confirmPassword) return notify('兩次輸入的新密碼不一致！')
 
     isSaving.value = true
     try {
@@ -165,7 +167,7 @@ const saveProfile = async () => {
       })
 
       if (authErr) {
-        alert('舊密碼不正確，驗證失敗！')
+        notify('舊密碼不正確，驗證失敗！')
         isSaving.value = false
         return
       }
@@ -177,9 +179,9 @@ const saveProfile = async () => {
 
       if (updatePassErr) throw updatePassErr
 
-      alert('密碼修改成功！下次登入請使用新密碼。')
+      notify('密碼修改成功！下次登入請使用新密碼。')
     } catch (err) {
-      alert('修改密碼失敗：' + err.message)
+      notify('修改密碼失敗：' + err.message)
       isSaving.value = false
       return
     }
@@ -189,16 +191,19 @@ const saveProfile = async () => {
 
   // 3. 更新 profiles 資料表名稱
   try {
-    await supabase
+    const error = getWriteError(await supabase
       .from('profiles')
       .update({ username: newName })
       .eq('id', session.user.id)
+      .select('id'))
+    if (error) throw new Error(error)
 
+    // 直接更新頂部列的名稱，不用重新整理頁面（提示才不會被刷新蓋掉）
+    if (account?.profile.value) account.profile.value.username = newName
     showProfileModal.value = false
-    alert('個人資料已成功更新！頁面將刷新帶入最新名稱。')
-    window.location.reload()
+    notify('個人資料已更新！')
   } catch (err) {
-    alert('更新資料失敗：' + err.message)
+    notify('更新資料失敗：' + err.message)
   } finally {
     isSaving.value = false
   }

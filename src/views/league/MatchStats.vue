@@ -277,6 +277,7 @@ import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
 import { parseMatchCsv, formatStat, STAT_FIELDS } from '../../utils/matchStatsCsv'
 import { linkPlayers, readRosterPlacement, buildAttendance, collectPastLinks, isNotMemberLink, NOT_MEMBER } from '../../utils/matchAttendance'
+import { notify } from '../../utils/notify'
 
 const props = defineProps({
   leagueItem: { type: Object, required: true },
@@ -435,7 +436,7 @@ const formatDateTime = (value) => {
 const fetchStats = async () => {
   isLoading.value = true
   const { data, error } = await supabase.from('match_stats').select('*').eq('league_id', props.leagueItem.id)
-  if (error) alert('讀取戰績數據失敗：' + error.message)
+  if (error) notify('讀取戰績數據失敗：' + error.message)
   statsRows.value = data || []
   isLoading.value = false
 }
@@ -447,7 +448,7 @@ const fetchContext = async () => {
     supabase.from('guilds').select('id, name'),
     supabase.from('guild_rosters').select('matrix_teams').eq('id', props.leagueItem.id).maybeSingle()
   ])
-  if (membersRes.error) alert('讀取成員失敗：' + membersRes.error.message)
+  if (membersRes.error) notify('讀取成員失敗：' + membersRes.error.message)
   members.value = membersRes.data || []
   guilds.value = guildsRes.data || []
   rosterTeams.value = rosterRes.data?.matrix_teams || []
@@ -473,7 +474,7 @@ const setLink = async (csvName, value) => {
   const error = getWriteError(await supabase.from('match_stats').update({ member_links: links, updated_at: updatedAt }).eq('id', row.id).select('id'))
   if (error) {
     isLinking.value = false
-    return alert('保存對應失敗：' + error)
+    return notify('保存對應失敗：' + error)
   }
   row.member_links = links
   row.updated_at = updatedAt
@@ -482,7 +483,7 @@ const setLink = async (csvName, value) => {
   if (member && rememberLink.value && member.name !== csvName && !(member.former_names || []).includes(csvName)) {
     const formerNames = [...(member.former_names || []), csvName]
     const nameError = getWriteError(await supabase.from('guild_members').update({ former_names: formerNames }).eq('id', member.id).select('id'))
-    if (nameError) alert('對應已保存，但加入曾用名失敗：' + nameError)
+    if (nameError) notify('對應已保存，但加入曾用名失敗：' + nameError)
     else member.former_names = formerNames
   }
   await fetchGuildLinks()
@@ -507,7 +508,7 @@ const onFileChosen = async (e) => {
     const currentOpp = opponents.value[activeIndex.value]
     pending.value = { ...parsed, myIndex, updateOpponent: !currentOpp || currentOpp === '未填選' }
   } catch (err) {
-    alert('無法讀取這個檔案：' + err.message)
+    notify('無法讀取這個檔案：' + err.message)
   }
 }
 
@@ -539,14 +540,14 @@ const savePending = async () => {
     : await supabase.from('match_stats').insert([payload]).select('id'))
   if (error) {
     isSaving.value = false
-    return alert('保存戰績數據失敗：' + error)
+    return notify('保存戰績數據失敗：' + error)
   }
 
   if (p.updateOpponent && opp.name && opp.name !== opponents.value[idx]) {
     const nextOpponents = [...opponents.value]
     nextOpponents[idx] = opp.name
     const oppError = getWriteError(await supabase.from('guild_rosters').update({ opponents: nextOpponents }).eq('id', props.leagueItem.id).select('id'))
-    if (oppError) alert('戰績已保存，但更新對陣幫會失敗：' + oppError)
+    if (oppError) notify('戰績已保存，但更新對陣幫會失敗：' + oppError)
     else opponents.value = nextOpponents
   }
 
@@ -562,7 +563,7 @@ const deleteStats = async () => {
   if (!current.value) return
   if (!confirm(`確定要刪除第${activeIndex.value + 1}場的戰績數據嗎？`)) return
   const error = getWriteError(await supabase.from('match_stats').delete().eq('id', current.value.id).select('id'))
-  if (error) return alert('刪除失敗：' + error)
+  if (error) return notify('刪除失敗：' + error)
   await fetchStats()
   await fetchGuildLinks()
 }

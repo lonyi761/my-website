@@ -114,6 +114,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
+import { notify } from '../../utils/notify'
 
 const roleCategory = ref('personal')
 const currentGuildId = ref(null)
@@ -272,7 +273,7 @@ const toggleTagSwitch = async (role) => {
     const error = getWriteError(await supabase.from('preparation_roles').update({ is_enabled: role.tagSwitch }).eq('id', role.id).select('id'))
     if (error) {
       role.tagSwitch = !role.tagSwitch
-      alert('切換失敗：' + error)
+      notify('切換失敗：' + error)
     }
   }
 }
@@ -295,13 +296,13 @@ const openRoleModal = (role = null) => {
 // 確定保存（寫入 Supabase 並檢測 SQL 錯誤）
 const saveRole = async () => {
   const name = roleForm.value.name.trim()
-  if (!name) return alert('請輸入職能名稱！')
+  if (!name) return notify('請輸入職能名稱！')
   const desc = roleForm.value.desc.trim() || '—'
 
   const gId = currentGuildId.value || await fetchCurrentGuild()
 
   if (!gId) {
-    alert('尚無可用的幫會，請先在「成員」頁面新增或選擇幫會！')
+    notify('尚無可用的幫會，請先在「成員」頁面新增或選擇幫會！')
     return
   }
 
@@ -314,7 +315,7 @@ const saveRole = async () => {
       .select('id'))
 
     if (error) {
-      alert('更新失敗：' + error)
+      notify('更新失敗：' + error)
       return
     }
   } else {
@@ -332,7 +333,7 @@ const saveRole = async () => {
       }])
 
     if (error) {
-      alert('新增失敗：' + error.message)
+      notify('新增失敗：' + error.message)
       return
     }
   }
@@ -354,7 +355,7 @@ const deleteRole = (id) => {
       if (id && !String(id).startsWith('def_')) {
         const error = getWriteError(await supabase.from('preparation_roles').delete().eq('id', id).select('id'))
         if (error) {
-          alert('刪除失敗：' + error)
+          notify('刪除失敗：' + error)
           return
         }
       }
