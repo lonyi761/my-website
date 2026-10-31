@@ -117,9 +117,13 @@
         <div v-if="attendance.unlinked.length || manualLinkRows.length || pastLinkRows.length" class="link-box">
           <div class="link-head">
             <div class="att-group-title">成員對應</div>
-            <label v-if="canEdit" class="check-line small">
-              <input type="checkbox" v-model="rememberLink" />
-              指定後把遊戲名稱加入該成員的曾用名，下次自動對應
+            <label v-if="canEdit" class="link-mode">
+              指定成員後：
+              <select v-model="linkMode" class="link-mode-select">
+                <option value="rename">改用遊戲名稱（原名改為曾用名）</option>
+                <option value="former">加入曾用名（保留原名）</option>
+                <option value="none">只對應這一場</option>
+              </select>
             </label>
           </div>
           <p v-if="attendance.unlinked.length && !canEdit" class="hint left">以下玩家對應不到成員，需要編輯權限才能手動指定。</p>
@@ -127,9 +131,10 @@
           <div v-for="p in attendance.unlinked" :key="'ul_' + p.name" class="link-row">
             <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
             <span class="link-reason">{{ p.how === 'ambiguous' ? '有多位同名成員' : '找不到成員' }}</span>
-            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="setLink(p.name, $event.target.value)">
+            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="onLinkChoice(p, $event)">
               <option value="">選擇成員…</option>
               <option :value="NOT_MEMBER">非幫會成員（外援）</option>
+              <option v-if="p.how !== 'ambiguous'" :value="NEW_MEMBER">＋ 新增為{{ guildName(leagueItem.guild_id) }}成員</option>
               <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
                 <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
               </optgroup>
@@ -140,9 +145,10 @@
           <div v-for="p in pastLinkRows" :key="'pl_' + p.name" class="link-row done">
             <span class="link-csv">{{ p.name }} <small>{{ p.job }}</small></span>
             <span class="link-reason">{{ p.label }}</span>
-            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="setLink(p.name, $event.target.value)">
+            <select v-if="canEdit" class="link-select" :disabled="isLinking" @change="onLinkChoice(p, $event)">
               <option value="">這一場改為…</option>
               <option v-if="p.how !== 'pastNotMember'" :value="NOT_MEMBER">非幫會成員（外援）</option>
+              <option :value="NEW_MEMBER">＋ 新增為{{ guildName(leagueItem.guild_id) }}成員</option>
               <optgroup v-for="group in linkOptions(p)" :key="group.label" :label="group.label">
                 <option v-for="m in group.members" :key="m.id" :value="m.id">{{ m.label }}</option>
               </optgroup>
@@ -237,6 +243,26 @@
 
     <input ref="fileInput" type="file" accept=".csv" class="hidden-input" @change="onFileChosen" />
 
+    <!-- 指定的成員主、副流派都和這場職業不同時，詢問要不要更新 -->
+    <div v-if="jobPrompt" class="modal-overlay" @click.self="resolveJobPrompt(null)">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>流派不同</h3>
+          <i class="mdi mdi-close close-icon" @click="resolveJobPrompt(null)"></i>
+        </div>
+        <p class="job-prompt-text">
+          「{{ jobPrompt.csvName }}」這場用的是 <b>{{ jobPrompt.job }}</b>，但成員「{{ jobPrompt.member.name }}」目前是
+          主流派 <b>{{ jobPrompt.main || '—' }}</b>、副流派 <b>{{ jobPrompt.sub || '—' }}</b>。要更新成員資料嗎？
+        </p>
+        <div class="job-prompt-actions">
+          <button class="btn-primary" :disabled="isLinking" @click="resolveJobPrompt('main')">主流派改為 {{ jobPrompt.job }}</button>
+          <button class="btn-primary" :disabled="isLinking" @click="resolveJobPrompt('sub')">{{ jobPrompt.sub ? '副流派改為 ' + jobPrompt.job : '新增副流派 ' + jobPrompt.job }}</button>
+          <button class="btn-secondary" :disabled="isLinking" @click="resolveJobPrompt('keep')">不用改，直接對應</button>
+          <button class="btn-link" :disabled="isLinking" @click="resolveJobPrompt(null)">取消</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 上傳確認 -->
     <div v-if="pending" class="modal-overlay" @click.self="pending = null">
       <div class="modal-card">
@@ -277,6 +303,7 @@ import { supabase } from '../../utils/supabase'
 import { getWriteError } from '../../utils/writeResult'
 import { parseMatchCsv, formatStat, STAT_FIELDS } from '../../utils/matchStatsCsv'
 import { linkPlayers, readRosterPlacement, buildAttendance, collectPastLinks, isNotMemberLink, NOT_MEMBER } from '../../utils/matchAttendance'
+import { SCHOOL_NAMES } from '../../constants/schools'
 import { notify } from '../../utils/notify'
 
 const props = defineProps({
@@ -307,7 +334,10 @@ const members = ref([])
 const guilds = ref([])
 const rosterTeams = ref([])
 const guildLinkRows = ref([])
-const rememberLink = ref(true)
+// 指定成員後怎麼處理名稱：上傳的戰績通常是最新的，預設把成員改成遊戲名稱
+const linkMode = ref('rename')
+const jobPrompt = ref(null)
+const NEW_MEMBER = '__new__'
 const isLinking = ref(false)
 
 const statsByIndex = computed(() => Object.fromEntries(statsRows.value.map(r => [r.match_index, r])))
@@ -480,14 +510,108 @@ const setLink = async (csvName, value) => {
   row.updated_at = updatedAt
 
   const member = value && value !== NOT_MEMBER ? memberById.value.get(value) : null
-  if (member && rememberLink.value && member.name !== csvName && !(member.former_names || []).includes(csvName)) {
-    const formerNames = [...(member.former_names || []), csvName]
-    const nameError = getWriteError(await supabase.from('guild_members').update({ former_names: formerNames }).eq('id', member.id).select('id'))
-    if (nameError) notify('對應已保存，但加入曾用名失敗：' + nameError)
-    else member.former_names = formerNames
-  }
+  if (member && member.name !== csvName) await applyNameMode(member, csvName)
   await fetchGuildLinks()
   isLinking.value = false
+}
+
+// rename：成員改用遊戲名稱、原名進曾用名；former：遊戲名稱進曾用名；none：不改成員資料
+const applyNameMode = async (member, csvName) => {
+  let mode = linkMode.value
+  if (mode === 'none') return
+  // 同一幫會已有人叫這個名字時不改名，避免出現兩位同名成員
+  if (mode === 'rename' && members.value.some(m => m.id !== member.id && m.guild_id === member.guild_id && m.name === csvName)) {
+    notify(`幫會內已有成員叫「${csvName}」，改為加入曾用名。`, 'warning')
+    mode = 'former'
+  }
+  const oldName = member.name
+  const former = member.former_names || []
+  const payload = mode === 'rename'
+    ? { name: csvName, former_names: [...former.filter(n => n !== csvName && n !== oldName), oldName] }
+    : (former.includes(csvName) ? null : { former_names: [...former, csvName] })
+  if (!payload) return
+  const error = getWriteError(await supabase.from('guild_members').update(payload).eq('id', member.id).select('id'))
+  if (error) return notify((mode === 'rename' ? '對應已保存，但改名失敗：' : '對應已保存，但加入曾用名失敗：') + error)
+  Object.assign(member, payload)
+  if (mode === 'rename') notify(`已將成員「${oldName}」改名為「${csvName}」，原名列為曾用名。`, 'success')
+}
+
+// 成員的主流派、副流派
+const memberSchools = (member) => {
+  const main = member.current_school || member.schools?.[0] || ''
+  const sub = (member.schools || []).find(s => s && s !== main) || ''
+  return { main, sub }
+}
+
+// 下拉選單的選擇：新增成員、外援、或指定成員（流派不同時先詢問）
+const onLinkChoice = async (player, event) => {
+  const value = event.target.value
+  event.target.value = ''
+  if (!value || isLinking.value) return
+  if (value === NEW_MEMBER) return createMemberFromPlayer(player)
+  if (value === NOT_MEMBER) return setLink(player.name, value)
+
+  const member = memberById.value.get(value)
+  const job = player.job
+  const { main, sub } = member ? memberSchools(member) : {}
+  if (member && SCHOOL_NAMES.includes(job) && job !== main && job !== sub) {
+    jobPrompt.value = { csvName: player.name, job, member, main, sub, value }
+    return
+  }
+  await setLink(player.name, value)
+}
+
+// choice：main／sub 更新流派後對應；keep 直接對應；null 取消
+const resolveJobPrompt = async (choice) => {
+  const prompt = jobPrompt.value
+  if (!prompt || isLinking.value) return
+  if (!choice) {
+    jobPrompt.value = null
+    return
+  }
+  if (choice === 'main' || choice === 'sub') {
+    const { member, job, main, sub } = prompt
+    const payload = choice === 'main'
+      ? { current_school: job, schools: [job, sub].filter(Boolean) }
+      : { current_school: main || job, schools: [main, job].filter(Boolean) }
+    isLinking.value = true
+    const error = getWriteError(await supabase.from('guild_members').update(payload).eq('id', member.id).select('id'))
+    isLinking.value = false
+    if (error) return notify('更新流派失敗：' + error)
+    Object.assign(member, payload)
+    notify(`已將「${member.name}」的${choice === 'main' ? '主' : '副'}流派改為${job}。`, 'success')
+  }
+  jobPrompt.value = null
+  await setLink(prompt.csvName, prompt.value)
+}
+
+// 以 CSV 玩家建立本聯賽所屬幫會（或俱樂部）的新成員，建立後依名字自動對應
+const createMemberFromPlayer = async (player) => {
+  const guildId = props.leagueItem.guild_id
+  if (members.value.some(m => m.guild_id === guildId && m.name === player.name)) return notify(`${guildName(guildId)}已有成員叫「${player.name}」。`, 'warning')
+  if (!confirm(`要把「${player.name}」新增為${guildName(guildId)}的成員嗎？`)) return
+  isLinking.value = true
+  const { data: { session } } = await supabase.auth.getSession()
+  const school = SCHOOL_NAMES.includes(player.job) ? player.job : ''
+  const payload = {
+    guild_id: guildId,
+    name: player.name,
+    former_names: [],
+    schools: school ? [school] : [],
+    current_school: school,
+    status: '幫眾',
+    notes: '由戰績 CSV 新增',
+    created_by: session ? session.user.id : null
+  }
+  const writeError = getWriteError(await supabase.from('guild_members').insert([payload]).select('id').then(res => {
+    if (res.data?.[0]?.id) members.value = [...members.value, { id: res.data[0].id, ...payload }]
+    return res
+  }))
+  isLinking.value = false
+  if (writeError) return notify('新增成員失敗：' + writeError)
+  // 這場若曾手動標成外援或指定別人，取消手動指定，改由名字自動對應
+  if (current.value?.member_links?.[player.name]) await setLink(player.name, '')
+  notify(`已新增成員「${player.name}」到${guildName(guildId)}。`, 'success')
 }
 
 const pickFile = () => {
@@ -632,6 +756,10 @@ onMounted(() => {
 .link-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .link-head .att-group-title { width: auto; }
 .check-line.small { margin-top: 0; font-size: 12px; color: #64748b; }
+.link-mode { font-size: 12px; color: #64748b; display: inline-flex; align-items: center; gap: 6px; }
+.link-mode-select { border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+.job-prompt-text { font-size: 13px; color: #334155; line-height: 1.7; margin: 12px 0; }
+.job-prompt-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .link-row { display: grid; grid-template-columns: minmax(120px, 1fr) 110px minmax(160px, 1.4fr); gap: 10px; align-items: center; font-size: 13px; }
 .link-row.done { color: #64748b; }
 .link-csv { font-weight: bold; color: #1e293b; }

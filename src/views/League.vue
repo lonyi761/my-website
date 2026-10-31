@@ -201,12 +201,7 @@
             </div>
           </div>
 
-          <div class="form-bottom-actions space-between align-center margin-t">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="leagueForm.saveAsDefault" />
-              <span>保存為創建幫會聯賽的默認配置</span>
-            </label>
-
+          <div class="form-bottom-actions flex-end align-center margin-t">
             <button class="btn-primary btn-large" :disabled="isSaving" @click="saveLeagueForm">
               {{ isSaving ? '保存中...' : '保存' }}
             </button>
@@ -381,8 +376,7 @@ const leagueForm = ref({
   time: '20:00',
   matchesCount: 2,
   participant: '',
-  notes: '',
-  saveAsDefault: false
+  notes: ''
 })
 
 const showResultModal = ref(false)
@@ -653,8 +647,7 @@ const openCreateView = () => {
     time: '20:00',
     matchesCount: 2,
     participant: editableGuildList.value[0].name,
-    notes: '',
-    saveAsDefault: false
+    notes: ''
   }
   currentView.value = 'form'
 }
@@ -669,8 +662,7 @@ const openEditLeagueModal = (item) => {
     time: timePart || '20:00',
     matchesCount: item.matchesCount || 1,
     participant: item.participant,
-    notes: item.notes || '',
-    saveAsDefault: false
+    notes: item.notes || ''
   }
   currentView.value = 'form'
 }
@@ -820,7 +812,7 @@ onMounted(fetchLeaguesFromDB)
 .char-count { position: absolute; right: 12px; color: #94a3b8; font-size: 12px; }
 
 .display-config-tags { color: #64748b; font-size: 13px; }
-.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #475569; cursor: pointer; }
+.form-bottom-actions { display: flex; }
 .btn-large { padding: 10px 32px; font-size: 14px; border-radius: 8px; }
 
 .btn-primary { background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
