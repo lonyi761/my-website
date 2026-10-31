@@ -1310,8 +1310,9 @@ const matrixTeams = ref([
 // 候補 / 不出席席位區 (不屬於任何團隊，不計入上陣職業統計)
 const benchSeats = ref(createEmptyBench())
 
-// 試算表頂部備註：與聯賽備註 (guild_rosters.notes) 共用，隨保存陣容寫回
-const topNoteText = ref(props.leagueItem?.notes || '')
+// 排表頂部備註（guild_rosters.board_note）：會出現在導出圖片，給其他團隊看
+// 與聯賽列表的「備註」(notes，本場注意事項) 分開，隨保存陣容寫回
+const topNoteText = ref('')
 const topNoteFontSize = ref(15)
 
 function createDefaultSlots() {
@@ -1503,7 +1504,7 @@ const fetchRosterDataFromDB = async () => {
     rosterData = data
   }
 
-  if (rosterData) topNoteText.value = rosterData.notes || ''
+  if (rosterData) topNoteText.value = rosterData.board_note || ''
 
   if (rosterData && rosterData.matrix_teams && rosterData.matrix_teams.length > 0) {
     const { teams, bench } = splitBenchFromTeams(rosterData.matrix_teams)
@@ -1562,7 +1563,7 @@ const saveRosterBoard = async () => {
       .from('guild_rosters')
       .update({
         matrix_teams: mergeBenchIntoTeams(matrixTeams.value, benchSeats.value),
-        notes: topNoteText.value.trim(),
+        board_note: topNoteText.value.trim(),
         updated_at: new Date().toISOString()
       })
       .eq('id', props.leagueItem.id)

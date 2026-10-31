@@ -555,7 +555,7 @@ const executeCopyLeague = async () => {
   try {
     const { data: srcRoster, error: srcError } = await supabase
       .from('guild_rosters')
-      .select('matrix_teams')
+      .select('matrix_teams, board_note')
       .eq('id', srcLeague.id)
       .maybeSingle()
     if (srcError || !srcRoster) throw new Error(srcError?.message || '讀取源聯賽排表失敗')
@@ -620,6 +620,7 @@ const executeCopyLeague = async () => {
       opponents: Array(count).fill('未填選'),
       results: Array(count).fill('還沒出'),
       notes: srcLeague.notes || '',
+      board_note: srcRoster.board_note || '',
       matrix_teams: cleanMatrixTeams
     }
 

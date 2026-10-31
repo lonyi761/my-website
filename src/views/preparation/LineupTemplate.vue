@@ -900,7 +900,7 @@ const getSlotCardStyle = (slot) => {
     const bg = schoolColorMap[firstSchool] || 'var(--c-surface-3)'
     return { backgroundColor: bg }
   }
-  return { backgroundColor: '#f1f5f9' }
+  return { backgroundColor: 'var(--c-surface-3)' }
 }
 
 onMounted(() => {
