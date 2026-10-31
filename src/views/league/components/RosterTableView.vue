@@ -307,7 +307,7 @@ const getSlotRowStyle = (slot) => {
     const bg = props.schoolColorMap[firstSchool] || 'var(--c-surface-2)'
     return { backgroundColor: bg }
   }
-  return { backgroundColor: '#ffffff' }
+  return { backgroundColor: 'var(--c-surface)' }
 }
 
 const getSlotRoleSummary = (slot) => {

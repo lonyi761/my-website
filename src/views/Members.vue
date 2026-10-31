@@ -879,7 +879,7 @@ const getGuildMemberCount = (guildName) => members.value.filter(m => m.guild ===
 
 const getSchoolInfo = (schoolName) => {
   const found = availableSchools.value.find(s => s.name === schoolName)
-  return found || { name: schoolName, file: '', color: '#64748b', bg: '#f1f5f9' }
+  return found || { name: schoolName, file: '', color: '#64748b', bg: 'var(--c-surface-3)' }
 }
 
 const isAllSelected = computed(() => filteredMembers.value.length > 0 && selectedMemberIds.value.length === filteredMembers.value.length)
