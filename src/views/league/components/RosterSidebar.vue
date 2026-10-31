@@ -273,7 +273,7 @@ const allUnassignedMembersList = computed(() => {
 
 .all-members-flow-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 
-.member-drag-card { display: flex; align-items: center; gap: 6px; background: var(--c-primary-soft); border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: grab; color: #0369a1; transition: transform 0.15s; }
+.member-drag-card { display: flex; align-items: center; gap: 6px; background: var(--c-primary-soft); border: 1px solid #bae6fd; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: grab; color: var(--c-primary-text); transition: transform 0.15s; }
 .member-drag-card:hover { transform: translateX(2px); }
 .drag-card-icons-group { display: flex; align-items: center; gap: 2px; }
 .drag-card-icon { width: 16px; height: 16px; object-fit: contain; }

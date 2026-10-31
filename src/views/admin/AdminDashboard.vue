@@ -415,8 +415,8 @@ onMounted(() => {
 
 .status-cell-group { display: flex; align-items: center; }
 .status-tag { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-.status-tag.active { background: var(--c-success-soft); color: #047857; }
-.status-tag.expired { background: var(--c-danger-soft); color: #b91c1c; }
+.status-tag.active { background: var(--c-success-soft); color: var(--c-success-text); }
+.status-tag.expired { background: var(--c-danger-soft); color: var(--c-danger-text); }
 .status-tag.banned { background: var(--c-danger-soft); color: var(--c-danger-text); border: 1px solid var(--c-danger-border); }
 
 .action-btn-group { display: flex; align-items: center; gap: 4px; }

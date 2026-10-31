@@ -1500,7 +1500,7 @@ input:checked + .slider-sm:before { transform: translateX(14px); }
 
 .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; }
 .status-badge.clickable { cursor: pointer; }
-.status-green { background: var(--c-success-soft); color: #16a34a; }
+.status-green { background: var(--c-success-soft); color: var(--c-success-text); }
 .status-blue { background: var(--c-primary-soft); color: var(--c-primary-text); }
 .status-gray { background: var(--c-surface-3); color: var(--c-muted); }
 

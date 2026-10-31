@@ -30,7 +30,7 @@ const iconFor = (type) => ({
 .notice .mdi { font-size: 18px; line-height: 1.2; }
 .notice-text { flex: 1; word-break: break-word; }
 .notice-close { font-size: 14px !important; opacity: 0.5; }
-.notice.success { border-color: #bbf7d0; background: var(--c-success-soft-2); color: var(--c-success-text); }
+.notice.success { border-color: var(--c-success-border); background: var(--c-success-soft-2); color: var(--c-success-text); }
 .notice.warning { border-color: var(--c-warn-border); background: var(--c-warn-soft-2); color: var(--c-warn-text); }
 .notice.error { border-color: var(--c-danger-border); background: var(--c-danger-soft-2); color: var(--c-danger-text); }
 /* 用 CSS 動畫淡入：就算分頁在背景、動畫沒播放，提示也一樣看得到 */
