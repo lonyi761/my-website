@@ -341,9 +341,9 @@ onMounted(load)
 .modal-header { display: flex; justify-content: space-between; align-items: center; }
 .modal-header h3 { margin: 0; font-size: 16px; }
 .close-icon { cursor: pointer; font-size: 20px; color: var(--c-faint); }
-.missed-box { background: var(--c-warn-soft-2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #78350f; }
+.missed-box { background: var(--c-warn-soft-2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--c-warn-text); }
 .missed-title { font-weight: bold; color: var(--c-warn-text); margin-bottom: 4px; }
-.missed-line small { color: #a16207; }
+.missed-line small { color: var(--c-warn-text); }
 
 @media (max-width: 640px) {
   .search-input { width: 100%; margin-left: 0; }
