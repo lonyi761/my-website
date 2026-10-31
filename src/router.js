@@ -9,6 +9,9 @@ const routes = [
   { path: '/members', name: 'Members', component: () => import('./views/Members.vue') },
   { path: '/league', name: 'League', component: () => import('./views/League.vue') },
   { path: '/preparation', name: 'Preparation', component: () => import('./views/Preparation.vue') },
+  // 戰績快速分析與分享連結：不需登入
+  { path: '/quick-stats', name: 'QuickStats', component: () => import('./views/QuickStats.vue'), meta: { public: true } },
+  { path: '/share/:id', name: 'Share', component: () => import('./views/ShareView.vue'), meta: { public: true } },
   { path: '/:pathMatch(.*)*', redirect: '/members' }
 ]
 
