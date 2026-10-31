@@ -168,14 +168,14 @@ const handleSubmit = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(135deg, var(--c-login-from) 0%, var(--c-login-to) 100%);
+  font-family: var(--font-sans);
 }
 
 .auth-card {
-  background: #ffffff;
+  background: var(--c-surface);
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--c-border);
   padding: 36px 32px;
   width: 380px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
@@ -185,8 +185,8 @@ const handleSubmit = async () => {
 .logo-icon-badge {
   width: 48px;
   height: 48px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-text);
   font-size: 26px;
   border-radius: 12px;
   display: flex;
@@ -194,17 +194,17 @@ const handleSubmit = async () => {
   justify-content: center;
   margin: 0 auto 12px auto;
 }
-.auth-title { margin: 0 0 6px 0; font-size: 18px; font-weight: bold; color: #1e293b; }
-.auth-subtitle { margin: 0; font-size: 12px; color: #94a3b8; }
+.auth-title { margin: 0 0 6px 0; font-size: 18px; font-weight: bold; color: var(--c-text); }
+.auth-subtitle { margin: 0; font-size: 12px; color: var(--c-faint); }
 
 .auth-form { display: flex; flex-direction: column; gap: 16px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #475569; font-weight: 600; }
-.auth-input { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s; }
+.form-group { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--c-text-3); font-weight: 600; }
+.auth-input { padding: 10px 14px; border: 1px solid var(--c-border-strong); border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s; }
 .auth-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
 
 .error-msg {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--c-danger-soft-2);
+  border: 1px solid var(--c-danger-border);
   color: #ef4444;
   padding: 8px 12px;
   border-radius: 6px;
@@ -250,7 +250,7 @@ const handleSubmit = async () => {
   z-index: 200;
 }
 .custom-success-card {
-  background: #ffffff;
+  background: var(--c-surface);
   border-radius: 16px;
   padding: 28px 24px;
   width: 360px;
@@ -266,17 +266,17 @@ const handleSubmit = async () => {
 .success-icon-wrapper {
   width: 56px;
   height: 56px;
-  background: #d1fae5;
+  background: var(--c-success-soft);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px auto;
 }
-.success-icon { font-size: 36px; color: #059669; }
-.success-title { margin: 0 0 10px 0; font-size: 18px; color: #0f172a; font-weight: bold; }
-.success-desc { margin: 0 0 16px 0; font-size: 13px; color: #475569; line-height: 1.6; }
-.sub-tip { font-size: 11px; color: #94a3b8; }
+.success-icon { font-size: 36px; color: var(--c-success-text); }
+.success-title { margin: 0 0 10px 0; font-size: 18px; color: var(--c-text); font-weight: bold; }
+.success-desc { margin: 0 0 16px 0; font-size: 13px; color: var(--c-text-3); line-height: 1.6; }
+.sub-tip { font-size: 11px; color: var(--c-faint); }
 .btn-lg { padding: 10px 0; }
 
 .full-w { width: 100%; }

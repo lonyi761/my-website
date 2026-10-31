@@ -110,36 +110,36 @@ const getSecondarySchool = (member) => {
 }
 
 const getChipStyle = (member) => {
-  const bg = props.schoolColorMap[member?.currentSchool] || '#f8fafc'
+  const bg = props.schoolColorMap[member?.currentSchool] || 'var(--c-surface-2)'
   return { backgroundColor: bg }
 }
 </script>
 
 <style scoped>
 .bench-zone-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.bench-zone-box { background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 8px 12px; min-height: 64px; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.15s; }
+.bench-zone-box { background: var(--c-surface); border: 1px dashed var(--c-border-strong); border-radius: 8px; padding: 8px 12px; min-height: 64px; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.15s; }
 .bench-zone-box:hover { border-color: #3b82f6; }
 .bench-zone-box.substitutes { border-left: 3px solid #f59e0b; }
-.bench-zone-box.absentees { border-left: 3px solid #94a3b8; background: #f8fafc; }
+.bench-zone-box.absentees { border-left: 3px solid var(--c-faint); background: var(--c-surface-2); }
 
-.bench-zone-head { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; }
-.bench-zone-head .mdi { font-size: 15px; color: #64748b; }
-.bench-zone-title { font-weight: bold; color: #1e293b; }
-.bench-count { color: #94a3b8; }
-.bench-zone-hint { margin-left: auto; font-size: 11px; color: #94a3b8; }
+.bench-zone-head { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--c-text-3); }
+.bench-zone-head .mdi { font-size: 15px; color: var(--c-muted); }
+.bench-zone-title { font-weight: bold; color: var(--c-text); }
+.bench-count { color: var(--c-faint); }
+.bench-zone-hint { margin-left: auto; font-size: 11px; color: var(--c-faint); }
 
 .bench-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.bench-member-chip { position: relative; display: flex; align-items: center; gap: 4px; padding: 4px 18px 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; cursor: grab; }
+.bench-member-chip { position: relative; display: flex; align-items: center; gap: 4px; padding: 4px 18px 4px 8px; border: 1px solid var(--c-border-strong); border-radius: 6px; font-size: 12px; cursor: grab; }
 .chip-school-icon { width: 16px; height: 16px; object-fit: contain; }
 .chip-school-icon-sub { width: 12px; height: 12px; object-fit: contain; opacity: 0.85; margin-left: -2px; }
-.chip-name { font-weight: bold; color: #1e293b; }
-.chip-remove-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #94a3b8; cursor: pointer; opacity: 0; }
+.chip-name { font-weight: bold; color: var(--c-text); }
+.chip-remove-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--c-faint); cursor: pointer; opacity: 0; }
 .bench-member-chip:hover .chip-remove-x { opacity: 1; }
 .chip-remove-x:hover { color: #ef4444; }
-.bench-empty-text { font-size: 11px; color: #cbd5e1; padding: 4px 0; }
+.bench-empty-text { font-size: 11px; color: var(--c-faint-2); padding: 4px 0; }
 
-.bench-export-card { margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 14px; background: #ffffff; display: flex; flex-direction: column; gap: 8px; }
+.bench-export-card { margin-top: 16px; border: 1px solid var(--c-border-strong); border-radius: 6px; padding: 10px 14px; background: var(--c-surface); display: flex; flex-direction: column; gap: 8px; }
 .bench-export-card .bench-member-chip { cursor: default; padding-right: 8px; }
-.bench-export-head { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #1e293b; }
+.bench-export-head { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: var(--c-text); }
 .bench-export-head .mdi { color: #f59e0b; font-size: 16px; }
 </style>

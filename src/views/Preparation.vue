@@ -108,20 +108,20 @@ onMounted(loadPage)
 </script>
 
 <style scoped>
-.prep-layout { min-height: 100vh; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-.light-theme { background-color: #f4f6f9; color: #2c3e50; }
+.prep-layout { min-height: 100vh; display: flex; flex-direction: column; font-family: var(--font-sans); }
+.light-theme { background-color: var(--c-page); color: var(--c-text); }
 
 .prep-main { flex: 1; display: flex; max-width: 1400px; width: 100%; margin: 20px auto; padding: 0 20px; box-sizing: border-box; gap: 20px; }
-.prep-sidebar { width: 180px; background: #ffffff; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.prep-sidebar { width: 180px; background: var(--c-surface); border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .sidebar-menu { list-style: none; padding: 0; margin: 0; }
-.sidebar-menu li { padding: 12px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 4px; color: #64748b; transition: all 0.2s; }
-.sidebar-menu li.active, .sidebar-menu li:hover { background: #eff6ff; color: #2563eb; font-weight: bold; }
+.sidebar-menu li { padding: 12px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 4px; color: var(--c-muted); transition: all 0.2s; }
+.sidebar-menu li.active, .sidebar-menu li:hover { background: var(--c-primary-soft); color: var(--c-primary-text); font-weight: bold; }
 
-.guild-switch { padding: 6px 6px 12px; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; }
-.guild-switch-label { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
-.guild-switch-select { width: 100%; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #1e293b; background: #fff; }
-.guild-readonly-tag { display: inline-block; margin-top: 6px; font-size: 11px; color: #b45309; background: #fef3c7; padding: 1px 6px; border-radius: 4px; }
+.guild-switch { padding: 6px 6px 12px; margin-bottom: 8px; border-bottom: 1px solid var(--c-border-soft); }
+.guild-switch-label { display: block; font-size: 11px; color: var(--c-faint); margin-bottom: 4px; }
+.guild-switch-select { width: 100%; padding: 6px 8px; border: 1px solid var(--c-border); border-radius: 6px; font-size: 13px; color: var(--c-text); background: var(--c-surface); }
+.guild-readonly-tag { display: inline-block; margin-top: 6px; font-size: 11px; color: var(--c-warn-text); background: var(--c-warn-soft); padding: 1px 6px; border-radius: 4px; }
 
-.content-area { flex: 1; background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.empty-guild-hint { color: #94a3b8; font-size: 13px; padding: 40px 0; text-align: center; }
+.content-area { flex: 1; background: var(--c-surface); border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.empty-guild-hint { color: var(--c-faint); font-size: 13px; padding: 40px 0; text-align: center; }
 </style>

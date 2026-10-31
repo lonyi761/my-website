@@ -165,12 +165,12 @@ const getSecondarySchool = (member) => {
 
 const getSlotStyle = (slot) => {
   if (slot.assignedMember) {
-    const bg = props.schoolColorMap[slot.assignedMember.currentSchool] || '#eff6ff'
+    const bg = props.schoolColorMap[slot.assignedMember.currentSchool] || 'var(--c-primary-soft)'
     return { backgroundColor: bg }
   }
   if (slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
     const firstSchool = slot.templateConfig.schools[0]
-    const bg = props.schoolColorMap[firstSchool] || '#fafafa'
+    const bg = props.schoolColorMap[firstSchool] || 'var(--c-surface-2)'
     return { backgroundColor: bg }
   }
   return {}
@@ -196,51 +196,51 @@ const getSlotGuidelineText = (slot) => {
 
 <style scoped>
 .teams-matrix-wrapper { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
-.team-matrix-row { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 14px; }
+.team-matrix-row { background: var(--c-surface); border-radius: 8px; border: 1px solid var(--c-border); padding: 14px; }
 
 .team-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .team-title-edit-group { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
-.team-title-edit-group:hover { background: #f1f5f9; }
-.team-row-title { font-size: 14px; font-weight: bold; color: #1e293b; }
-.team-row-desc { font-size: 13px; color: #94a3b8; font-weight: normal; margin-left: 2px; }
-.team-pencil-icon { font-size: 14px; color: #94a3b8; }
+.team-title-edit-group:hover { background: var(--c-surface-3); }
+.team-row-title { font-size: 14px; font-weight: bold; color: var(--c-text); }
+.team-row-desc { font-size: 13px; color: var(--c-faint); font-weight: normal; margin-left: 2px; }
+.team-pencil-icon { font-size: 14px; color: var(--c-faint); }
 .team-color-circle { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 
 .add-squad-btn { background: none; border: 1px dashed #3b82f6; color: #3b82f6; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
 
 .squads-matrix-grid { display: grid; grid-template-columns: repeat(5, minmax(170px, 1fr)); gap: 10px; }
-.squad-column-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; }
+.squad-column-box { background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: 6px; padding: 8px; }
 
 .squad-column-head.draggable-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 8px; cursor: grab; padding: 4px; border-radius: 4px; }
-.squad-column-head.draggable-head:hover { background: #e2e8f0; }
-.drag-handle-icon { font-size: 12px; color: #94a3b8; }
+.squad-column-head.draggable-head:hover { background: var(--c-surface-4); }
+.drag-handle-icon { font-size: 12px; color: var(--c-faint); }
 
-.squad-head-title { font-size: 12px; font-weight: bold; color: #475569; display: flex; align-items: center; gap: 2px; }
-.squad-head-desc { font-size: 11px; color: #94a3b8; font-style: italic; margin-top: 2px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.squad-head-title { font-size: 12px; font-weight: bold; color: var(--c-text-3); display: flex; align-items: center; gap: 2px; }
+.squad-head-desc { font-size: 11px; color: var(--c-faint); font-style: italic; margin-top: 2px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 
 .slots-vertical-list { display: flex; flex-direction: column; gap: 6px; }
-.matrix-slot-card { position: relative; min-height: 38px; border-radius: 4px; border: 1px dashed #cbd5e1; background: #ffffff; display: flex; align-items: center; padding: 6px 8px; cursor: pointer; transition: all 0.15s; }
+.matrix-slot-card { position: relative; min-height: 38px; border-radius: 4px; border: 1px dashed var(--c-border-strong); background: var(--c-surface); display: flex; align-items: center; padding: 6px 8px; cursor: pointer; transition: all 0.15s; }
 .matrix-slot-card:hover { border-color: #3b82f6; }
 
 .matrix-slot-card.detail-mode { flex-direction: column; align-items: flex-start; justify-content: center; }
-.slot-detail-body { display: flex; flex-direction: column; gap: 2px; width: 100%; font-size: 10px; color: #475569; }
-.detail-head { display: flex; align-items: center; gap: 4px; font-weight: bold; color: #1e293b; margin-bottom: 2px; }
+.slot-detail-body { display: flex; flex-direction: column; gap: 2px; width: 100%; font-size: 10px; color: var(--c-text-3); }
+.detail-head { display: flex; align-items: center; gap: 4px; font-weight: bold; color: var(--c-text); margin-bottom: 2px; }
 .detail-member-title { font-size: 11px; }
 .detail-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.matrix-slot-card.has-member { border: 1px solid #cbd5e1; cursor: grab; }
+.matrix-slot-card.has-member { border: 1px solid var(--c-border-strong); cursor: grab; }
 .assigned-slot-content { display: flex; flex-direction: column; width: 100%; }
 .member-head-info { display: flex; align-items: center; gap: 4px; }
 .slot-school-icon { width: 16px; height: 16px; object-fit: contain; }
 .slot-school-icon-sub { width: 12px; height: 12px; object-fit: contain; opacity: 0.85; margin-left: -2px; }
-.slot-member-name { font-size: 12px; font-weight: bold; color: #1e293b; }
-.slot-roles-text { font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot-member-name { font-size: 12px; font-weight: bold; color: var(--c-text); }
+.slot-roles-text { font-size: 10px; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.matrix-slot-card.template-guideline { background: #fafafa; border: 1px solid #f1f5f9; }
-.template-guideline-content { font-size: 10px; color: #94a3b8; }
-.empty-slot-placeholder { font-size: 10px; color: #cbd5e1; width: 100%; text-align: center; }
+.matrix-slot-card.template-guideline { background: var(--c-surface-2); border: 1px solid var(--c-border-soft); }
+.template-guideline-content { font-size: 10px; color: var(--c-faint); }
+.empty-slot-placeholder { font-size: 10px; color: var(--c-faint-2); width: 100%; text-align: center; }
 
-.slot-clear-x { position: absolute; right: 4px; top: 2px; font-size: 12px; color: #94a3b8; cursor: pointer; opacity: 0; }
+.slot-clear-x { position: absolute; right: 4px; top: 2px; font-size: 12px; color: var(--c-faint); cursor: pointer; opacity: 0; }
 .matrix-slot-card:hover .slot-clear-x { opacity: 1; }
 .slot-clear-x:hover { color: #ef4444; }
 </style>

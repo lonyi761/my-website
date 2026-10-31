@@ -299,12 +299,12 @@ const getTeamColor = (team, tIdx) => {
 
 const getSlotRowStyle = (slot) => {
   if (slot.assignedMember) {
-    const bg = props.schoolColorMap[slot.assignedMember.currentSchool] || '#eff6ff'
+    const bg = props.schoolColorMap[slot.assignedMember.currentSchool] || 'var(--c-primary-soft)'
     return { backgroundColor: bg }
   }
   if (slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0) {
     const firstSchool = slot.templateConfig.schools[0]
-    const bg = props.schoolColorMap[firstSchool] || '#fafafa'
+    const bg = props.schoolColorMap[firstSchool] || 'var(--c-surface-2)'
     return { backgroundColor: bg }
   }
   return { backgroundColor: '#ffffff' }
@@ -324,9 +324,9 @@ const getSlotRoleSummary = (slot) => {
 
 <style scoped>
 .spreadsheet-view-wrapper {
-  background: #ffffff;
+  background: var(--c-surface);
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--c-border);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -334,8 +334,8 @@ const getSlotRoleSummary = (slot) => {
 }
 
 .spreadsheet-header-banner {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: var(--c-primary-soft);
+  border: 1px solid var(--c-primary-border);
   border-radius: 8px;
   padding: 14px 20px;
   text-align: center;
@@ -343,13 +343,13 @@ const getSlotRoleSummary = (slot) => {
 .banner-title {
   font-size: 18px;
   font-weight: bold;
-  color: #1d4ed8;
+  color: var(--c-primary-text);
   letter-spacing: 0.5px;
 }
 
 .top-editable-banner-box {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
   padding: 10px 16px;
   display: flex;
@@ -361,7 +361,7 @@ const getSlotRoleSummary = (slot) => {
 }
 .top-editable-banner-box:hover {
   border-color: #3b82f6;
-  background: #f0f9ff;
+  background: var(--c-primary-soft);
 }
 
 .banner-display-text {
@@ -370,7 +370,7 @@ const getSlotRoleSummary = (slot) => {
   justify-content: center;
   width: 100%;
   font-weight: bold;
-  color: #1e293b;
+  color: var(--c-text);
   min-height: 24px;
 }
 .banner-edit-container {
@@ -386,8 +386,8 @@ const getSlotRoleSummary = (slot) => {
   padding: 6px 10px;
   outline: none;
   font-weight: bold;
-  color: #1e293b;
-  background: #ffffff;
+  color: var(--c-text);
+  background: var(--c-surface);
 }
 .text-center {
   text-align: center;
@@ -397,19 +397,19 @@ const getSlotRoleSummary = (slot) => {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #f1f5f9;
+  background: var(--c-surface-3);
   padding: 3px 8px;
   border-radius: 4px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--c-border-strong);
 }
 .btn-font-size {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
   border-radius: 3px;
   font-size: 11px;
   padding: 2px 6px;
   cursor: pointer;
-  color: #334155;
+  color: var(--c-text-2);
   font-weight: bold;
 }
 .btn-font-size:hover {
@@ -419,7 +419,7 @@ const getSlotRoleSummary = (slot) => {
 }
 .size-label {
   font-size: 11px;
-  color: #64748b;
+  color: var(--c-muted);
   min-width: 28px;
   text-align: center;
 }
@@ -442,9 +442,9 @@ const getSlotRoleSummary = (slot) => {
 }
 
 .spreadsheet-team-card {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--c-surface);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -459,12 +459,12 @@ const getSlotRoleSummary = (slot) => {
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  background: #f8fafc;
-  border-bottom: 2px solid #e2e8f0;
+  background: var(--c-surface-2);
+  border-bottom: 2px solid var(--c-border);
   transition: background 0.15s;
 }
 .spreadsheet-team-header-bar:hover {
-  background: #f1f5f9 !important;
+  background: var(--c-surface-3) !important;
 }
 
 .team-header-title {
@@ -479,12 +479,12 @@ const getSlotRoleSummary = (slot) => {
   display: inline-block;
 }
 .team-name-text {
-  color: #1e293b;
+  color: var(--c-text);
   font-weight: bold;
 }
 .header-edit-pencil {
   font-size: 16px;
-  color: #94a3b8;
+  color: var(--c-faint);
   margin-left: 8px;
 }
 
@@ -499,20 +499,20 @@ const getSlotRoleSummary = (slot) => {
   text-align: center;
 }
 .spreadsheet-squad-table th {
-  background: #f8fafc;
-  color: #334155;
+  background: var(--c-surface-2);
+  color: var(--c-text-2);
   padding: 10px 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--c-border-strong);
   font-weight: bold;
   font-size: 13px;
 }
 .spreadsheet-squad-table td {
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--c-border);
 }
 
 .squad-info-cell {
-  background-color: #f8fafc !important;
+  background-color: var(--c-surface-2) !important;
   vertical-align: middle;
   text-align: center;
   padding: 10px 4px !important;
@@ -522,7 +522,7 @@ const getSlotRoleSummary = (slot) => {
   transition: background 0.15s;
 }
 .squad-info-cell:hover {
-  background-color: #f1f5f9 !important;
+  background-color: var(--c-surface-3) !important;
 }
 .squad-info-box {
   text-align: center;
@@ -532,17 +532,17 @@ const getSlotRoleSummary = (slot) => {
 .squad-title-text {
   font-weight: bold;
   font-size: 13px;
-  color: #1e293b;
+  color: var(--c-text);
   margin-bottom: 2px;
 }
 .squad-role-text {
   font-size: 11px;
-  color: #475569;
+  color: var(--c-text-3);
   margin-bottom: 2px;
 }
 .squad-desc-text {
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--c-faint);
 }
 
 .slot-data-row {
@@ -558,7 +558,7 @@ const getSlotRoleSummary = (slot) => {
   text-align: center;
   font-weight: bold;
   font-size: 13px;
-  color: #1e293b !important;
+  color: var(--c-text) !important;
 }
 .guideline-school-icons {
   display: inline-flex;
@@ -575,18 +575,18 @@ const getSlotRoleSummary = (slot) => {
   margin-right: 4px;
 }
 .member-name-text {
-  color: #1e293b !important;
+  color: var(--c-text) !important;
   vertical-align: middle;
   display: inline-block;
 }
 .slot-placeholder-text {
-  color: #94a3b8;
+  color: var(--c-faint);
   font-weight: normal;
   vertical-align: middle;
 }
 
 .role-cell, .skill-cell, .jueji-cell {
-  color: #1e293b !important;
+  color: var(--c-text) !important;
   font-weight: 500;
   font-size: 13px;
   white-space: nowrap;
@@ -596,8 +596,8 @@ const getSlotRoleSummary = (slot) => {
 }
 
 .spreadsheet-team-footer {
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  background: var(--c-surface-2);
+  border-top: 1px solid var(--c-border);
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
@@ -608,11 +608,11 @@ const getSlotRoleSummary = (slot) => {
 }
 .note-display-box {
   padding: 8px 12px;
-  background: #ffffff;
-  border: 1px dashed #cbd5e1;
+  background: var(--c-surface);
+  border: 1px dashed var(--c-border-strong);
   border-radius: 6px;
   cursor: pointer;
-  color: #1e293b;
+  color: var(--c-text);
   width: 100%;
   box-sizing: border-box;
   min-height: 36px;
@@ -622,20 +622,20 @@ const getSlotRoleSummary = (slot) => {
 }
 .note-display-box:hover {
   border-color: #3b82f6;
-  background: #f0f9ff;
+  background: var(--c-primary-soft);
 }
 .note-text-bold {
   font-weight: bold;
 }
 .placeholder-note-text {
-  color: #94a3b8;
+  color: var(--c-faint);
   font-size: 13px;
 }
 .note-edit-box {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #ffffff;
+  background: var(--c-surface);
   padding: 6px 10px;
   border: 1px solid #3b82f6;
   border-radius: 6px;
@@ -647,6 +647,6 @@ const getSlotRoleSummary = (slot) => {
   border: none;
   outline: none;
   font-weight: bold;
-  color: #1e293b;
+  color: var(--c-text);
 }
 </style>
