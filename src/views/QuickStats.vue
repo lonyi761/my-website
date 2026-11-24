@@ -2,7 +2,7 @@
   <div class="quick-layout">
     <Navbar v-if="isLoggedIn" activeNav="quick" :username="username" />
     <header v-else class="guest-bar">
-      <span class="guest-brand">逆水寒團隊系統 · 戰績快速分析</span>
+      <span class="guest-brand">SJustice · 戰績快速分析</span>
       <div class="guest-actions">
         <button class="btn-icon" :title="theme === 'dark' ? '切換為亮色' : '切換為夜晚版'" @click="toggleTheme">
           <i :class="['mdi', theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night']"></i>

@@ -1,7 +1,7 @@
 <template>
   <div class="share-layout">
     <header class="share-bar">
-      <span class="share-brand">逆水寒團隊系統 · 戰績分享</span>
+      <span class="share-brand">SJustice · 戰績分享</span>
       <div class="share-actions">
         <button class="btn-icon" :title="theme === 'dark' ? '切換為亮色' : '切換為夜晚版'" @click="toggleTheme">
           <i :class="['mdi', theme === 'dark' ? 'mdi-weather-sunny' : 'mdi-weather-night']"></i>
