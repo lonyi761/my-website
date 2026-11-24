@@ -19,7 +19,7 @@
           :src="getSchoolImgByName(getSecondarySchool(m))"
           class="chip-school-icon-sub"
         />
-        <span class="chip-name"><span v-if="m.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ m.name }}</span>
+        <span class="chip-name"><span v-if="showGodlyStar && m.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ m.name }}</span>
       </div>
     </div>
   </div>
@@ -57,7 +57,7 @@
             class="chip-school-icon-sub"
             title="副職業"
           />
-          <span class="chip-name"><span v-if="m.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ m.name }}</span>
+          <span class="chip-name"><span v-if="showGodlyStar && m.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ m.name }}</span>
           <span
             v-if="canEdit"
             class="chip-remove-x"
@@ -81,6 +81,7 @@ const props = defineProps({
   availableSchools: { type: Array, default: () => [] },
   schoolColorMap: { type: Object, default: () => ({}) },
   showSecondarySchool: Boolean,
+  showGodlyStar: Boolean,
   canEdit: { type: Boolean, default: true },
   exportMode: Boolean
 })

@@ -19,7 +19,7 @@
     <div class="roster-main-container">
       
       <!-- 1. 左側待選成員組件 -->
-      <RosterSidebar 
+      <RosterSidebar v-model:godlyOnly="showGodlyStar" 
         :guildName="leagueInfo.guild"
         :allMembers="allMembers"
         :availableSchools="availableSchools"
@@ -122,7 +122,7 @@
         </div>
 
         <!-- 候補 / 不出席 席位區 (不計入上陣職業統計) -->
-        <RosterBenchZone
+        <RosterBenchZone :showGodlyStar="showGodlyStar"
           :substitutes="benchSeats.substitutes"
           :absentees="benchSeats.absentees"
           :availableSchools="availableSchools"
@@ -135,7 +135,7 @@
         />
 
         <!-- 2. 右側矩陣視圖 -->
-        <RosterMatrixView 
+        <RosterMatrixView :showGodlyStar="showGodlyStar" 
           v-if="layoutMode === 'matrix'"
           :matrixTeams="matrixTeams"
           :availableSchools="availableSchools"
@@ -154,7 +154,7 @@
         />
 
         <!-- 3. 右側試算表視圖 -->
-        <RosterTableView 
+        <RosterTableView :showGodlyStar="showGodlyStar" 
           v-else-if="layoutMode === 'table'"
           :leagueInfo="leagueInfo"
           :matrixTeams="matrixTeams"
@@ -244,7 +244,7 @@
 
           <div class="export-preview-stage">
             <div class="preview-canvas-paper">
-              <RosterMatrixView 
+              <RosterMatrixView :showGodlyStar="showGodlyStar" 
                 v-if="layoutMode === 'matrix'"
                 :matrixTeams="exportFilteredTeams"
                 :availableSchools="availableSchools"
@@ -253,7 +253,7 @@
                 :showDetails="showDetails"
                 :canEdit="false"
               />
-              <RosterTableView
+              <RosterTableView :showGodlyStar="showGodlyStar"
                 v-else-if="layoutMode === 'table'"
                 :leagueInfo="leagueInfo"
                 :matrixTeams="exportFilteredTeams"
@@ -265,7 +265,7 @@
                 :topNoteFontSize="topNoteFontSize"
                 :canEdit="false"
               />
-              <RosterBenchZone
+              <RosterBenchZone :showGodlyStar="showGodlyStar"
                 v-if="exportSubstitutesVisible && benchSeats.substitutes.length > 0"
                 exportMode
                 :substitutes="benchSeats.substitutes"

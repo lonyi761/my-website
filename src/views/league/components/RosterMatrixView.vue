@@ -76,7 +76,7 @@
                         class="slot-school-icon-sub" 
                         title="副職業"
                       />
-                      <span class="slot-member-name"><span v-if="slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
+                      <span class="slot-member-name"><span v-if="showGodlyStar && slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
                     </div>
                     <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
                   </div>
@@ -104,7 +104,7 @@
                         :src="getSchoolImgByName(getSecondarySchool(slot.assignedMember))" 
                         class="slot-school-icon-sub" 
                       />
-                      <span class="detail-member-title"><span v-if="slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
+                      <span class="detail-member-title"><span v-if="showGodlyStar && slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
                     </template>
                     <template v-else>
                       <span class="detail-role-title">{{ getSlotRoleSummary(slot) || '未配置' }}</span>
@@ -133,6 +133,7 @@ const props = defineProps({
   availableSchools: { type: Array, default: () => [] },
   schoolColorMap: { type: Object, default: () => ({}) },
   showSecondarySchool: Boolean,
+  showGodlyStar: Boolean,
   showDetails: Boolean,
   canEdit: { type: Boolean, default: true }
 })
