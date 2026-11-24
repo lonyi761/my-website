@@ -148,15 +148,19 @@ const props = defineProps({
   allMembers: { type: Array, default: () => [] },
   availableSchools: { type: Array, default: () => [] },
   showSecondarySchool: Boolean,
-  canEdit: { type: Boolean, default: true }
+  canEdit: { type: Boolean, default: true },
+  godlyOnly: { type: Boolean, default: false }
 })
 
-defineEmits(['open-add-member', 'open-edit-member', 'drag-start-member'])
+const emit = defineEmits(['update:godlyOnly', 'open-add-member', 'open-edit-member', 'drag-start-member'])
 
 const searchMemberQuery = ref('')
 const activeSchoolFilter = ref(null)
 const pendingViewMode = ref('school')
-const onlyGodlyWeapon = ref(false)
+const onlyGodlyWeapon = computed({
+  get: () => props.godlyOnly,
+  set: (v) => emit('update:godlyOnly', v)
+})
 
 const expandedSchools = ref([])
 

@@ -107,7 +107,7 @@
                   >
                     <template v-if="slot.assignedMember">
                       <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                      <span class="member-name-text"><span v-if="slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
+                      <span class="member-name-text"><span v-if="showGodlyStar && slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
                     </template>
                     <template v-else-if="slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0">
                       <div class="guideline-school-icons">
@@ -229,6 +229,7 @@ const props = defineProps({
   matrixTeams: { type: Array, default: () => [] },
   availableSchools: { type: Array, default: () => [] },
   schoolColorMap: { type: Object, default: () => ({}) },
+  showGodlyStar: { type: Boolean, default: false },
   showHeaderTitle: { type: Boolean, default: true },
   showHeaderNote: { type: Boolean, default: true },
   topNote: { type: String, default: '' },
