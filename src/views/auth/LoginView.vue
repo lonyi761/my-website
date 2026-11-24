@@ -5,7 +5,7 @@
         <div class="logo-icon-badge">
           <i class="mdi mdi-shield-account"></i>
         </div>
-        <h2 class="auth-title">{{ isRegister ? '註冊帳號 (免費試用 7 天)' : 'SJustice 登入' }}</h2>
+        <h2 class="auth-title">{{ isRegister ? '註冊帳號 (免費試用 7 天)' : '逆水寒團隊系統登入' }}</h2>
         <p class="auth-subtitle">歡迎使用逆水寒聯賽陣容即時排表系統</p>
       </div>
 
