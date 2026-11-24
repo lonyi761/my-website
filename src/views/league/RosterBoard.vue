@@ -1511,8 +1511,30 @@ const fetchRosterDataFromDB = async () => {
     const { teams, bench } = splitBenchFromTeams(rosterData.matrix_teams)
     if (teams.length > 0) matrixTeams.value = teams
     benchSeats.value = bench
-    updateMembersAssignedStatus()
+    syncRosterMembersWithLatest()
   }
+}
+
+// 保存的排表裡成員是「當時的快照」，讀取後要換成最新的成員資料，
+// 否則神兵、流派等異動不會反映，從席位按「修改成員」存檔還會把舊值寫回資料庫
+const syncRosterMembersWithLatest = () => {
+  const latest = new Map((allMembers.value || []).filter(m => m && m.id).map(m => [m.id, m]))
+  const refresh = (m) => (m && m.id && latest.get(m.id)) || m
+  if (Array.isArray(matrixTeams.value)) {
+    matrixTeams.value.forEach(team => {
+      team.squads?.forEach(squad => {
+        squad.slots?.forEach(slot => {
+          if (slot.assignedMember) slot.assignedMember = refresh(slot.assignedMember)
+        })
+      })
+    })
+  }
+  const bench = benchSeats.value
+  if (bench) {
+    bench.substitutes = (bench.substitutes || []).map(refresh)
+    bench.absentees = (bench.absentees || []).map(refresh)
+  }
+  updateMembersAssignedStatus()
 }
 
 // 只重新載入本幫會成員（新增／編輯成員後使用），不覆蓋尚未保存的排表
@@ -1551,7 +1573,7 @@ const fetchGuildMembersFromDB = async () => {
       }
     })
 
-    updateMembersAssignedStatus()
+    syncRosterMembersWithLatest()
   }
 }
 
@@ -2035,6 +2057,7 @@ const saveSlotConfig = () => {
 
 const openFullMemberEditModal = (member) => {
   if (!canEditCurrentGuild.value || !member) return
+  member = allMembers.value.find(m => m.id === member.id) || member
   editingMemberRef.value = member
   memberEditForm.value = {
     name: member.name,
