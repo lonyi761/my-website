@@ -36,6 +36,19 @@
         placeholder="輸入名字查詢成員" 
         class="pending-search-input" 
       />
+
+      <!-- 神兵 篩選開關 -->
+      <button
+        type="button"
+        :class="['godly-toggle', { active: onlyGodlyWeapon }]"
+        :aria-pressed="onlyGodlyWeapon"
+        @click="onlyGodlyWeapon = !onlyGodlyWeapon"
+        title="只顯示有神兵的待選成員"
+      >
+        <span class="godly-toggle-star">★</span>
+        <span>只看神兵</span>
+        <span class="godly-switch"><span class="godly-switch-knob"></span></span>
+      </button>
     </div>
 
     <!-- 流派 Icon 快篩列 -->
@@ -143,6 +156,7 @@ defineEmits(['open-add-member', 'open-edit-member', 'drag-start-member'])
 const searchMemberQuery = ref('')
 const activeSchoolFilter = ref(null)
 const pendingViewMode = ref('school')
+const onlyGodlyWeapon = ref(false)
 
 const expandedSchools = ref([])
 
@@ -195,7 +209,9 @@ const getUnassignedMembersBySchool = (schoolName) => {
       matchSchool = (mSchool === schoolName)
     }
 
-    return matchSchool && notAssigned && matchSearch
+    const matchGodly = !onlyGodlyWeapon.value || !!m.hasGodlyWeapon
+
+    return matchSchool && notAssigned && matchSearch && matchGodly
   })
 }
 
@@ -220,7 +236,9 @@ const allUnassignedMembersList = computed(() => {
       }
     }
 
-    return notAssigned && matchSearch && matchSchool
+    const matchGodly = !onlyGodlyWeapon.value || !!m.hasGodlyWeapon
+
+    return notAssigned && matchSearch && matchSchool && matchGodly
   })
 })
 </script>
@@ -255,6 +273,14 @@ const allUnassignedMembersList = computed(() => {
 .mode-pill-btn.active { background: #5b7db1; color: white; font-weight: bold; }
 
 .pending-search-input { width: 100%; padding: 6px 10px; border: 1px solid var(--c-border-strong); border-radius: 6px; font-size: 12px; outline: none; box-sizing: border-box; }
+
+.godly-toggle { display: flex; align-items: center; gap: 6px; width: 100%; padding: 5px 10px; border: 1px solid var(--c-border-strong); border-radius: 6px; background: var(--c-surface); color: var(--c-muted); font-size: 12px; cursor: pointer; box-sizing: border-box; }
+.godly-toggle-star { color: #f59e0b; font-size: 13px; }
+.godly-toggle.active { border-color: #f59e0b; color: var(--c-text); font-weight: bold; }
+.godly-switch { margin-left: auto; width: 28px; height: 16px; border-radius: 8px; background: var(--c-border-strong); position: relative; transition: background 0.15s; }
+.godly-switch-knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.godly-toggle.active .godly-switch { background: #f59e0b; }
+.godly-toggle.active .godly-switch-knob { transform: translateX(12px); }
 
 .school-icon-filter-row { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--c-border-soft); margin-bottom: 8px; }
 .icon-filter-item { width: 26px; height: 26px; border-radius: 4px; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }

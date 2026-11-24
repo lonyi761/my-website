@@ -107,7 +107,7 @@
                   >
                     <template v-if="slot.assignedMember">
                       <img :src="getSchoolImgByName(slot.assignedMember.currentSchool)" class="slot-school-icon" />
-                      <span class="member-name-text">{{ slot.assignedMember.name }}</span>
+                      <span class="member-name-text"><span v-if="slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
                     </template>
                     <template v-else-if="slot.templateConfig && slot.templateConfig.schools && slot.templateConfig.schools.length > 0">
                       <div class="guideline-school-icons">
@@ -574,6 +574,7 @@ const getSlotRoleSummary = (slot) => {
   display: inline-block;
   margin-right: 4px;
 }
+.godly-star { color: #f59e0b; margin-right: 2px; }
 .member-name-text {
   color: var(--c-text) !important;
   vertical-align: middle;

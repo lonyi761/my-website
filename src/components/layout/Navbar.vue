@@ -1,7 +1,7 @@
 <template>
   <header class="top-navbar">
     <div class="nav-brand">
-      <span class="brand-title">逆水寒團隊系統</span>
+      <span class="brand-title">SJustice</span>
     </div>
 
     <!-- 主導航選單 -->

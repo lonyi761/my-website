@@ -19,7 +19,7 @@
           :src="getSchoolImgByName(getSecondarySchool(m))"
           class="chip-school-icon-sub"
         />
-        <span class="chip-name">{{ m.name }}</span>
+        <span class="chip-name"><span v-if="m.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ m.name }}</span>
       </div>
     </div>
   </div>
@@ -57,7 +57,7 @@
             class="chip-school-icon-sub"
             title="副職業"
           />
-          <span class="chip-name">{{ m.name }}</span>
+          <span class="chip-name"><span v-if="m.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ m.name }}</span>
           <span
             v-if="canEdit"
             class="chip-remove-x"
@@ -133,6 +133,7 @@ const getChipStyle = (member) => {
 .chip-school-icon { width: 16px; height: 16px; object-fit: contain; }
 .chip-school-icon-sub { width: 12px; height: 12px; object-fit: contain; opacity: 0.85; margin-left: -2px; }
 .chip-name { font-weight: bold; color: var(--c-text); }
+.godly-star { color: #f59e0b; margin-right: 2px; }
 .chip-remove-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--c-faint); cursor: pointer; opacity: 0; }
 .bench-member-chip:hover .chip-remove-x { opacity: 1; }
 .chip-remove-x:hover { color: #ef4444; }

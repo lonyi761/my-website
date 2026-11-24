@@ -76,7 +76,7 @@
                         class="slot-school-icon-sub" 
                         title="副職業"
                       />
-                      <span class="slot-member-name">{{ slot.assignedMember.name }}</span>
+                      <span class="slot-member-name"><span v-if="slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
                     </div>
                     <span class="slot-roles-text">{{ getSlotRoleSummary(slot) }}</span>
                   </div>
@@ -104,7 +104,7 @@
                         :src="getSchoolImgByName(getSecondarySchool(slot.assignedMember))" 
                         class="slot-school-icon-sub" 
                       />
-                      <span class="detail-member-title">{{ slot.assignedMember.name }}</span>
+                      <span class="detail-member-title"><span v-if="slot.assignedMember.hasGodlyWeapon" class="godly-star" title="有神兵">★</span>{{ slot.assignedMember.name }}</span>
                     </template>
                     <template v-else>
                       <span class="detail-role-title">{{ getSlotRoleSummary(slot) || '未配置' }}</span>
@@ -233,6 +233,7 @@ const getSlotGuidelineText = (slot) => {
 .member-head-info { display: flex; align-items: center; gap: 4px; }
 .slot-school-icon { width: 16px; height: 16px; object-fit: contain; }
 .slot-school-icon-sub { width: 12px; height: 12px; object-fit: contain; opacity: 0.85; margin-left: -2px; }
+.godly-star { color: #f59e0b; margin-right: 2px; }
 .slot-member-name { font-size: 12px; font-weight: bold; color: var(--c-text); }
 .slot-roles-text { font-size: 10px; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
