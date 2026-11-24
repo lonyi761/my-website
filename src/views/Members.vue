@@ -54,6 +54,15 @@
                 <span class="slider-sm"></span>
               </label>
             </div>
+
+            <!-- 只看神兵開關 -->
+            <div class="inline-switch-group margin-l">
+              <span class="switch-label-text"><span style="color:#f59e0b">★</span> 只看神兵</span>
+              <label class="switch-sm">
+                <input type="checkbox" v-model="onlyGodlyWeapon" />
+                <span class="slider-sm"></span>
+              </label>
+            </div>
           </div>
 
           <div class="right-actions">
@@ -637,6 +646,7 @@ const selectedMemberIds = ref([])
 
 // 流派快篩與欄位排序 State
 const showSecondarySchool = ref(false)
+const onlyGodlyWeapon = ref(false)
 const activeSchoolFilter = ref('')
 const sortField = ref('') // 'school' | 'status' | 'importTime' | ''
 const sortOrder = ref('asc') // 'asc' | 'desc'
@@ -847,7 +857,9 @@ const filteredMembers = computed(() => {
       }
     }
     
-    return matchGuild && matchSearch && matchSchoolFilter
+    const matchGodly = !onlyGodlyWeapon.value || !!m.hasGodlyWeapon
+
+    return matchGuild && matchSearch && matchSchoolFilter && matchGodly
   })
 
   if (sortField.value === 'school') {
